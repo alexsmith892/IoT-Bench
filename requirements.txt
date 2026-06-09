@@ -1,0 +1,12 @@
+# Python package requirements for the current validators/tests.
+#
+# The project currently uses only the Python standard library, so there are no
+# pip-installable runtime dependencies.
+#
+# External command-line tools required on PATH:
+# - Python 3.10+
+# - arduino-cli
+# - wokwi-cli
+#
+# Arduino platform required for the current Wokwi Mega cases:
+# - arduino:avr, with FQBN arduino:avr:mega

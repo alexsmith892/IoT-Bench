@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/blink_led_morse_code.ino.hex'
+elf = 'artifacts/build/blink_led_morse_code.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

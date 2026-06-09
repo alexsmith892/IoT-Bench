@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/blink_led_no_delay.ino.hex'
+elf = 'artifacts/build/blink_led_no_delay.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

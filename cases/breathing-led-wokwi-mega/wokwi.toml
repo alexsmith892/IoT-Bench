@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/breathing_led.ino.hex'
+elf = 'artifacts/build/breathing_led.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

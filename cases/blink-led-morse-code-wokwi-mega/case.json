@@ -1,0 +1,31 @@
+{
+  "id": "blink-led-morse-code-wokwi-mega",
+  "name": "SOS Morse code LED blink on Arduino Mega GPIO 3",
+  "task": "blink_led_morse_code",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/blink_led_morse_code",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "vcd": "artifacts/logic/wokwi.vcd",
+    "build": "artifacts/build"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 3"
+  },
+  "expected_behavior": {
+    "message": "SOS",
+    "unit_s": 0.2,
+    "dot_units": 1,
+    "dash_units": 3,
+    "intra_symbol_gap_units": 1,
+    "letter_gap_units": 3,
+    "repeat_gap_units": 7,
+    "timing_tolerance": 0.05
+  }
+}

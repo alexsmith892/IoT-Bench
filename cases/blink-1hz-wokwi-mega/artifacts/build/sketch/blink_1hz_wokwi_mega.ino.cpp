@@ -1,0 +1,21 @@
+#include <Arduino.h>
+#line 1 "C:\\Users\\alexs\\Documents\\! IoT\\IoT-Bench\\cases\\blink-1hz-wokwi-mega\\sketch\\blink_1hz_wokwi_mega\\blink_1hz_wokwi_mega.ino"
+const int LED_PIN = 3;
+
+#line 3 "C:\\Users\\alexs\\Documents\\! IoT\\IoT-Bench\\cases\\blink-1hz-wokwi-mega\\sketch\\blink_1hz_wokwi_mega\\blink_1hz_wokwi_mega.ino"
+void setup();
+#line 7 "C:\\Users\\alexs\\Documents\\! IoT\\IoT-Bench\\cases\\blink-1hz-wokwi-mega\\sketch\\blink_1hz_wokwi_mega\\blink_1hz_wokwi_mega.ino"
+void loop();
+#line 3 "C:\\Users\\alexs\\Documents\\! IoT\\IoT-Bench\\cases\\blink-1hz-wokwi-mega\\sketch\\blink_1hz_wokwi_mega\\blink_1hz_wokwi_mega.ino"
+void setup() {
+  pinMode(LED_PIN, OUTPUT);
+}
+
+void loop() {
+  digitalWrite(LED_PIN, HIGH);
+  delay(500);
+
+  digitalWrite(LED_PIN, LOW);
+  delay(500);
+}
+

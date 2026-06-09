@@ -1,0 +1,136 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build blink-1hz-wokwi-mega",
+      "type": "shell",
+      "command": "arduino-cli",
+      "args": [
+        "compile",
+        "-e",
+        "-b",
+        "arduino:avr:mega",
+        "--build-path",
+        "cases/blink-1hz-wokwi-mega/artifacts/build",
+        "cases/blink-1hz-wokwi-mega/sketch/blink_1hz_wokwi_mega"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Validate blink-1hz-wokwi-mega",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "tools/blink_vcd_harness.py",
+        "--case",
+        "cases/blink-1hz-wokwi-mega"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Build blink-led-morse-code-wokwi-mega",
+      "type": "shell",
+      "command": "arduino-cli",
+      "args": [
+        "compile",
+        "-e",
+        "-b",
+        "arduino:avr:mega",
+        "--build-path",
+        "cases/blink-led-morse-code-wokwi-mega/artifacts/build",
+        "cases/blink-led-morse-code-wokwi-mega/sketch/blink_led_morse_code"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Validate blink-led-morse-code-wokwi-mega",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "tools/test_blink_led_morse_code.py",
+        "--case",
+        "cases/blink-led-morse-code-wokwi-mega"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Build blink-led-no-delay-wokwi-mega",
+      "type": "shell",
+      "command": "arduino-cli",
+      "args": [
+        "compile",
+        "-e",
+        "-b",
+        "arduino:avr:mega",
+        "--build-path",
+        "cases/blink-led-no-delay-wokwi-mega/artifacts/build",
+        "cases/blink-led-no-delay-wokwi-mega/sketch/blink_led_no_delay"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Validate blink-led-no-delay-wokwi-mega",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "tools/test_blink_led_no_delay.py",
+        "--case",
+        "cases/blink-led-no-delay-wokwi-mega"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Build breathing-led-wokwi-mega",
+      "type": "shell",
+      "command": "arduino-cli",
+      "args": [
+        "compile",
+        "-e",
+        "-b",
+        "arduino:avr:mega",
+        "--build-path",
+        "cases/breathing-led-wokwi-mega/artifacts/build",
+        "cases/breathing-led-wokwi-mega/sketch/breathing_led"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Validate breathing-led-wokwi-mega",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "tools/test_breathing_led.py",
+        "--case",
+        "cases/breathing-led-wokwi-mega"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Run validator classification tests",
+      "type": "shell",
+      "command": "python",
+      "args": [
+        "-m",
+        "unittest",
+        "discover",
+        "tests"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Clean Generated Artifacts",
+      "type": "shell",
+      "command": "powershell",
+      "args": [
+        "-NoProfile",
+        "-Command",
+        "Get-ChildItem cases -Directory | ForEach-Object { $artifacts = Join-Path $_.FullName 'artifacts'; if (Test-Path $artifacts) { Remove-Item -Recurse -Force $artifacts } }"
+      ],
+      "problemMatcher": []
+    }
+  ]
+}

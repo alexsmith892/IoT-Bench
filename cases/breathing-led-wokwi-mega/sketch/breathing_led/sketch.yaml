@@ -1,0 +1,6 @@
+profiles:
+  default:
+    fqbn: arduino:avr:mega
+    platforms:
+      - platform: arduino:avr (1.8.8)
+default_profile: default

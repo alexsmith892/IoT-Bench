@@ -1,0 +1,31 @@
+{
+  "id": "blink-led-no-delay-wokwi-mega",
+  "name": "Non-blocking 1 Hz LED blink on Arduino Mega GPIO 3",
+  "task": "blink_led_no_delay",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/blink_led_no_delay",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "vcd": "artifacts/logic/wokwi.vcd",
+    "build": "artifacts/build"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 3"
+  },
+  "expected_behavior": {
+    "frequency_hz": 1.0,
+    "high_duration_s": 0.5,
+    "low_duration_s": 0.5,
+    "min_valid_cycles_after_startup": 4,
+    "half_period_range_s": [0.475, 0.525],
+    "full_period_range_s": [0.95, 1.05],
+    "duty_cycle_range": [0.45, 0.55],
+    "forbidden_calls": ["delay", "delayMicroseconds"]
+  }
+}
