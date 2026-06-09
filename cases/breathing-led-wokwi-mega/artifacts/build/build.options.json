@@ -1,9 +1,0 @@
-{
-  "additionalFiles": "",
-  "compiler.optimization_flags": "",
-  "customBuildProperties": "",
-  "fqbn": "arduino:avr:mega",
-  "hardwareFolders": "C:\\Users\\alexs\\AppData\\Local\\Arduino15\\internal\\arduino_avr_1.8.8_a345a73f10f468fe,C:\\Users\\alexs\\AppData\\Local\\Arduino15\\internal\\arduino_avr_1.8.8_a345a73f10f468fe",
-  "otherLibrariesFolders": "C:\\Users\\alexs\\OneDrive\\Documents\\Arduino\\libraries",
-  "sketchLocation": "C:\\Users\\alexs\\Documents\\! IoT\\IoT-Bench\\cases\\breathing-led-wokwi-mega\\sketch\\breathing_led"
-}

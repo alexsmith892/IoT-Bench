@@ -1,0 +1,4 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/tmp36_read.ino.hex'
+elf = 'artifacts/build/tmp36_read.ino.elf'

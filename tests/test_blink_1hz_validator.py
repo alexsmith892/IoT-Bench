@@ -7,6 +7,7 @@ from tests.validator_test_utils import (
     blink_events,
     make_case,
     update_case_vcd,
+    validate_artifacts_args,
     write_digital_vcd,
 )
 
@@ -19,7 +20,11 @@ class Blink1HzValidatorTests(unittest.TestCase):
             assert_classification(
                 self,
                 [
-                    "tools/blink_vcd_harness.py",
+                    "-m",
+                    "bench.cli",
+                    "build",
+                    "--task",
+                    "blink_led_1hz",
                     "--case",
                     str(case_dir),
                     "--arduino-cli",
@@ -35,7 +40,7 @@ class Blink1HzValidatorTests(unittest.TestCase):
 
             assert_classification(
                 self,
-                ["tools/blink_vcd_harness.py", "--case", str(case_dir)],
+                validate_artifacts_args("blink_led_1hz", case_dir),
                 "SIM_INFRA_FAIL",
             )
 
@@ -46,7 +51,7 @@ class Blink1HzValidatorTests(unittest.TestCase):
 
             assert_classification(
                 self,
-                ["tools/blink_vcd_harness.py", "--use-existing-vcd", "--case", str(case_dir)],
+                validate_artifacts_args("blink_led_1hz", case_dir),
                 "SIM_OUTPUT_FAIL",
             )
 
@@ -59,7 +64,7 @@ class Blink1HzValidatorTests(unittest.TestCase):
 
             assert_classification(
                 self,
-                ["tools/blink_vcd_harness.py", "--use-existing-vcd", "--case", str(case_dir)],
+                validate_artifacts_args("blink_led_1hz", case_dir),
                 "FAIL",
             )
 
@@ -72,7 +77,7 @@ class Blink1HzValidatorTests(unittest.TestCase):
 
             assert_classification(
                 self,
-                ["tools/blink_vcd_harness.py", "--use-existing-vcd", "--case", str(case_dir)],
+                validate_artifacts_args("blink_led_1hz", case_dir),
                 "PASS",
             )
 
@@ -85,13 +90,7 @@ class Blink1HzValidatorTests(unittest.TestCase):
 
             assert_classification(
                 self,
-                [
-                    "tools/blink_vcd_harness.py",
-                    "--case",
-                    str(case_dir),
-                    "--archived-vcd",
-                    "latest",
-                ],
+                validate_artifacts_args("blink_led_1hz", case_dir) + ["--archived-vcd", "latest"],
                 "PASS",
             )
 

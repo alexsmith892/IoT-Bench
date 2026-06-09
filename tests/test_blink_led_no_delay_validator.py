@@ -7,6 +7,7 @@ from tests.validator_test_utils import (
     blink_events,
     make_case,
     update_case_vcd,
+    validate_artifacts_args,
     write_digital_vcd,
     write_sketch,
 )
@@ -20,7 +21,7 @@ class BlinkLedNoDelayValidatorTests(unittest.TestCase):
 
             assert_classification(
                 self,
-                ["tools/test_blink_led_no_delay.py", "--use-existing-vcd", "--case", str(case_dir)],
+                validate_artifacts_args("blink_led_no_delay", case_dir),
                 "SIM_OUTPUT_FAIL",
             )
 
@@ -33,7 +34,7 @@ class BlinkLedNoDelayValidatorTests(unittest.TestCase):
 
             assert_classification(
                 self,
-                ["tools/test_blink_led_no_delay.py", "--use-existing-vcd", "--case", str(case_dir)],
+                validate_artifacts_args("blink_led_no_delay", case_dir),
                 "FAIL",
             )
 
@@ -47,7 +48,7 @@ class BlinkLedNoDelayValidatorTests(unittest.TestCase):
 
             assert_classification(
                 self,
-                ["tools/test_blink_led_no_delay.py", "--use-existing-vcd", "--case", str(case_dir)],
+                validate_artifacts_args("blink_led_no_delay", case_dir),
                 "FAIL",
             )
 
@@ -60,7 +61,7 @@ class BlinkLedNoDelayValidatorTests(unittest.TestCase):
 
             assert_classification(
                 self,
-                ["tools/test_blink_led_no_delay.py", "--use-existing-vcd", "--case", str(case_dir)],
+                validate_artifacts_args("blink_led_no_delay", case_dir),
                 "PASS",
             )
 

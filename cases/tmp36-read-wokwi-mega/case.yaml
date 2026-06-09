@@ -1,0 +1,12 @@
+task_id: tmp36_read
+case_id: tmp36-read-wokwi-mega
+board:
+  type: wokwi-arduino-mega
+  fqbn: arduino:avr:mega
+paths:
+  sketch: sketch/tmp36_read
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  scenario: scenario.yaml
+  serial_log: artifacts/serial/serial.log

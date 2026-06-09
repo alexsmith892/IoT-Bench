@@ -1,0 +1,35 @@
+task_id: sensor_pir_human_motion
+name: Report PIR human motion and no-motion states
+platform: arduino_mega
+level: level1
+board:
+  type: wokwi-arduino-mega
+  fqbn: arduino:avr:mega
+fixture:
+  family: pir_serial
+  pins:
+    pir: "4"
+scenario:
+  # Wokwi's PIR part documents manual triggering but not automation controls.
+  # The fixture uses a controllable active-high digital input with part id pir1.
+  family: pir_state_sequence
+  part_id: pir1
+  initial_delay_ms: 200
+  states:
+    - value: 0
+      duration_ms: 250
+    - value: 1
+      duration_ms: 350
+    - value: 0
+      duration_ms: 350
+validator:
+  family: serial_contains_on_stimulus
+  params:
+    expected_texts: ["Motion Detected!", "No Motion Detected!"]
+    min_count: 1
+simulation:
+  timeout_ms: 1400
+case:
+  id: sensor-pir-human-motion-wokwi-mega
+  sketch_name: sensor_pir_human_motion
+

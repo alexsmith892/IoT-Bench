@@ -7,6 +7,7 @@ from tests.validator_test_utils import (
     make_case,
     morse_sos_events,
     update_case_vcd,
+    validate_artifacts_args,
     write_digital_vcd,
 )
 
@@ -19,7 +20,7 @@ class BlinkLedMorseCodeValidatorTests(unittest.TestCase):
 
             assert_classification(
                 self,
-                ["tools/test_blink_led_morse_code.py", "--use-existing-vcd", "--case", str(case_dir)],
+                validate_artifacts_args("blink_led_morse_code", case_dir),
                 "SIM_OUTPUT_FAIL",
             )
 
@@ -32,7 +33,7 @@ class BlinkLedMorseCodeValidatorTests(unittest.TestCase):
 
             assert_classification(
                 self,
-                ["tools/test_blink_led_morse_code.py", "--use-existing-vcd", "--case", str(case_dir)],
+                validate_artifacts_args("blink_led_morse_code", case_dir),
                 "FAIL",
             )
 
@@ -45,7 +46,7 @@ class BlinkLedMorseCodeValidatorTests(unittest.TestCase):
 
             assert_classification(
                 self,
-                ["tools/test_blink_led_morse_code.py", "--use-existing-vcd", "--case", str(case_dir)],
+                validate_artifacts_args("blink_led_morse_code", case_dir),
                 "PASS",
             )
 

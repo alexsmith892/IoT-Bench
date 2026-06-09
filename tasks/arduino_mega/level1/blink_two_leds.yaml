@@ -1,0 +1,42 @@
+task_id: blink_two_leds
+name: Blink two LEDs at 1 Hz and 2 Hz without blocking delay calls
+platform: arduino_mega
+level: level1
+board:
+  type: wokwi-arduino-mega
+  fqbn: arduino:avr:mega
+fixture:
+  family: dual_led_output
+  pins:
+    led1: "2"
+    led2: "3"
+  analyzer:
+    channels:
+      - signal: D0
+        pin: "2"
+      - signal: D1
+        pin: "3"
+static_checks:
+  forbidden_calls: [delay, delayMicroseconds]
+validator:
+  family: no_delay_static_plus_waveform
+  params:
+    channels:
+      D0:
+        frequency_hz: 1.0
+        min_valid_cycles_after_startup: 4
+        half_period_range_s: [0.475, 0.525]
+        full_period_range_s: [0.95, 1.05]
+        duty_cycle_range: [0.45, 0.55]
+      D1:
+        frequency_hz: 2.0
+        min_valid_cycles_after_startup: 4
+        half_period_range_s: [0.2375, 0.2625]
+        full_period_range_s: [0.475, 0.525]
+        duty_cycle_range: [0.45, 0.55]
+simulation:
+  timeout_ms: 5000
+case:
+  id: blink-two-leds-wokwi-mega
+  sketch_name: blink_two_leds
+

@@ -1,0 +1,4 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/sensor_pir_human_motion.ino.hex'
+elf = 'artifacts/build/sensor_pir_human_motion.ino.elf'

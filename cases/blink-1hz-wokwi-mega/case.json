@@ -1,6 +1,7 @@
 {
   "id": "blink-1hz-wokwi-mega",
-  "name": "1 Hz LED blink on Arduino Mega GPIO 3",
+  "task": "blink_led_1hz",
+  "name": "Blink an LED at 1 Hz on GPIO 3",
   "simulator": "wokwi",
   "board": {
     "type": "wokwi-arduino-mega",
@@ -10,20 +11,17 @@
     "sketch": "sketch/blink_1hz_wokwi_mega",
     "diagram": "diagram.json",
     "wokwi": "wokwi.toml",
-    "vcd": "artifacts/logic/wokwi.vcd",
-    "build": "artifacts/build"
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd"
   },
   "observed_signal": {
     "vcd_name": "D0",
     "expected_connection": "GPIO 3"
   },
-  "expected_behavior": {
-    "frequency_hz": 1.0,
-    "high_duration_s": 0.5,
-    "low_duration_s": 0.5,
-    "min_valid_cycles_after_startup": 4,
-    "half_period_range_s": [0.45, 0.55],
-    "full_period_range_s": [0.9, 1.1],
-    "duty_cycle_range": [0.4, 0.6]
-  }
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 3"
+    }
+  ]
 }

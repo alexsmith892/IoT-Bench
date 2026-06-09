@@ -1,0 +1,18 @@
+{
+  "id": "button-press-debounce-wokwi-mega",
+  "task": "button_press_debounce",
+  "name": "Debounce a pull-down button and print one trigger per intended press",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/button_press_debounce",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "scenario": "scenario.yaml",
+    "serial_log": "artifacts/serial/serial.log"
+  }
+}

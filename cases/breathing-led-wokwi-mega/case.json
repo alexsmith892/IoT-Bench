@@ -1,7 +1,7 @@
 {
   "id": "breathing-led-wokwi-mega",
-  "name": "PWM breathing LED on Arduino Mega GPIO 3",
   "task": "breathing_led",
+  "name": "Breathing LED with 50 PWM duty-cycle levels on GPIO 3",
   "simulator": "wokwi",
   "board": {
     "type": "wokwi-arduino-mega",
@@ -11,21 +11,17 @@
     "sketch": "sketch/breathing_led",
     "diagram": "diagram.json",
     "wokwi": "wokwi.toml",
-    "vcd": "artifacts/logic/wokwi.vcd",
-    "build": "artifacts/build"
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd"
   },
   "observed_signal": {
     "vcd_name": "D0",
     "expected_connection": "GPIO 3"
   },
-  "expected_behavior": {
-    "levels": 50,
-    "min_duty_cycle": 0.02,
-    "max_duty_cycle": 1.0,
-    "duty_step": 0.02,
-    "step_interval_s": 0.01,
-    "step_interval_range_s": [0.009, 0.011],
-    "full_period_range_s": [0.95, 1.05],
-    "duty_tolerance": 0.03
-  }
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 3"
+    }
+  ]
 }

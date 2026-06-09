@@ -1,0 +1,18 @@
+{
+  "id": "button-status-display-wokwi-mega",
+  "task": "button_status_display",
+  "name": "Print Button Pressed! when a pull-down button is pressed",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/button_status_display",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "scenario": "scenario.yaml",
+    "serial_log": "artifacts/serial/serial.log"
+  }
+}

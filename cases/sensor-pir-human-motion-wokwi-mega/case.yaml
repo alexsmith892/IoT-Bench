@@ -1,0 +1,12 @@
+task_id: sensor_pir_human_motion
+case_id: sensor-pir-human-motion-wokwi-mega
+board:
+  type: wokwi-arduino-mega
+  fqbn: arduino:avr:mega
+paths:
+  sketch: sketch/sensor_pir_human_motion
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  scenario: scenario.yaml
+  serial_log: artifacts/serial/serial.log

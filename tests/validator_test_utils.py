@@ -25,9 +25,22 @@ def assert_classification(testcase: unittest.TestCase, args: list[str], expected
     )
     payload = json.loads(completed.stdout)
     testcase.assertEqual(payload["classification"], expected, payload)
-    testcase.assertIn("legacy_classification", payload)
+    testcase.assertIn("result", payload)
+    testcase.assertNotIn("legacy_classification", payload)
     testcase.assertIn("failure_stage", payload)
     return payload
+
+
+def validate_artifacts_args(task_id: str, case_dir: Path) -> list[str]:
+    return [
+        "-m",
+        "bench.cli",
+        "validate-artifacts",
+        "--task",
+        task_id,
+        "--case",
+        str(case_dir),
+    ]
 
 
 def make_case(parent: Path, case_id: str, sketch_name: str) -> Path:

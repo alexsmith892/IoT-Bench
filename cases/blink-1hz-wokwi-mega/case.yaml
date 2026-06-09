@@ -1,0 +1,11 @@
+task_id: blink_led_1hz
+case_id: blink-1hz-wokwi-mega
+board:
+  type: wokwi-arduino-mega
+  fqbn: arduino:avr:mega
+paths:
+  sketch: sketch/blink_1hz_wokwi_mega
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  vcd: artifacts/logic/wokwi.vcd

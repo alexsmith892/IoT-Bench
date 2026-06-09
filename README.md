@@ -1,148 +1,157 @@
-# LED Benchmark Cases
+# IoT-Bench Arduino Mega Level 1 Harness
 
-This workspace is organized around self-contained test cases. Each case owns the
-sketch, simulator diagram, simulator config, VCD path, and build artifacts that
-belong together.
+This repository uses the `bench` package as the only supported harness for the
+Arduino Mega level-1 IoT-SkillsBench tasks. Task behavior lives in YAML; case
+generation, Wokwi diagrams, scenarios, builds, live runs, artifact validation,
+and result reporting are shared by task family.
+
+The benchmark result contract is:
+
+- `BC`: build/simulation/artifact generation succeeded and behavior passed.
+- `BF`: build/simulation/artifact generation succeeded but behavior failed.
+- `CF`: compile, Wokwi infrastructure, missing firmware, missing artifacts, or
+  malformed artifacts prevented a trustworthy behavior judgment.
+
+Detailed JSON still includes `classification`, `failure_stage`, `reason`, and
+`metrics`, but the top-level `result` field is the benchmark outcome.
 
 ## Layout
 
 ```text
+bench/
+  cli.py              # generate/build/run/validate/doctor entry point
+  config.py           # task YAML loading and family-aware validation
+  diagrams.py         # deterministic Wokwi diagram families
+  runner.py           # case generation, compile, Wokwi execution, verification
+  scenarios.py        # Wokwi automation scenario generation
+  serial.py           # serial-log parsing helpers
+  static.py           # source-level checks such as forbidden delay()
+  vcd.py              # VCD parsing and waveform analysis helpers
+  validators/         # reusable validator families
+tasks/arduino_mega/level1/
+  *.yaml              # source of truth for task behavior
 cases/
-  blink-1hz-wokwi-mega/
-  blink-led-morse-code-wokwi-mega/
-  blink-led-no-delay-wokwi-mega/
-  breathing-led-wokwi-mega/
-tools/
-  blink_vcd_harness.py
-  test_blink_led_morse_code.py
-  test_blink_led_no_delay.py
-  test_breathing_led.py
+  <task>-wokwi-mega/  # generated Wokwi projects and reference sketches
 ```
 
-Each case contains:
+Generated cases contain `case.yaml`, `case.json`, `diagram.json`,
+`wokwi.toml`, a reference sketch, and artifact directories:
 
 ```text
-case.json
-diagram.json
-wokwi.toml
-sketch/<sketch_name>/<sketch_name>.ino
-sketch/<sketch_name>/sketch.yaml
 artifacts/build/
-artifacts/logic/wokwi.vcd
+artifacts/logic/
+artifacts/serial/
 artifacts/archive/vcd/
+artifacts/archive/serial/
 ```
 
-`case.json` is the durable link between one task, one sketch, one diagram, and
-one VCD. Future Wokwi or Renode tasks should be added as sibling folders under
-`cases/`.
+Stimulus-driven tasks also include `scenario.yaml`. Runtime build outputs,
+VCDs, serial logs, archives, and verification manifests are generated locally
+and are ignored by default.
 
-## Wokwi Mega Diagram
+## Workflow
 
-All current cases use the same duplicated Arduino Mega diagram:
-
-- Arduino Mega: `wokwi-arduino-mega`
-- Arduino CLI FQBN: `arduino:avr:mega`
-- LED on GPIO 3 through a resistor
-- Logic analyzer `D0` connected directly to GPIO 3
-- Logic analyzer `GND` connected to board GND
-
-The root `wokwi.toml` can point at one active case for the VS Code Wokwi
-extension, but each case also has its own `wokwi.toml` and isolated artifact
-paths.
-
-## Build
-
-Use the matching VS Code build task for a case:
-
-```text
-Build blink-1hz-wokwi-mega
-Build blink-led-morse-code-wokwi-mega
-Build blink-led-no-delay-wokwi-mega
-Build breathing-led-wokwi-mega
-```
-
-Equivalent command shape:
+Create a local Python environment and install the harness dependency:
 
 ```powershell
-arduino-cli compile -e -b arduino:avr:mega `
-  --build-path cases/<case-id>/artifacts/build `
-  cases/<case-id>/sketch/<sketch-name>
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 ```
 
-## Simulate And Test
-
-The Python validators now run the whole case by default: compile with
-`arduino-cli`, run Wokwi headlessly with that case's `diagram.json` and
-`wokwi.toml`, export a fresh logic-analyzer VCD, then validate it.
-
-Each validator has a default case, so these no-argument commands are enough:
+Check local tooling:
 
 ```powershell
-python tools/blink_vcd_harness.py
-python tools/test_blink_led_morse_code.py
-python tools/test_blink_led_no_delay.py
-python tools/test_breathing_led.py
+python -m bench.cli doctor
 ```
 
-You can also run a specific case explicitly:
+Generate or refresh Wokwi projects:
 
 ```powershell
-python tools/blink_vcd_harness.py --case cases/blink-1hz-wokwi-mega
-python tools/test_blink_led_morse_code.py --case cases/blink-led-morse-code-wokwi-mega
-python tools/test_blink_led_no_delay.py --case cases/blink-led-no-delay-wokwi-mega
-python tools/test_breathing_led.py --case cases/breathing-led-wokwi-mega
+python -m bench.cli generate --task blink_led_1hz
+python -m bench.cli generate --platform arduino_mega --level level1
 ```
 
-The generated VCD is written inside that same case:
-
-```text
-cases/<case-id>/artifacts/logic/wokwi.vcd
-```
-
-Before a default run writes a new VCD, any existing current VCD is moved into
-that case's archive:
-
-```text
-cases/<case-id>/artifacts/archive/vcd/<case-id>__<utc-timestamp>__wokwi.vcd
-```
-
-Keeping current and archived VCD files inside case folders prevents parallel
-runs or repeated exports from overwriting other task results.
-
-For parser/debug work with an existing VCD, add `--use-existing-vcd`:
+Build sketches and create the firmware binaries referenced by `wokwi.toml`:
 
 ```powershell
-python tools/blink_vcd_harness.py --use-existing-vcd --case cases/blink-1hz-wokwi-mega
+python -m bench.cli build --task blink_led_1hz
+python -m bench.cli build --platform arduino_mega --level level1
 ```
 
-To validate an archived VCD, pass either an archive filename, path, or `latest`:
+Run live Wokwi simulation, capture artifacts, validate behavior, and write
+`artifacts/verification.json` after successful live runs:
 
 ```powershell
-python tools/blink_vcd_harness.py --case cases/blink-1hz-wokwi-mega --archived-vcd latest
+python -m bench.cli run --task blink_led_1hz
+python -m bench.cli run --platform arduino_mega --level level1
 ```
 
-Each validator prints JSON with exactly one top-level classification:
+Validate existing VCD or serial artifacts without compiling or running Wokwi:
 
-- `COMPILE_FAIL` - the submitted firmware could not be compiled
-- `SIM_INFRA_FAIL` - simulator/tooling infrastructure failed, such as missing case metadata or unavailable Wokwi execution
-- `SIM_OUTPUT_FAIL` - simulation ran far enough to expect output, but the VCD was missing, empty, or malformed
-- `FAIL` - firmware ran, but `D0` did not show the expected behavior
-- `PASS` - `D0` showed the expected behavior within tolerance
+```powershell
+python -m bench.cli validate-artifacts --task blink_led_1hz --case cases/blink-1hz-wokwi-mega
+python -m bench.cli validate-artifacts --task breathing_led --case cases/breathing-led-wokwi-mega --archived-vcd latest
+```
 
-For compatibility with older tooling, the JSON also includes
-`legacy_classification` using `CF`, `BF`, or `BC`, plus `failure_stage` for
-analytics.
+Opening a generated case manually in Wokwi requires a prior `build`, because
+`wokwi.toml` points at `artifacts/build/<sketch>.ino.hex` and
+`artifacts/build/<sketch>.ino.elf`.
 
-## Validator Regression Tests
+Validate a submitted sketch against a task:
 
-The validator self-tests generate temporary synthetic cases and VCDs to prove
-each grader can classify infrastructure/output failures, behavior failures, and
-passing behavior without relying on hand-exported Wokwi traces:
+```powershell
+python -m bench.cli run --task button_status_count --sketch path/to/submission
+python -m bench.cli validate-artifacts --task blink_led_no_delay --case cases/blink-led-no-delay-wokwi-mega --sketch path/to/submission
+```
+
+## Supported Tasks
+
+- `blink_led_1hz`
+- `blink_led_morse_code`
+- `blink_led_no_delay`
+- `blink_two_leds`
+- `buzzer_doorbell`
+- `button_status_display`
+- `button_status_count`
+- `button_press_debounce`
+- `breathing_led`
+- `sensor_pir_human_motion`
+- `tmp36_read`
+
+## Testing
+
+Offline regression tests do not require Wokwi, network access, or a Wokwi token:
 
 ```powershell
 python -m unittest discover tests
 ```
 
-These tests intentionally include both correct and incorrect waveforms. The
-no-delay tests also include a blocking `delay()` sketch with an otherwise valid
-waveform to verify the static check rejects obvious blocking implementations.
+Live integration tests are opt-in and require `arduino-cli`, the Arduino AVR
+platform, `wokwi-cli`, network access, and `WOKWI_CLI_TOKEN`:
+
+```powershell
+$env:RUN_WOKWI_INTEGRATION = "1"
+python -m unittest discover tests
+```
+
+## Wokwi And Fixture Notes
+
+- Build products, VCD captures, serial logs, archive snapshots, and
+  verification manifests are local outputs. They include machine-specific
+  details from Arduino and Wokwi runs, so regenerate them instead of committing
+  them.
+- `run` builds before simulation, so missing firmware binaries are reported as
+  `CF` before Wokwi starts.
+- Wokwi CLI runs depend on external infrastructure, token validity, and network
+  availability. Use `doctor` when diagnosing environment failures.
+- Wokwi scenario automation is treated as an isolated surface in
+  `bench.scenarios`.
+- Debounce uses a synthetic rapid press/release sequence with Wokwi button
+  bounce disabled. This gives a stable benchmark oracle, not a full physical
+  switch model.
+- PIR is benchmarked as a controllable active-high digital input using part id
+  `pir1`, because the Wokwi PIR part is not a reliable scenario-control oracle.
+- TMP36 is benchmarked with a potentiometer analog source and the formula
+  `C = (Vout - 0.5) * 100`; this checks TMP36-style conversion behavior, not a
+  full sensor model.

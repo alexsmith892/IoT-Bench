@@ -1,0 +1,31 @@
+{
+  "id": "blink-two-leds-wokwi-mega",
+  "task": "blink_two_leds",
+  "name": "Blink two LEDs at 1 Hz and 2 Hz without blocking delay calls",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/blink_two_leds",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 2"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 2"
+    },
+    {
+      "vcd_name": "D1",
+      "expected_connection": "GPIO 3"
+    }
+  ]
+}

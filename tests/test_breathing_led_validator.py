@@ -6,6 +6,7 @@ from tests.validator_test_utils import (
     assert_classification,
     make_case,
     update_case_vcd,
+    validate_artifacts_args,
     write_pwm_vcd,
 )
 
@@ -18,7 +19,7 @@ class BreathingLedValidatorTests(unittest.TestCase):
 
             assert_classification(
                 self,
-                ["tools/test_breathing_led.py", "--use-existing-vcd", "--case", str(case_dir)],
+                validate_artifacts_args("breathing_led", case_dir),
                 "SIM_OUTPUT_FAIL",
             )
 
@@ -31,7 +32,7 @@ class BreathingLedValidatorTests(unittest.TestCase):
 
             assert_classification(
                 self,
-                ["tools/test_breathing_led.py", "--use-existing-vcd", "--case", str(case_dir)],
+                validate_artifacts_args("breathing_led", case_dir),
                 "FAIL",
             )
 
@@ -45,7 +46,7 @@ class BreathingLedValidatorTests(unittest.TestCase):
 
             assert_classification(
                 self,
-                ["tools/test_breathing_led.py", "--use-existing-vcd", "--case", str(case_dir)],
+                validate_artifacts_args("breathing_led", case_dir),
                 "PASS",
             )
 

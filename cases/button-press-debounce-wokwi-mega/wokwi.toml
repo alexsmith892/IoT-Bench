@@ -1,0 +1,4 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/button_press_debounce.ino.hex'
+elf = 'artifacts/build/button_press_debounce.ino.elf'

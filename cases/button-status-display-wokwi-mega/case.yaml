@@ -1,0 +1,12 @@
+task_id: button_status_display
+case_id: button-status-display-wokwi-mega
+board:
+  type: wokwi-arduino-mega
+  fqbn: arduino:avr:mega
+paths:
+  sketch: sketch/button_status_display
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  scenario: scenario.yaml
+  serial_log: artifacts/serial/serial.log

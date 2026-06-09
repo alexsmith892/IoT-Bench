@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/buzzer_doorbell.ino.hex'
+elf = 'artifacts/build/buzzer_doorbell.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

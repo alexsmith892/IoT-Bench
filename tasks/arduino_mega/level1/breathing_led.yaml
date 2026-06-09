@@ -1,0 +1,29 @@
+task_id: breathing_led
+name: Breathing LED with 50 PWM duty-cycle levels on GPIO 3
+platform: arduino_mega
+level: level1
+board:
+  type: wokwi-arduino-mega
+  fqbn: arduino:avr:mega
+fixture:
+  family: single_led_output
+  pins:
+    led: "3"
+  analyzer:
+    channels:
+      - signal: D0
+        pin: "3"
+validator:
+  family: pwm_breathing
+  params:
+    channel: D0
+    levels: 50
+    step_interval_s: 0.01
+    full_period_range_s: [0.95, 1.05]
+    duty_tolerance: 0.03
+simulation:
+  timeout_ms: 2000
+case:
+  id: breathing-led-wokwi-mega
+  sketch_name: breathing_led
+

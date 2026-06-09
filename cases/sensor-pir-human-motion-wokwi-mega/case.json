@@ -1,0 +1,18 @@
+{
+  "id": "sensor-pir-human-motion-wokwi-mega",
+  "task": "sensor_pir_human_motion",
+  "name": "Report PIR human motion and no-motion states",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/sensor_pir_human_motion",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "scenario": "scenario.yaml",
+    "serial_log": "artifacts/serial/serial.log"
+  }
+}

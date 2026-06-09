@@ -1,2 +1,0 @@
-C:\Users\alexs\Documents\!\ IoT\IoT-Bench\cases\blink-led-morse-code-wokwi-mega\artifacts\build\core\abi.cpp.o: \
- C:\Users\alexs\AppData\Local\Arduino15\internal\arduino_avr_1.8.8_a345a73f10f468fe\cores\arduino\abi.cpp
