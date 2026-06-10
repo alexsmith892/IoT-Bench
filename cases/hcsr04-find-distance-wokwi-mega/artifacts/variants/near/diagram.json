@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-arduino-mega",
+      "id": "mega",
+      "top": 120,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-hc-sr04",
+      "id": "sonar1",
+      "top": -80,
+      "left": 225,
+      "attrs": {
+        "distance": "40"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "sonar1:VCC",
+      "mega:5V",
+      "red",
+      []
+    ],
+    [
+      "sonar1:GND",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "sonar1:TRIG",
+      "mega:9",
+      "green",
+      []
+    ],
+    [
+      "sonar1:ECHO",
+      "mega:10",
+      "green",
+      []
+    ]
+  ],
+  "dependencies": {}
+}
