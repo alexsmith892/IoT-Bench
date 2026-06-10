@@ -9,11 +9,20 @@ The benchmark result contract is:
 
 - `BC`: build/simulation/artifact generation succeeded and behavior passed.
 - `BF`: build/simulation/artifact generation succeeded but behavior failed.
-- `CF`: compile, Wokwi infrastructure, missing firmware, missing artifacts, or
-  malformed artifacts prevented a trustworthy behavior judgment.
+- `CF`: the submission's own source failed to compile. This is reserved for
+  failures attributable to the model's code.
+- `IF`: inconclusive / infrastructure. The harness could not obtain a
+  trustworthy behavior judgment for reasons not clearly the submission's fault:
+  Wokwi/simulator failures, environment or token problems, harness errors,
+  unsupported/manual tasks, or missing/empty/malformed artifacts. `IF` results
+  should be retried or excluded from scoring and must never be charged against
+  the model.
 
-Detailed JSON still includes `classification`, `failure_stage`, `reason`, and
-`metrics`, but the top-level `result` field is the benchmark outcome.
+Detailed JSON still includes `classification`, `failure_stage`,
+`failure_source`, `reason`, and `metrics`, so any consumer can disambiguate the
+precise cause behind an `IF` (e.g. `failure_source` of `simulator`,
+`environment`, `harness`, or `artifact`). The top-level `result` field is the
+benchmark outcome.
 
 ## Layout
 
@@ -200,8 +209,9 @@ python -m unittest discover tests
   verification manifests are local outputs. They include machine-specific
   details from Arduino and Wokwi runs, so regenerate them instead of committing
   them.
-- `run` builds before simulation, so missing firmware binaries are reported as
-  `CF` before Wokwi starts.
+- `run` builds before simulation. A genuine compile failure of the submission
+  is reported as `CF`; missing firmware binaries after a successful compile are
+  an artifact problem and reported as `IF` before Wokwi starts.
 - Wokwi CLI runs depend on external infrastructure, token validity, and network
   availability. Use `doctor` when diagnosing environment failures.
 - Wokwi scenario automation is treated as an isolated surface in

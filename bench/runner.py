@@ -575,21 +575,26 @@ def ensure_firmware_outputs(paths: CasePaths) -> None:
     if missing:
         normalize_firmware_outputs(paths)
         missing = [path for path in (firmware_hex, firmware_elf) if not path.exists()]
+    # A genuine compile error is already raised as COMPILE_FAIL by run_checked
+    # (arduino-cli exits non-zero). Reaching here means compilation succeeded but
+    # the expected binary is absent or empty, which is a toolchain/artifact
+    # problem, not the submission's compile failure. Classify it as an artifact
+    # failure (-> IF) so it is never charged against the model as CF.
     if missing:
         names = ", ".join(str(path) for path in missing)
         raise BuildSimulationError(
             f"firmware binary artifact(s) missing after compile: {names}",
-            classification=COMPILE_FAIL,
-            failure_stage=STAGE_COMPILE,
-            failure_source=SOURCE_USER_CODE,
+            classification=SIM_OUTPUT_FAIL,
+            failure_stage=STAGE_SIM_OUTPUT,
+            failure_source=SOURCE_ARTIFACT,
         )
     for path in (firmware_hex, firmware_elf):
         if path.stat().st_size == 0:
             raise BuildSimulationError(
                 f"firmware binary artifact is empty: {path}",
-                classification=COMPILE_FAIL,
-                failure_stage=STAGE_COMPILE,
-                failure_source=SOURCE_USER_CODE,
+                classification=SIM_OUTPUT_FAIL,
+                failure_stage=STAGE_SIM_OUTPUT,
+                failure_source=SOURCE_ARTIFACT,
             )
 
 
@@ -885,7 +890,10 @@ def advanced_example_sketch(task: TaskConfig) -> str | None:
 
     outputs = {
         "tilt_detection_alarm": digital_follow_example(input_pin="14", output_pin="13"),
-        "photoresistor_nightlight": analog_threshold_led_example(analog_pin="A2", output_pin="3", threshold=400, invert=True),
+        # Wokwi photoresistor maps brighter light -> lower ADC (bright~169, dark~1015).
+        # A nightlight lights when DARK, i.e. when the reading is ABOVE the threshold,
+        # so invert=False (LED on when analogRead > threshold). Verified live.
+        "photoresistor_nightlight": analog_threshold_led_example(analog_pin="A2", output_pin="3", threshold=400, invert=False),
         "ds18b20_heat_alarm": heat_alarm_example(),
         "clap_switch": clap_switch_example(),
         "hcsr501_motion_alarm": digital_follow_example(input_pin="18", output_pin="3"),

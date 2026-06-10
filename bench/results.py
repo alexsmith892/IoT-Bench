@@ -14,6 +14,7 @@ FAIL = "FAIL"
 PASS = "PASS"
 
 RESULT_CF = "CF"
+RESULT_IF = "IF"
 RESULT_BF = "BF"
 RESULT_BC = "BC"
 
@@ -28,10 +29,20 @@ SOURCE_SIMULATOR = "simulator"
 SOURCE_ENVIRONMENT = "environment"
 SOURCE_ARTIFACT = "artifact"
 
+# Top-level benchmark outcome per internal classification.
+#
+# CF is reserved for failures attributable to the submission's own source
+# (it failed to compile). SIM_INFRA_FAIL and SIM_OUTPUT_FAIL are mapped to IF
+# ("inconclusive / infrastructure"): the harness could not obtain a trustworthy
+# behavior judgment for reasons not clearly the submission's fault (simulator,
+# environment, harness, or a missing/empty/malformed artifact). IF results are
+# meant to be retried or excluded from scoring, never charged against the model.
+# The detailed `classification`/`failure_stage`/`failure_source` fields still
+# carry the precise cause for any consumer that needs to disambiguate further.
 RESULT_BY_CLASSIFICATION = {
     COMPILE_FAIL: RESULT_CF,
-    SIM_INFRA_FAIL: RESULT_CF,
-    SIM_OUTPUT_FAIL: RESULT_CF,
+    SIM_INFRA_FAIL: RESULT_IF,
+    SIM_OUTPUT_FAIL: RESULT_IF,
     FAIL: RESULT_BF,
     PASS: RESULT_BC,
 }

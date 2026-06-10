@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from bench.config import ConfigError, iter_tasks, load_task, load_task_file
 from bench.diagrams import generate_diagram, validate_analyzer_wiring
-from bench.results import COMPILE_FAIL, FAIL, PASS, SIM_INFRA_FAIL, SOURCE_USER_CODE, result_payload
+from bench.results import COMPILE_FAIL, FAIL, PASS, SIM_INFRA_FAIL, SIM_OUTPUT_FAIL, SOURCE_USER_CODE, result_payload
 from bench.runner import (
     BuildSimulationError,
     CasePaths,
@@ -190,7 +190,8 @@ class BenchPackageTests(unittest.TestCase):
         self.assertEqual(result_payload(PASS, "ok")["result"], "BC")
         self.assertEqual(result_payload(FAIL, "bad")["result"], "BF")
         self.assertEqual(result_payload(COMPILE_FAIL, "compile")["result"], "CF")
-        self.assertEqual(result_payload(SIM_INFRA_FAIL, "infra")["result"], "CF")
+        self.assertEqual(result_payload(SIM_INFRA_FAIL, "infra")["result"], "IF")
+        self.assertEqual(result_payload(SIM_OUTPUT_FAIL, "artifact")["result"], "IF")
         self.assertIsNone(result_payload(PASS, "ok")["failure_source"])
         self.assertEqual(result_payload(FAIL, "bad")["failure_source"], SOURCE_USER_CODE)
 
@@ -203,8 +204,11 @@ class BenchPackageTests(unittest.TestCase):
                 with self.assertRaises(BuildSimulationError) as caught:
                     build_case(task, paths, arduino_cli="arduino-cli")
 
-            self.assertEqual(caught.exception.classification, "COMPILE_FAIL")
-            self.assertEqual(caught.exception.failure_stage, "compile")
+            # Compile succeeded (run_checked patched to no-op) but no binary was
+            # produced: this is an artifact/toolchain failure (-> IF), not a model
+            # compile failure (CF).
+            self.assertEqual(caught.exception.classification, "SIM_OUTPUT_FAIL")
+            self.assertEqual(caught.exception.failure_stage, "sim_output")
 
     def test_expected_firmware_paths_match_wokwi_toml_contract(self):
         task = load_task("tmp36_read")
