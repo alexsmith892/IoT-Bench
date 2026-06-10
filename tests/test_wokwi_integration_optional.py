@@ -4,10 +4,32 @@ import shutil
 import subprocess
 import sys
 import unittest
+from collections import Counter
 from pathlib import Path
+
+from bench.config import iter_tasks
 
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def expected_summary(level: str) -> dict[str, int]:
+    """Supported tasks must reach BC; manual/unsupported tasks are reported as IF."""
+    counts: Counter[str] = Counter()
+    for task in iter_tasks(platform="arduino_mega", level=level):
+        counts["BC" if task.is_supported else "IF"] += 1
+    return dict(counts)
+
+
+def run_level(level: str, timeout_s: int) -> dict:
+    completed = subprocess.run(
+        [sys.executable, "-m", "bench.cli", "run", "--platform", "arduino_mega",
+         "--level", level, "--regenerate"],
+        cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+        check=False, timeout=timeout_s,
+    )
+    assert completed.returncode == 0, f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+    return json.loads(completed.stdout)
 
 
 @unittest.skipUnless(
@@ -46,6 +68,23 @@ class OptionalWokwiIntegrationTests(unittest.TestCase):
         )
         payload = json.loads(completed.stdout)
         self.assertEqual(payload["summary"], {"BC": 11}, payload)
+
+    def test_all_arduino_mega_level2_tasks_reach_expected_results(self):
+        payload = run_level("level2", timeout_s=900)
+        self.assertEqual(payload["summary"], expected_summary("level2"), payload)
+        self._assert_no_unexpected_failures(payload)
+
+    def test_all_arduino_mega_level3_tasks_reach_expected_results(self):
+        payload = run_level("level3", timeout_s=900)
+        self.assertEqual(payload["summary"], expected_summary("level3"), payload)
+        self._assert_no_unexpected_failures(payload)
+
+    def _assert_no_unexpected_failures(self, payload: dict) -> None:
+        # No supported task should land in BF/CF; surface the offenders if any do.
+        bad = [r for r in payload["results"] if r["result"] in {"BF", "CF"}]
+        self.assertEqual(
+            bad, [], "supported tasks must reach BC: " + json.dumps(bad, indent=2)
+        )
 
 
 if __name__ == "__main__":

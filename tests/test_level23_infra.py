@@ -144,8 +144,10 @@ class Level23InfrastructureTests(unittest.TestCase):
             archived_vcd=None,
         )
 
-        self.assertEqual(build_result["result"], "CF")
-        self.assertEqual(run_result["result"], "CF")
+        # Unsupported/manual tasks are a harness limitation, not a model failure,
+        # so they are reported as IF (inconclusive/infrastructure), never CF.
+        self.assertEqual(build_result["result"], "IF")
+        self.assertEqual(run_result["result"], "IF")
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaises(CaseConfigError):
                 generate_case(task, root=Path(tmp))
@@ -233,6 +235,65 @@ class Level23InfrastructureTests(unittest.TestCase):
             result = validate_task(task, case_paths(task, root, vcd=vcd))
 
             self.assertEqual(result.classification, "FAIL", result.payload())
+
+    def test_stimulus_to_output_counts_output_held_high_until_trace_end(self):
+        # Regression: an output driven HIGH that never transitions again has no
+        # closing event; its final level must still be measured in a later window.
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            task = TaskConfig(
+                path=root / "s2o.yaml",
+                data={
+                    "task_id": "s2o_test",
+                    "fixture": {"family": "composite", "analyzer": {"channels": [{"signal": "D0", "pin": "3"}]}},
+                    "validator": {
+                        "family": "stimulus_to_output",
+                        "params": {
+                            "channel": "D0",
+                            "active_windows_s": [[0.70, 0.95]],
+                            "inactive_windows_s": [[0.30, 0.55]],
+                        },
+                    },
+                    "case": {"id": "s2o-test", "sketch_name": "s2o_test"},
+                },
+            )
+            vcd = root / "held_high.vcd"
+            write_digital_vcd(vcd, "D0", [(0.0, 0), (0.60, 1)])  # rises at 0.6, stays high
+
+            result = validate_task(task, case_paths(task, root, vcd=vcd))
+
+            self.assertEqual(result.classification, "PASS", result.payload())
+            self.assertEqual(result.metrics["active_high_ratios"], [1.0])
+            self.assertEqual(result.metrics["inactive_high_ratios"], [0.0])
+
+    def test_buzzer_activity_distinguishes_beep_from_silence(self):
+        def buzzer_task(root: Path) -> TaskConfig:
+            return TaskConfig(
+                path=root / "buzzer.yaml",
+                data={
+                    "task_id": "buzzer_test",
+                    "fixture": {"family": "composite", "analyzer": {"channels": [{"signal": "D1", "pin": "3"}]}},
+                    "validator": {"family": "bus_activity", "params": {"bus": "buzzer", "pins": ["D1"], "min_transitions": 8}},
+                    "case": {"id": "buzzer-test", "sketch_name": "buzzer_test"},
+                },
+            )
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            beeping = root / "beep.vcd"
+            tone = [(0.20 + i * 0.00025, i % 2) for i in range(1, 20)]
+            write_digital_vcd(beeping, "D1", [(0.0, 0), *tone, (1.0, 0)])
+            silent = root / "silent.vcd"
+            write_digital_vcd(silent, "D1", [(0.0, 0), (1.0, 0)])
+
+            self.assertEqual(
+                validate_task(buzzer_task(root), case_paths(buzzer_task(root), root, vcd=beeping)).classification,
+                "PASS",
+            )
+            self.assertEqual(
+                validate_task(buzzer_task(root), case_paths(buzzer_task(root), root, vcd=silent)).classification,
+                "FAIL",
+            )
 
     def test_lcd_text_sequence_validator_observes_intermediate_frames(self):
         with tempfile.TemporaryDirectory() as tmp:
