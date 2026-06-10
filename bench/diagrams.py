@@ -179,6 +179,38 @@ def add_component(
             ]
         )
         diagram["connections"].extend(active_high_button_connections(part_id, resistor_id, pin))
+    elif kind == "digital_pullup":
+        # Active-low digital source: idle HIGH via pull-up, driven LOW while the
+        # surrogate button is "pressed". This presents the same pin-level
+        # waveform as a switch-to-GND input with a pull-up (e.g. a KY-040 CLK/DT
+        # line, which idles HIGH and pulses LOW). Drive it from a scenario with
+        # set-control <part_id> pressed 1|0.
+        pin = str(component.get("pin") or pins.get("signal", "2"))
+        resistor_id = component.get("resistor_id", f"r_src_{index}")
+        attrs = {"color": component.get("color", "green"), "label": component.get("label", part_id), "bounce": "0"}
+        diagram["parts"].extend(
+            [
+                part("wokwi-pushbutton", part_id, left=left, top=top, attrs=attrs),
+                part("wokwi-resistor", resistor_id, left=left + 48, top=top + 85, rotate=90, attrs={"value": "10000"}),
+            ]
+        )
+        diagram["connections"].extend(active_low_button_connections(part_id, resistor_id, pin))
+    elif kind == "matrix_key":
+        # Surrogate for a single key of a non-diode matrix keypad: a momentary
+        # switch bridging one row net and one column net. Electrically identical
+        # to pressing that key under a standard column-drive/row-read scan
+        # (including ghosting), so firmware cannot distinguish it from a real
+        # membrane keypad. Drive it with set-control <part_id> pressed 1|0.
+        row = str(component.get("row") or pins.get("row"))
+        col = str(component.get("col") or pins.get("col"))
+        attrs = {"color": component.get("color", "green"), "label": component.get("label", part_id), "bounce": "0"}
+        diagram["parts"].append(part("wokwi-pushbutton", part_id, left=left, top=top, attrs=attrs))
+        diagram["connections"].extend(
+            [
+                connection(f"{part_id}:1.r", f"mega:{row}", "green"),
+                connection(f"{part_id}:2.r", f"mega:{col}", "green"),
+            ]
+        )
     elif kind in {"analog_source", "tmp36_surrogate", "photoresistor_surrogate", "water_level_surrogate", "joystick_surrogate"}:
         pin = str(component.get("pin") or pins.get("signal", "A0"))
         initial = component.get("initial_value", component.get("value", 512))
@@ -264,8 +296,11 @@ def add_component(
             ]
         )
     elif kind in {"ds1307", "mpu6050", "bme280_i2c"}:
-        part_type = {"ds1307": "wokwi-ds1307", "mpu6050": "wokwi-mpu6050", "bme280_i2c": "board-bme280"}[kind]
-        diagram["parts"].append(part(part_type, part_id, left=left, top=top, attrs=component.get("attrs") or {}))
+        part_type = {"ds1307": "wokwi-ds1307", "mpu6050": "wokwi-mpu6050", "bme280_i2c": "chip-bme280"}[kind]
+        attrs = component.get("attrs") or {}
+        if kind == "bme280_i2c":
+            attrs = bme280_attrs(component)
+        diagram["parts"].append(part(part_type, part_id, left=left, top=top, attrs=attrs))
         sda = pins.get("sda", "20")
         scl = pins.get("scl", "21")
         for candidate in ("VCC", "VIN"):
@@ -279,7 +314,7 @@ def add_component(
             ]
         )
     elif kind == "bme280_spi":
-        diagram["parts"].append(part("board-bme280", part_id, left=left, top=top, attrs=component.get("attrs") or {}))
+        diagram["parts"].append(part("chip-bme280", part_id, left=left, top=top, attrs=bme280_attrs(component)))
         spi_map = {"SCK": "sck", "SDO": "miso", "SDI": "mosi", "CS": "cs"}
         diagram["connections"].extend(
             [
@@ -321,6 +356,16 @@ def add_component(
         )
     else:
         raise DiagramError(f"unknown composite component type: {kind}")
+
+
+def bme280_attrs(component: dict[str, Any]) -> dict[str, Any]:
+    attrs = {
+        "temperatureC": str(component.get("temperatureC", component.get("temperature", "24.5"))),
+        "humidityRH": str(component.get("humidityRH", component.get("humidity", "55.0"))),
+        "pressurePa": str(component.get("pressurePa", "101325")),
+    }
+    attrs.update(component.get("attrs") or {})
+    return attrs
 
 
 def dual_led_output(task: TaskConfig) -> dict[str, Any]:
@@ -438,6 +483,17 @@ def active_high_button_connections(button_id: str, resistor_id: str, pin: str) -
         connection(f"{button_id}:2.r", f"mega:{pin}", "green"),
         connection(f"{resistor_id}:1", f"mega:{pin}", "green"),
         connection(f"{resistor_id}:2", "mega:GND.1", "black"),
+    ]
+
+
+def active_low_button_connections(button_id: str, resistor_id: str, pin: str) -> list[list[Any]]:
+    # Mirror of active_high: pin idles HIGH via pull-up to 5V and is driven LOW
+    # while the button bridges it to GND.
+    return [
+        connection(f"{button_id}:1.r", "mega:GND.1", "black"),
+        connection(f"{button_id}:2.r", f"mega:{pin}", "green"),
+        connection(f"{resistor_id}:1", f"mega:{pin}", "green"),
+        connection(f"{resistor_id}:2", "mega:5V", "red"),
     ]
 
 

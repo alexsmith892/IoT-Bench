@@ -1,0 +1,40 @@
+{
+  "name": "Deterministic BME280",
+  "author": "IoT-Bench",
+  "pins": [
+    "VCC",
+    "GND",
+    "SDA",
+    "SCL",
+    "SCK",
+    "SDI",
+    "SDO",
+    "CS"
+  ],
+  "controls": [
+    {
+      "id": "temperatureC",
+      "label": "Temperature (C)",
+      "type": "range",
+      "min": -20,
+      "max": 80,
+      "step": 0.1
+    },
+    {
+      "id": "humidityRH",
+      "label": "Humidity (%)",
+      "type": "range",
+      "min": 0,
+      "max": 100,
+      "step": 0.1
+    },
+    {
+      "id": "pressurePa",
+      "label": "Pressure (Pa)",
+      "type": "range",
+      "min": 30000,
+      "max": 110000,
+      "step": 1
+    }
+  ]
+}

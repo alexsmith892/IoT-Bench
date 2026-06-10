@@ -36,6 +36,7 @@ from .runner import (
     normalize_sketch_override,
     prepare_artifacts,
     run_case,
+    validate_case,
     with_archived_vcd,
 )
 from .scenarios import ScenarioError
@@ -293,7 +294,7 @@ def run_single_task(
                 arduino_cli=arduino_cli,
                 wokwi_cli=wokwi_cli,
             )
-            return validate_task(task, paths).payload()
+            return validate_case(task, paths)
         return run_case(
             task,
             paths,

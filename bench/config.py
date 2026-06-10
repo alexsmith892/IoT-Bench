@@ -48,6 +48,7 @@ VALIDATOR_FAMILIES = {
     "debounce_serial",
     "analog_temperature_serial",
     "serial_observation_sequence",
+    "bme280_environment",
     "bus_activity",
     "lcd_text_sequence",
 }
@@ -344,6 +345,8 @@ def validate_families(task: TaskConfig, channels: list[dict[str, Any]]) -> None:
                     )
     if task.validator_family == "serial_observation_sequence":
         validate_serial_observation_config(task, params)
+    if task.validator_family == "bme280_environment":
+        validate_bme280_environment_config(task, params)
     if task.validator_family == "bus_activity":
         validate_bus_activity_config(task, params)
     if task.validator_family == "lcd_text_sequence":
@@ -361,6 +364,7 @@ def validator_requires_serial(validator: dict[str, Any]) -> bool:
         "serial_regex_sequence",
         "serial_numeric_ranges",
         "serial_observation_sequence",
+        "bme280_environment",
     }:
         return True
     if family == "composite":
@@ -553,6 +557,17 @@ def validate_bus_activity_config(task: TaskConfig, params: dict[str, Any]) -> No
     pins = params.get("pins")
     if not isinstance(pins, list) or not pins:
         raise ConfigError(f"{task.path}: bus_activity requires pins")
+
+
+def validate_bme280_environment_config(task: TaskConfig, params: dict[str, Any]) -> None:
+    for field in ("expected_temperature_c", "expected_humidity_rh"):
+        if field in params and not isinstance(params[field], (int, float)):
+            raise ConfigError(f"{task.path}: bme280_environment {field} must be numeric")
+    bus_activity = params.get("bus_activity")
+    if bus_activity is not None:
+        if not isinstance(bus_activity, dict):
+            raise ConfigError(f"{task.path}: bme280_environment bus_activity must be a mapping")
+        validate_bus_activity_config(task, bus_activity)
 
 
 def validate_lcd_text_sequence_config(task: TaskConfig, params: dict[str, Any]) -> None:

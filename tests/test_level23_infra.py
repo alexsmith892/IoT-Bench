@@ -122,35 +122,14 @@ class Level23InfrastructureTests(unittest.TestCase):
                 self.assertTrue((paths.sketch / f"{task.sketch_name}.ino").exists())
                 self.assertTrue((paths.case_dir / "case.yaml").exists())
 
-    def test_unsupported_bme_tasks_return_cf_and_do_not_generate(self):
+    def test_bme_i2c_task_generates_with_declared_custom_chip(self):
         task = load_task("bme280_read_i2c", level="level2")
 
-        build_result = build_single_task(
-            task,
-            case_dir=None,
-            sketch_override=None,
-            regenerate=False,
-            arduino_cli="arduino-cli",
-        )
-        run_result = run_single_task(
-            task,
-            case_dir=None,
-            sketch_override=None,
-            use_existing_artifacts=False,
-            regenerate=False,
-            simulation_time_ms=None,
-            arduino_cli="arduino-cli",
-            wokwi_cli="wokwi-cli",
-            archived_vcd=None,
-        )
-
-        # Unsupported/manual tasks are a harness limitation, not a model failure,
-        # so they are reported as IF (inconclusive/infrastructure), never CF.
-        self.assertEqual(build_result["result"], "IF")
-        self.assertEqual(run_result["result"], "IF")
         with tempfile.TemporaryDirectory() as tmp:
-            with self.assertRaises(CaseConfigError):
-                generate_case(task, root=Path(tmp))
+            paths = generate_case(task, root=Path(tmp))
+            self.assertTrue((paths.case_dir / "chips" / "bme280.chip.wasm").exists())
+            self.assertTrue((paths.case_dir / "chips" / "bme280.chip.json").exists())
+            self.assertIn("[[chip]]", paths.wokwi_toml.read_text(encoding="utf-8"))
 
     def test_diagram_lint_rejects_unknown_parts_and_accepts_declared_custom_chips(self):
         with tempfile.TemporaryDirectory() as tmp:

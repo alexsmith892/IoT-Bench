@@ -11,14 +11,31 @@
       "attrs": {}
     },
     {
-      "type": "board-bme280",
+      "type": "wokwi-logic-analyzer",
+      "id": "logic1",
+      "top": -55,
+      "left": 300,
+      "attrs": {}
+    },
+    {
+      "type": "chip-bme280",
       "id": "bme1",
       "top": -80,
       "left": 225,
-      "attrs": {}
+      "attrs": {
+        "temperatureC": "24.5",
+        "humidityRH": "55.0",
+        "pressurePa": "101325"
+      }
     }
   ],
   "connections": [
+    [
+      "logic1:GND",
+      "mega:GND.1",
+      "black",
+      []
+    ],
     [
       "bme1:VCC",
       "mega:5V",
@@ -51,6 +68,30 @@
     ],
     [
       "bme1:CS",
+      "mega:21",
+      "green",
+      []
+    ],
+    [
+      "logic1:D0",
+      "mega:35",
+      "green",
+      []
+    ],
+    [
+      "logic1:D1",
+      "mega:37",
+      "green",
+      []
+    ],
+    [
+      "logic1:D2",
+      "mega:36",
+      "green",
+      []
+    ],
+    [
+      "logic1:D3",
       "mega:21",
       "green",
       []

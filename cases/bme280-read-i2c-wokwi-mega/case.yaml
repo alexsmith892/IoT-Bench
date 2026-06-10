@@ -8,4 +8,5 @@ paths:
   diagram: diagram.json
   wokwi: wokwi.toml
   build: artifacts/build
+  vcd: artifacts/logic/wokwi.vcd
   serial_log: artifacts/serial/serial.log

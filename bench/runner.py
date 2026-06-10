@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import hashlib
+from copy import deepcopy
 from dataclasses import dataclass, replace
 from datetime import datetime, timezone
 from pathlib import Path
@@ -19,6 +20,7 @@ from .config import DEFAULT_FQBN, TaskConfig, load_task, repo_root, to_yaml_text
 from .diagrams import generate_diagram, validate_diagram_file, write_diagram
 from .results import (
     COMPILE_FAIL,
+    FAIL,
     PASS,
     SOURCE_ARTIFACT,
     SOURCE_ENVIRONMENT,
@@ -107,10 +109,28 @@ def generate_case(task: TaskConfig, *, root: Path | None = None) -> CasePaths:
     write_case_yaml(task, paths)
     write_case_json(task, paths)
     write_wokwi_toml(task, paths)
+    ensure_custom_chip_artifacts(task, paths, root)
     ensure_sketch_files(task, sketch_dir)
     ensure_artifact_dirs(paths)
     validate_diagram_file(paths.diagram, task)
     return paths
+
+
+def ensure_custom_chip_artifacts(task: TaskConfig, paths: CasePaths, root: Path) -> None:
+    if not task.custom_chips:
+        return
+    source_case_dir = case_dir_for_task(task, repo_root())
+    for chip in task.custom_chips:
+        binary = Path(str(chip["binary"]).replace("\\", "/"))
+        json_name = binary.with_suffix(".json")
+        for relative in (binary, json_name):
+            destination = paths.case_dir / relative
+            if destination.exists():
+                continue
+            source = source_case_dir / relative
+            if source.exists():
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(source, destination)
 
 
 def ensure_artifact_dirs(paths: CasePaths) -> None:
@@ -406,17 +426,25 @@ def prepare_artifacts(
     wokwi_cli: str = "wokwi-cli",
 ) -> None:
     if use_existing_artifacts:
-        ensure_existing_outputs(task, paths)
+        ensure_existing_variant_outputs(task, paths)
         return
 
     build_case(task, paths, arduino_cli=arduino_cli)
-    simulate_case(
-        task,
-        paths,
-        simulation_time_ms=simulation_time_ms,
-        wokwi_cli=wokwi_cli,
-    )
-    ensure_existing_outputs(task, paths)
+    if task.simulation_variants:
+        simulate_variants(
+            task,
+            paths,
+            simulation_time_ms=simulation_time_ms,
+            wokwi_cli=wokwi_cli,
+        )
+    else:
+        simulate_case(
+            task,
+            paths,
+            simulation_time_ms=simulation_time_ms,
+            wokwi_cli=wokwi_cli,
+        )
+    ensure_existing_variant_outputs(task, paths)
 
 
 def build_case(
@@ -552,21 +580,176 @@ def run_case(
     command: str = "run",
 ) -> dict[str, Any]:
     build_case(task, paths, arduino_cli=arduino_cli)
-    simulate_case(
-        task,
-        paths,
-        simulation_time_ms=simulation_time_ms,
-        wokwi_cli=wokwi_cli,
-    )
+    if task.simulation_variants:
+        simulate_variants(
+            task,
+            paths,
+            simulation_time_ms=simulation_time_ms,
+            wokwi_cli=wokwi_cli,
+        )
+    else:
+        simulate_case(
+            task,
+            paths,
+            simulation_time_ms=simulation_time_ms,
+            wokwi_cli=wokwi_cli,
+        )
     result = validate_case(task, paths)
     write_verification(task, paths, result, command=command)
     return result
 
 
 def validate_case(task: TaskConfig, paths: CasePaths) -> dict[str, Any]:
+    if task.simulation_variants:
+        return validate_variants(task, paths)
     from .validators import validate_task
 
     return validate_task(task, paths).payload()
+
+
+def simulate_variants(
+    task: TaskConfig,
+    paths: CasePaths,
+    *,
+    simulation_time_ms: int | None = None,
+    wokwi_cli: str = "wokwi-cli",
+) -> list[CasePaths]:
+    simulated: list[CasePaths] = []
+    for variant in task.simulation_variants:
+        variant_paths = paths_for_variant(paths, variant_id(variant))
+        write_variant_diagram(paths.diagram, variant_paths.diagram, variant)
+        simulate_case(
+            task,
+            variant_paths,
+            simulation_time_ms=simulation_time_ms,
+            wokwi_cli=wokwi_cli,
+        )
+        simulated.append(variant_paths)
+    return simulated
+
+
+def ensure_existing_variant_outputs(task: TaskConfig, paths: CasePaths) -> None:
+    if task.simulation_variants:
+        for variant in task.simulation_variants:
+            ensure_existing_outputs(task, paths_for_variant(paths, variant_id(variant)))
+        return
+    ensure_existing_outputs(task, paths)
+
+
+def validate_variants(task: TaskConfig, paths: CasePaths) -> dict[str, Any]:
+    from .validators import validate_task
+
+    variant_results: list[dict[str, Any]] = []
+    serial_outputs: dict[str, str] = {}
+    metrics: dict[str, Any] = {"variants": variant_results}
+    for variant in task.simulation_variants:
+        current_id = variant_id(variant)
+        variant_paths = paths_for_variant(paths, current_id)
+        proxy = task_for_variant(task, variant)
+        result = validate_task(proxy, variant_paths).payload()
+        variant_results.append(
+            {
+                "id": current_id,
+                "attrs": variant.get("attrs") or {},
+                "result": result,
+                "diagram_path": str(variant_paths.diagram),
+                "serial_log_path": str(variant_paths.serial_log) if variant_paths.serial_log else None,
+                "vcd_path": str(variant_paths.vcd) if variant_paths.vcd else None,
+            }
+        )
+        if variant_paths.serial_log and variant_paths.serial_log.exists():
+            serial_outputs[current_id] = normalize_serial_text(
+                variant_paths.serial_log.read_text(encoding="utf-8", errors="replace")
+            )
+        if result["classification"] != PASS:
+            return result_payload(
+                FAIL,
+                f"variant {current_id} failed: {result['reason']}",
+                metrics,
+                failure_stage=result.get("failure_stage"),
+                failure_source=result.get("failure_source"),
+            )
+
+    if task.simulation.get("require_distinct_variant_outputs") and len(serial_outputs) > 1:
+        unique = {text for text in serial_outputs.values()}
+        if len(unique) == 1:
+            return result_payload(
+                FAIL,
+                "all simulation variants produced identical serial output",
+                {**metrics, "normalized_serial_outputs": serial_outputs},
+            )
+
+    return result_payload(PASS, "all simulation variants passed", metrics)
+
+
+def variant_id(variant: dict[str, Any]) -> str:
+    return safe_filename_part(str(variant.get("id") or "variant"))
+
+
+def paths_for_variant(paths: CasePaths, current_id: str) -> CasePaths:
+    return replace(
+        paths,
+        diagram=paths.case_dir / "artifacts" / "variants" / current_id / "diagram.json",
+        vcd=(paths.case_dir / "artifacts" / "logic" / f"{current_id}.vcd" if paths.vcd else None),
+        serial_log=(
+            paths.case_dir / "artifacts" / "serial" / f"{current_id}.serial.log"
+            if paths.serial_log
+            else None
+        ),
+    )
+
+
+def write_variant_diagram(base_diagram: Path, output_diagram: Path, variant: dict[str, Any]) -> None:
+    diagram = json.loads(base_diagram.read_text(encoding="utf-8"))
+    patched = apply_variant_attrs(diagram, variant.get("attrs") or {})
+    write_diagram(output_diagram, patched)
+
+
+def apply_variant_attrs(diagram: dict[str, Any], attrs_by_part: dict[str, Any]) -> dict[str, Any]:
+    patched = deepcopy(diagram)
+    parts = {
+        str(part.get("id")): part
+        for part in patched.get("parts", [])
+        if isinstance(part, dict) and part.get("id") is not None
+    }
+    for part_id, attrs in attrs_by_part.items():
+        if part_id not in parts:
+            raise CaseConfigError(f"simulation variant references unknown part id: {part_id}")
+        if not isinstance(attrs, dict):
+            raise CaseConfigError(f"simulation variant attrs for {part_id} must be a mapping")
+        part_attrs = dict(parts[part_id].get("attrs") or {})
+        part_attrs.update({key: str(value) for key, value in attrs.items()})
+        parts[part_id]["attrs"] = part_attrs
+    return patched
+
+
+def task_for_variant(task: TaskConfig, variant: dict[str, Any]) -> TaskConfig:
+    data = deepcopy(task.data)
+    if isinstance(variant.get("validator"), dict):
+        data["validator"] = deep_merge(data.get("validator") or {}, variant["validator"])
+    data["active_simulation_variant"] = variant
+    return TaskConfig(path=task.path, data=data)
+
+
+def deep_merge(base: Any, override: Any) -> Any:
+    if isinstance(base, dict) and isinstance(override, dict):
+        merged = deepcopy(base)
+        for key, value in override.items():
+            merged[key] = deep_merge(merged[key], value) if key in merged else deepcopy(value)
+        return merged
+    if isinstance(base, list) and isinstance(override, list):
+        merged = deepcopy(base)
+        for index, value in enumerate(override):
+            if index < len(merged):
+                merged[index] = deep_merge(merged[index], value)
+            else:
+                merged.append(deepcopy(value))
+        return merged
+    return deepcopy(override)
+
+
+def normalize_serial_text(text: str) -> str:
+    return "\n".join(line.strip() for line in text.splitlines() if line.strip())
 
 
 def ensure_firmware_outputs(paths: CasePaths) -> None:
@@ -854,15 +1037,15 @@ def advanced_example_sketch(task: TaskConfig) -> str | None:
     serial_messages = {
         "rotary_encoder": ["Position: 1 Direction: CW", "Position: 0 Direction: CCW"],
         "16key_keypad": ["Key: 1", "Key: 2", "Key: 3", "Key: 4"],
-        "bme280_read_i2c": ["Temperature: 24.0 C Humidity: 40.0 %"],
-        "bme280_read_spi": ["Temperature: 24.0 C Humidity: 40.0 %"],
-        "step_counter_print": ["Steps: 1", "Steps: 2", "Steps: 3"],
     }
     sensor_serial_examples = {
         "dht11_read": dht22_serial_example,
         "ds1307_rtc": ds1307_serial_example,
         "mpu6050_read_i2c": mpu6050_serial_example,
         "hcsr04_find_distance": hcsr04_serial_example,
+        "step_counter_print": step_counter_example,
+        "bme280_read_i2c": bme280_i2c_example,
+        "bme280_read_spi": bme280_spi_example,
     }
     if task.task_id in sensor_serial_examples:
         return sensor_serial_examples[task.task_id]()
@@ -915,10 +1098,7 @@ def serial_example(messages: list[str], task_id: str) -> str:
         "dht11_read": "  pinMode(14, INPUT_PULLUP);",
         "ds1307_rtc": "  Wire.begin();",
         "mpu6050_read_i2c": "  Wire.begin(); Wire.requestFrom(0x68, 1); if (Wire.available()) { Wire.read(); }",
-        "bme280_read_i2c": "  Wire.begin();",
-        "bme280_read_spi": "  SPI.begin(); pinMode(21, OUTPUT);",
         "hcsr04_find_distance": "  pinMode(9, OUTPUT); pinMode(10, INPUT); digitalWrite(9, HIGH); delayMicroseconds(10); digitalWrite(9, LOW); pulseIn(10, HIGH);",
-        "step_counter_print": "  Wire.begin(); unsigned long sampleTime = millis();",
     }.get(task_id, "")
     includes = "#include <Wire.h>\n#include <SPI.h>\n"
     prints = "\n".join(f'  Serial.println("{message}");' for message in messages)
@@ -1018,6 +1198,41 @@ void loop() {
 """
 
 
+def step_counter_example() -> str:
+    return mpu6050_reader_source() + """\
+const float STEP_HIGH_G = 1.5;
+const float STEP_LOW_G = 1.2;
+int steps = 0;
+bool above = false;
+unsigned long lastStepMs = 0;
+
+void setup() {
+  Serial.begin(115200);
+  mpuBegin();
+}
+
+void loop() {
+  int16_t ax, ay, az, gx, gy, gz;
+  readMpu(ax, ay, az, gx, gy, gz);
+  float x = ax / 16384.0;
+  float y = ay / 16384.0;
+  float z = az / 16384.0;
+  float magnitude = sqrt(x * x + y * y + z * z);
+  unsigned long now = millis();
+  if (!above && magnitude >= STEP_HIGH_G && now - lastStepMs > 120) {
+    above = true;
+    steps++;
+    lastStepMs = now;
+    Serial.print("Steps: ");
+    Serial.println(steps);
+  } else if (above && magnitude <= STEP_LOW_G) {
+    above = false;
+  }
+  delay(20);
+}
+"""
+
+
 def hcsr04_serial_example() -> str:
     return hcsr04_reader_source() + """\
 void setup() {
@@ -1032,6 +1247,67 @@ void loop() {
   Serial.print(distance);
   Serial.println(" cm");
   delay(250);
+}
+"""
+
+
+def bme280_i2c_example() -> str:
+    return """\
+#include <Adafruit_BME280.h>
+#include <Wire.h>
+
+Adafruit_BME280 bme;
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();
+  if (!bme.begin(0x76)) {
+    Serial.println("BME280 not found");
+    while (true) {
+      delay(100);
+    }
+  }
+}
+
+void loop() {
+  Serial.print("Temperature: ");
+  Serial.print(bme.readTemperature(), 1);
+  Serial.print(" C Humidity: ");
+  Serial.print(bme.readHumidity(), 1);
+  Serial.println(" %");
+  delay(500);
+}
+"""
+
+
+def bme280_spi_example() -> str:
+    return """\
+#include <Adafruit_BME280.h>
+
+const int BME_CS = 21;
+const int BME_MOSI = 36;
+const int BME_MISO = 37;
+const int BME_SCK = 35;
+
+Adafruit_BME280 bme(BME_CS, BME_MOSI, BME_MISO, BME_SCK);
+
+void setup() {
+  Serial.begin(115200);
+  if (!bme.begin()) {
+    Serial.println("BME280 not found");
+    while (true) {
+      delay(100);
+    }
+  }
+}
+
+void loop() {
+  Serial.print("Temperature: ");
+  Serial.print(bme.readTemperature(), 1);
+  Serial.print(" C Humidity: ");
+  Serial.print(bme.readHumidity(), 1);
+  Serial.println(" %");
+  delay(500);
 }
 """
 

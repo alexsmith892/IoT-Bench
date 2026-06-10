@@ -2,3 +2,8 @@
 version = 1
 firmware = 'artifacts/build/bme280_read_spi.ino.hex'
 elf = 'artifacts/build/bme280_read_spi.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'
+
+[[chip]]
+name = 'bme280'
+binary = 'chips/bme280.chip.wasm'

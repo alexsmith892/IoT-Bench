@@ -1,12 +1,24 @@
+#include <Adafruit_BME280.h>
 #include <Wire.h>
-#include <SPI.h>
+
+Adafruit_BME280 bme;
 
 void setup() {
   Serial.begin(115200);
   Wire.begin();
-  Serial.println("Temperature: 24.0 C Humidity: 40.0 %");
+  if (!bme.begin(0x76)) {
+    Serial.println("BME280 not found");
+    while (true) {
+      delay(100);
+    }
+  }
 }
 
 void loop() {
-  delay(100);
+  Serial.print("Temperature: ");
+  Serial.print(bme.readTemperature(), 1);
+  Serial.print(" C Humidity: ");
+  Serial.print(bme.readHumidity(), 1);
+  Serial.println(" %");
+  delay(500);
 }

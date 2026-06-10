@@ -12,6 +12,29 @@
     "diagram": "diagram.json",
     "wokwi": "wokwi.toml",
     "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd",
     "serial_log": "artifacts/serial/serial.log"
-  }
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 35"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 35"
+    },
+    {
+      "vcd_name": "D1",
+      "expected_connection": "GPIO 37"
+    },
+    {
+      "vcd_name": "D2",
+      "expected_connection": "GPIO 36"
+    },
+    {
+      "vcd_name": "D3",
+      "expected_connection": "GPIO 21"
+    }
+  ]
 }

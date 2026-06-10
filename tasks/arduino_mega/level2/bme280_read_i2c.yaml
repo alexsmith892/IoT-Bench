@@ -3,22 +3,37 @@ name: Read BME280 humidity and temperature over I2C
 platform: arduino_mega
 level: level2
 support:
-  status: unsupported
-  reason: no native Wokwi BME280 and no custom chip model
+  status: supported
+custom_chips:
+  - name: bme280
+    binary: chips/bme280.chip.wasm
 fixture:
   family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "20"}
+      - {signal: D1, pin: "21"}
   components:
     - type: bme280_i2c
       id: bme1
       pins: {sda: "20", scl: "21"}
+      attrs: {temperatureC: "24.5", humidityRH: "55.0", pressurePa: "101325"}
+simulation_variants:
+  - id: scenario_a
+    attrs: {bme1: {temperatureC: "24.5", humidityRH: "55.0"}}
+    validator:
+      params: {expected_temperature_c: 24.5, expected_humidity_rh: 55.0}
+  - id: scenario_b
+    attrs: {bme1: {temperatureC: "31.0", humidityRH: "42.0"}}
+    validator:
+      params: {expected_temperature_c: 31.0, expected_humidity_rh: 42.0}
 validator:
-  family: composite
-  checks:
-    - family: static_checks
-      params:
-        required_patterns: ["Wire\\.begin\\s*\\("]
-    - family: serial_regex_sequence
-      params:
-        patterns: ["Temp(erature)?", "Hum(idity)?"]
-simulation: {timeout_ms: 1200}
+  family: bme280_environment
+  params:
+    expected_temperature_c: 24.5
+    expected_humidity_rh: 55.0
+    temperature_tolerance_c: 0.5
+    humidity_tolerance_rh: 2.0
+    bus_activity: {bus: i2c, pins: [D0, D1], min_transitions: 2}
+simulation: {timeout_ms: 3000, require_distinct_variant_outputs: true}
 case: {id: bme280-read-i2c-wokwi-mega, sketch_name: bme280_read_i2c}

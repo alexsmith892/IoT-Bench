@@ -183,6 +183,85 @@ def validate_serial_numeric_ranges(task: TaskConfig, paths: CasePaths) -> Valida
     return ValidationResult(PASS, "serial numeric ranges matched in order", metrics)
 
 
+def validate_bme280_environment(task: TaskConfig, paths: CasePaths) -> ValidationResult:
+    text = read_serial_log_or_fail(paths)
+    params = task.validator_params()
+    expected_temperature = params.get("expected_temperature_c")
+    expected_humidity = params.get("expected_humidity_rh")
+    if expected_temperature is None or expected_humidity is None:
+        variant = task.data.get("active_simulation_variant") or {}
+        attrs = next(iter((variant.get("attrs") or {}).values()), {})
+        expected_temperature = attrs.get("temperatureC", attrs.get("temperature"))
+        expected_humidity = attrs.get("humidityRH", attrs.get("humidity"))
+    if expected_temperature is None or expected_humidity is None:
+        return ValidationResult(FAIL, "BME280 validator requires expected temperature and humidity")
+
+    expected_temperature = float(expected_temperature)
+    expected_humidity = float(expected_humidity)
+    temp_tolerance = float(params.get("temperature_tolerance_c", 0.5))
+    humidity_tolerance = float(params.get("humidity_tolerance_rh", 2.0))
+    temperatures = labeled_serial_values(text, r"temp(?:erature)?")
+    humidities = labeled_serial_values(text, r"hum(?:idity)?|relative\s+humidity|rh")
+    metrics: dict[str, Any] = {
+        "expected_temperature_c": expected_temperature,
+        "expected_humidity_rh": expected_humidity,
+        "temperature_tolerance_c": temp_tolerance,
+        "humidity_tolerance_rh": humidity_tolerance,
+        "observed_temperatures_c": rounded(temperatures, digits=3),
+        "observed_humidities_rh": rounded(humidities, digits=3),
+    }
+    matching_temperature = first_within(temperatures, expected_temperature, temp_tolerance)
+    if matching_temperature is None:
+        return ValidationResult(
+            FAIL,
+            f"serial log is missing BME280 temperature near {expected_temperature:g}C",
+            metrics,
+        )
+    matching_humidity = first_within(humidities, expected_humidity, humidity_tolerance)
+    if matching_humidity is None:
+        return ValidationResult(
+            FAIL,
+            f"serial log is missing BME280 humidity near {expected_humidity:g}% RH",
+            metrics,
+        )
+    metrics["matched_temperature_c"] = round(matching_temperature, 3)
+    metrics["matched_humidity_rh"] = round(matching_humidity, 3)
+
+    bus_activity = params.get("bus_activity")
+    if bus_activity:
+        bus_result = validate_bus_activity(
+            TaskConfig(path=task.path, data={**task.data, "validator": {"family": "bus_activity", "params": bus_activity}}),
+            paths,
+        )
+        metrics["bus_activity"] = bus_result.metrics
+        if bus_result.classification != PASS:
+            return ValidationResult(bus_result.classification, bus_result.reason, metrics)
+
+    return ValidationResult(PASS, "serial log contains expected BME280 temperature and humidity", metrics)
+
+
+def labeled_serial_values(text: str, label_pattern: str) -> list[float]:
+    pattern = re.compile(
+        rf"(?:{label_pattern})\D*([-+]?\d+(?:\.\d+)?)",
+        flags=re.IGNORECASE,
+    )
+    values: list[float] = []
+    for match in pattern.finditer(text):
+        raw = match.group(1)
+        try:
+            values.append(float(raw))
+        except (TypeError, ValueError):
+            continue
+    return values
+
+
+def first_within(values: list[float], expected: float, tolerance: float) -> float | None:
+    for value in values:
+        if abs(value - expected) <= tolerance:
+            return value
+    return None
+
+
 def validate_lcd_text(task: TaskConfig, paths: CasePaths) -> ValidationResult:
     if paths.vcd is None:
         return ValidationResult(FAIL, "case does not define a VCD artifact")
@@ -913,6 +992,7 @@ VALIDATORS = {
     "static_checks": validate_static_patterns,
     "serial_regex_sequence": validate_serial_regex_sequence,
     "serial_numeric_ranges": validate_serial_numeric_ranges,
+    "bme280_environment": validate_bme280_environment,
     "lcd_text": validate_lcd_text,
     "window_ratios": validate_window_ratios,
     "frequency_windows": validate_frequency_windows,
@@ -941,6 +1021,7 @@ COMPOSITE_CHECK_VALIDATORS = {
         "static_checks",
         "serial_regex_sequence",
         "serial_numeric_ranges",
+        "bme280_environment",
         "lcd_text",
         "window_ratios",
         "frequency_windows",

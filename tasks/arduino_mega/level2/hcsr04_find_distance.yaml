@@ -12,8 +12,24 @@ fixture:
 simulation_variants:
   - id: far
     attrs: {sonar1: {distance: "100"}}
+    validator:
+      checks:
+        - {}
+        - params:
+            observations:
+              - label: configured_distance
+                patterns: ["Distance.*100"]
+                numeric_ranges: [[95, 105]]
   - id: near
     attrs: {sonar1: {distance: "40"}}
+    validator:
+      checks:
+        - {}
+        - params:
+            observations:
+              - label: configured_distance
+                patterns: ["Distance.*40"]
+                numeric_ranges: [[35, 45]]
 validator:
   family: composite
   checks:
