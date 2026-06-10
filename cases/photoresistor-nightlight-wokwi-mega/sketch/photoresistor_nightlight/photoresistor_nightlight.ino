@@ -3,5 +3,5 @@ void setup() {
 }
 void loop() {
   int value = analogRead(A2);
-  digitalWrite(3, value < 400 ? HIGH : LOW);
+  digitalWrite(3, value > 400 ? HIGH : LOW);
 }

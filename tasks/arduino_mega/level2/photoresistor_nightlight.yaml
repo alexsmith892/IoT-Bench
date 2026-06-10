@@ -18,13 +18,16 @@ scenario:
   family: control_sequence
   initial_delay_ms: 200
   controls:
-    - {part_id: photo1, control: lux, value: 1000, duration_ms: 400}
-    - {part_id: photo1, control: lux, value: 0.1, duration_ms: 400}
+    # Wokwi photoresistor: bright lux -> low ADC (~169), dark lux -> high ADC (~1015).
+    - {part_id: photo1, control: lux, value: 1000, duration_ms: 400}  # bright ~t=0.2-0.6s
+    - {part_id: photo1, control: lux, value: 0.1, duration_ms: 400}   # dark  ~t=0.6-1.0s
 validator:
   family: stimulus_to_output
   params:
     channel: D0
-    active_windows_s: [[0.30, 0.55]]
-    inactive_windows_s: [[0.75, 0.95]]
+    # Spec: LED on when light is below threshold (dark). So the LED must be ON
+    # during the dark phase and OFF during the bright phase.
+    active_windows_s: [[0.70, 0.95]]    # dark -> LED on
+    inactive_windows_s: [[0.30, 0.55]]  # bright -> LED off
 simulation: {timeout_ms: 1200}
 case: {id: photoresistor-nightlight-wokwi-mega, sketch_name: photoresistor_nightlight}
