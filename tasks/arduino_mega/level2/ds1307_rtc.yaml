@@ -1,5 +1,9 @@
 task_id: ds1307_rtc
-name: Set and print DS1307 RTC date/time over I2C
+# Scoped to "read and print": Wokwi seeds the DS1307 from `initTime` below, and the
+# harness validates that the firmware reads and prints that date/time over I2C. It
+# cannot distinguish firmware that *sets* the clock from firmware that only reads
+# the preset, so the validated contract is deliberately the read/print path.
+name: Read and print DS1307 RTC date/time over I2C
 platform: arduino_mega
 level: level2
 fixture:

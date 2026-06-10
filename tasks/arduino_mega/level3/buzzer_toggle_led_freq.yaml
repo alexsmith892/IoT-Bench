@@ -33,6 +33,15 @@ validator:
     - family: static_checks
       params:
         required_any_patterns: [["attachInterrupt", "digitalPinToInterrupt", "millis\\s*\\("]]
+    # The task requires the buzzer to beep on each press. D1 is wired to the
+    # buzzer pin; require it to actually toggle (a tone produces many edges), so a
+    # submission that cycles the LED but never beeps is not scored BC. We assert
+    # activity rather than a specific tone frequency, which the task does not fix.
+    - family: bus_activity
+      params:
+        bus: buzzer
+        pins: [D1]
+        min_transitions: 8
     - family: frequency_windows
       params:
         channel: D0
