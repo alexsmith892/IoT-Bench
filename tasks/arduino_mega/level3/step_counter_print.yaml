@@ -2,23 +2,43 @@ task_id: step_counter_print
 name: Count movement spikes from GY-521/MPU6050 and print steps
 platform: arduino_mega
 level: level3
-support:
-  status: manual
-  reason: MPU6050 movement spike stimulus is not reliably automated by CLI scenarios
+# Live-supported: the Wokwi MPU6050 exposes accelX/Y/Z automation controls, so a
+# control_sequence scenario injects a baseline-then-spike acceleration profile and
+# the firmware must threshold-count the spikes. The number of injected spikes is
+# the oracle (serial_count_sequence), so a fixed-output stub that does not read the
+# IMU fails the strengthened static checks (it lacks the I2C read path).
 fixture:
   family: composite
   components:
     - type: mpu6050
       id: imu1
       pins: {sda: "20", scl: "21"}
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+    # Establish a 1 g (gravity) resting baseline on Z with X/Y level.
+    - {part_id: imu1, control: accelX, value: 0.0, duration_ms: 50}
+    - {part_id: imu1, control: accelY, value: 0.0, duration_ms: 50}
+    - {part_id: imu1, control: accelZ, value: 1.0, duration_ms: 300}
+    # Three discrete movement spikes (1.9 g, within the +/-2 g range) separated by
+    # rest periods. Each upward threshold crossing is one step.
+    - {part_id: imu1, control: accelZ, value: 1.9, duration_ms: 200}
+    - {part_id: imu1, control: accelZ, value: 1.0, duration_ms: 250}
+    - {part_id: imu1, control: accelZ, value: 1.9, duration_ms: 200}
+    - {part_id: imu1, control: accelZ, value: 1.0, duration_ms: 250}
+    - {part_id: imu1, control: accelZ, value: 1.9, duration_ms: 200}
+    - {part_id: imu1, control: accelZ, value: 1.0, duration_ms: 300}
 validator:
   family: composite
   checks:
     - family: static_checks
       params:
-        required_patterns: ["Wire\\.begin\\s*\\(", "millis\\s*\\("]
+        # Require the real I2C read path (read register burst), not just Wire.begin,
+        # so a hard-coded print stub cannot pass.
+        required_patterns: ["Wire\\.begin\\s*\\(", "Wire\\.requestFrom", "Wire\\.read\\s*\\(", "millis\\s*\\("]
     - family: serial_count_sequence
       params:
         expected_count: 3
-simulation: {timeout_ms: 1200}
+simulation: {timeout_ms: 2500}
 case: {id: step-counter-print-wokwi-mega, sketch_name: step_counter_print}

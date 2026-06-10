@@ -12,6 +12,7 @@
     "diagram": "diagram.json",
     "wokwi": "wokwi.toml",
     "build": "artifacts/build",
+    "scenario": "scenario.yaml",
     "serial_log": "artifacts/serial/serial.log"
   }
 }

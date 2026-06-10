@@ -2,30 +2,65 @@ task_id: safebox
 name: Unlock relay when keypad password 1234 is entered
 platform: arduino_mega
 level: level3
-support:
-  status: manual
-  reason: Wokwi keypad password entry is UI-driven and not reliably automated by CLI scenarios
+# Live-supported via matrix_key surrogates (native keypad has no automation
+# control). A single scenario first enters a WRONG code, then the correct 1234, so
+# the relay must stay LOW until (and only until) the correct code is complete. The
+# two-window relay oracle makes this non-gameable: a relay that is always HIGH
+# fails the wrong-code window, and one that never unlocks fails the success window.
 fixture:
   family: composite
   analyzer:
     channels:
       - {signal: D0, pin: "13"}
   components:
-    - type: keypad4x4
-      id: keypad1
-      pins: {r1: "9", r2: "8", r3: "7", r4: "6", c1: "5", c2: "4", c3: "3", c4: "2"}
+    # Only the keys exercised by the scenario (1,2,3,4,5) are populated; row pins
+    # 9,8,7,6 and column pins 5,4,3,2 match a standard 4x4 layout.
+    - {type: matrix_key, id: k1, pins: {row: "9", col: "5"}}
+    - {type: matrix_key, id: k2, pins: {row: "9", col: "4"}}
+    - {type: matrix_key, id: k3, pins: {row: "9", col: "3"}}
+    - {type: matrix_key, id: k4, pins: {row: "8", col: "5"}}
+    - {type: matrix_key, id: k5, pins: {row: "8", col: "4"}}
     - type: relay
       id: relay1
       pin: "13"
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+    # Wrong code 1-2-3-5 (relay must stay LOW).
+    - {part_id: k1, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k1, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k2, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k2, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k3, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k3, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k5, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k5, control: pressed, value: 0, duration_ms: 80}
+    # Correct code 1-2-3-4 (relay unlocks after the 4th key, ~t=1.6s).
+    - {part_id: k1, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k1, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k2, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k2, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k3, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k3, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k4, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k4, control: pressed, value: 0, duration_ms: 80}
 validator:
   family: composite
   checks:
     - family: static_checks
       params:
-        required_patterns: ["1234", "digitalWrite\\s*\\(\\s*13"]
+        # The password lives in a string literal (stripped before static matching),
+        # so correctness is enforced behaviourally by the two relay windows below;
+        # static checks only confirm the sketch genuinely reads and drives pins.
+        required_patterns: ["digitalRead", "digitalWrite"]
     - family: window_ratios
       params:
         channel: D0
-        windows: [{start_s: 0.20, end_s: 0.80, ratio_range: [0.80, 1.0]}]
-simulation: {timeout_ms: 1000}
+        windows:
+          # Relay LOW throughout the wrong code and the start of the correct code.
+          - {start_s: 0.30, end_s: 1.45, ratio_range: [0.0, 0.15]}
+          # Relay HIGH after the correct code completes.
+          - {start_s: 1.95, end_s: 2.45, ratio_range: [0.85, 1.0]}
+simulation: {timeout_ms: 2600}
 case: {id: safebox-wokwi-mega, sketch_name: safebox}

@@ -31,6 +31,34 @@ class Level23InfrastructureTests(unittest.TestCase):
         self.assertIn("logic1", part_ids)
         validate_analyzer_wiring(diagram, task)
 
+    def test_matrix_key_surrogate_bridges_row_and_column(self):
+        task = load_task("16key_keypad", level="level2")
+        diagram = generate_diagram(task)
+        part_types = {part["id"]: part["type"] for part in diagram["parts"]}
+        self.assertEqual(part_types["k1"], "wokwi-pushbutton")
+        pairs = {(item[0], item[1]) for item in diagram["connections"]}
+        # Key '1' bridges row pin 9 and column pin 5 (a matrix cross-point switch).
+        self.assertIn(("k1:1.r", "mega:9"), pairs)
+        self.assertIn(("k1:2.r", "mega:5"), pairs)
+        # The surrogate keypad must not introduce a native keypad part.
+        self.assertNotIn("wokwi-membrane-keypad", set(part_types.values()))
+        validate_diagram_file(generate_case(task).diagram, task)
+
+    def test_digital_pullup_surrogate_idles_high(self):
+        task = load_task("rotary_encoder", level="level2")
+        diagram = generate_diagram(task)
+        part_types = {part["id"]: part["type"] for part in diagram["parts"]}
+        self.assertEqual(part_types["enc_clk"], "wokwi-pushbutton")
+        pairs = {(item[0], item[1]) for item in diagram["connections"]}
+        # Active-low source: button shorts CLK (pin 2) to GND, pull-up resistor to 5V.
+        self.assertIn(("enc_clk:1.r", "mega:GND.1"), pairs)
+        self.assertIn(("enc_clk:2.r", "mega:2"), pairs)
+        self.assertTrue(
+            any(a.startswith("r_src_") and b == "mega:5V" for a, b in pairs),
+            "digital_pullup must pull its pin up to 5V",
+        )
+        self.assertNotIn("wokwi-ky-040", set(part_types.values()))
+
     def test_timeline_scenario_generates_controls_and_delays(self):
         task = load_task("clap_switch", level="level2")
         scenario = generate_scenario(task)

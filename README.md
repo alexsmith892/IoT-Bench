@@ -146,10 +146,10 @@ Level 2 live-supported:
 - `hcsr04_find_distance`
 - `parking_sensor`
 - `reverse_parking_sensor`
+- `rotary_encoder` (surrogate: dual digital-source quadrature injection)
+- `16key_keypad` (surrogate: matrix cross-point switches)
 
-Level 2 non-live/manual or unsupported:
-- `rotary_encoder` (manual: UI-driven rotation is not reliably automated)
-- `16key_keypad` (manual: UI-driven keypad entry is not reliably automated)
+Level 2 unsupported:
 - `bme280_read_i2c` (unsupported: no native Wokwi BME280 and no custom chip model)
 - `bme280_read_spi` (unsupported: no native Wokwi BME280 and no custom chip model)
 
@@ -165,11 +165,9 @@ Level 3 live-supported:
 - `sensor_water_level_display`
 - `buzzer_laser_tripwire`
 - `joystick_buzzer_pitch`
-
-Level 3 non-live/manual:
-- `safebox` (manual: UI-driven keypad entry is not reliably automated)
-- `safebox_display` (manual: UI-driven keypad entry is not reliably automated)
-- `step_counter_print` (manual: MPU6050 motion spike stimulus is not reliably automated)
+- `safebox` (surrogate: matrix keypad; wrong-then-correct relay windows)
+- `safebox_display` (surrogate: matrix keypad; LCD + relay windows)
+- `step_counter_print` (native MPU6050 acceleration controls)
 
 ## Shared Families
 
@@ -240,3 +238,17 @@ python -m unittest discover tests
   a scenario-controllable physical module.
 - Logic analyzer channel names in YAML use Wokwi pins `D0`, `D1`, etc. The
   semantic meaning is documented by the connected component and validator.
+- Keypad tasks (`16key_keypad`, `safebox`, `safebox_display`) use `matrix_key`
+  surrogates: a pushbutton bridges one row net and one column net, so each key is
+  electrically identical to a real non-diode matrix key under a column-drive /
+  row-read scan (including ghosting). The native `wokwi-membrane-keypad` exposes
+  no automation control (wokwi-cli issue #10), so it cannot be driven live.
+- `rotary_encoder` uses two `digital_pullup` surrogates (active-low, idle HIGH)
+  on the CLK/DT pins. A `control_sequence` steps them through a clean Gray-code
+  sequence (one bit per step); the native `wokwi-ky-040` has no automation
+  control. As with all fixed-stimulus serial oracles, the reference scenario is
+  deterministic but the printed sequence is known, so pair it with code review
+  when a hard-coded submission is a concern.
+- `step_counter_print` is fully native: the Wokwi MPU6050 exposes `accelX/Y/Z`
+  automation controls, so a `control_sequence` injects a baseline-then-spike
+  acceleration profile and the firmware threshold-counts the spikes.

@@ -1,0 +1,45 @@
+name: 16key_keypad automation
+version: 1
+author: IoT-Bench
+steps:
+- delay: 200ms
+- set-control:
+    part-id: k1
+    control: pressed
+    value: 1
+- delay: 120ms
+- set-control:
+    part-id: k1
+    control: pressed
+    value: 0
+- delay: 80ms
+- set-control:
+    part-id: k2
+    control: pressed
+    value: 1
+- delay: 120ms
+- set-control:
+    part-id: k2
+    control: pressed
+    value: 0
+- delay: 80ms
+- set-control:
+    part-id: k3
+    control: pressed
+    value: 1
+- delay: 120ms
+- set-control:
+    part-id: k3
+    control: pressed
+    value: 0
+- delay: 80ms
+- set-control:
+    part-id: k4
+    control: pressed
+    value: 1
+- delay: 120ms
+- set-control:
+    part-id: k4
+    control: pressed
+    value: 0
+- delay: 80ms

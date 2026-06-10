@@ -9,3 +9,4 @@ paths:
   wokwi: wokwi.toml
   build: artifacts/build
   vcd: artifacts/logic/wokwi.vcd
+  scenario: scenario.yaml

@@ -2,9 +2,10 @@ task_id: safebox_display
 name: Unlock relay and display password/status on LCD
 platform: arduino_mega
 level: level3
-support:
-  status: manual
-  reason: Wokwi keypad password entry is UI-driven and not reliably automated by CLI scenarios
+# Live-supported via matrix_key surrogates. Keypad sits on pins 22..28 / 30..36 to
+# stay clear of the LCD data pins (4..7). The scenario enters a wrong code then the
+# correct 1234; the LCD oracle checks the final "Input: 1234" / "Status: Success"
+# frame and the two relay windows enforce the lock/unlock behaviour.
 fixture:
   family: composite
   analyzer:
@@ -17,18 +18,46 @@ fixture:
       - {signal: D5, pin: "6"}
       - {signal: D6, pin: "7"}
   components:
-    - type: keypad4x4
-      id: keypad1
-      pins: {r1: "22", r2: "24", r3: "26", r4: "28", c1: "30", c2: "32", c3: "34", c4: "36"}
+    # Keys 1,2,3,4,5 on rows 22,24 / columns 30,32,34 (standard 4x4 layout).
+    - {type: matrix_key, id: k1, pins: {row: "22", col: "30"}}
+    - {type: matrix_key, id: k2, pins: {row: "22", col: "32"}}
+    - {type: matrix_key, id: k3, pins: {row: "22", col: "34"}}
+    - {type: matrix_key, id: k4, pins: {row: "24", col: "30"}}
+    - {type: matrix_key, id: k5, pins: {row: "24", col: "32"}}
     - type: relay
       id: relay1
       pin: "13"
     - type: lcd1602
       id: lcd1
       pins: {rs: "12", e: "11", d4: "4", d5: "5", d6: "6", d7: "7"}
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+    # Wrong code 1-2-3-5 (relay LOW, LCD shows Denied).
+    - {part_id: k1, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k1, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k2, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k2, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k3, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k3, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k5, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k5, control: pressed, value: 0, duration_ms: 80}
+    # Correct code 1-2-3-4 (relay unlocks, LCD shows Success).
+    - {part_id: k1, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k1, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k2, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k2, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k3, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k3, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k4, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k4, control: pressed, value: 0, duration_ms: 80}
 validator:
   family: composite
   checks:
+    - family: static_checks
+      params:
+        required_patterns: ["digitalRead", "digitalWrite"]
     - family: lcd_text
       params:
         signals: {rs: D1, e: D2, d4: D3, d5: D4, d6: D5, d7: D6}
@@ -36,6 +65,8 @@ validator:
     - family: window_ratios
       params:
         channel: D0
-        windows: [{start_s: 0.20, end_s: 0.80, ratio_range: [0.80, 1.0]}]
-simulation: {timeout_ms: 1800}
+        windows:
+          - {start_s: 0.30, end_s: 1.45, ratio_range: [0.0, 0.15]}
+          - {start_s: 1.95, end_s: 2.45, ratio_range: [0.85, 1.0]}
+simulation: {timeout_ms: 2600}
 case: {id: safebox-display-wokwi-mega, sketch_name: safebox_display}

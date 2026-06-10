@@ -11,58 +11,371 @@
       "attrs": {}
     },
     {
-      "type": "wokwi-membrane-keypad",
-      "id": "keypad1",
+      "type": "wokwi-pushbutton",
+      "id": "k1",
       "top": -80,
       "left": 225,
-      "attrs": {}
+      "attrs": {
+        "color": "green",
+        "label": "k1",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k2",
+      "top": -80,
+      "left": 330,
+      "attrs": {
+        "color": "green",
+        "label": "k2",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k3",
+      "top": -80,
+      "left": 435,
+      "attrs": {
+        "color": "green",
+        "label": "k3",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "kA",
+      "top": 15,
+      "left": 120,
+      "attrs": {
+        "color": "green",
+        "label": "kA",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k4",
+      "top": 15,
+      "left": 225,
+      "attrs": {
+        "color": "green",
+        "label": "k4",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k5",
+      "top": 15,
+      "left": 330,
+      "attrs": {
+        "color": "green",
+        "label": "k5",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k6",
+      "top": 15,
+      "left": 435,
+      "attrs": {
+        "color": "green",
+        "label": "k6",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "kB",
+      "top": 110,
+      "left": 120,
+      "attrs": {
+        "color": "green",
+        "label": "kB",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k7",
+      "top": 110,
+      "left": 225,
+      "attrs": {
+        "color": "green",
+        "label": "k7",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k8",
+      "top": 110,
+      "left": 330,
+      "attrs": {
+        "color": "green",
+        "label": "k8",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k9",
+      "top": 110,
+      "left": 435,
+      "attrs": {
+        "color": "green",
+        "label": "k9",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "kC",
+      "top": 205,
+      "left": 120,
+      "attrs": {
+        "color": "green",
+        "label": "kC",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "kStar",
+      "top": 205,
+      "left": 225,
+      "attrs": {
+        "color": "green",
+        "label": "kStar",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k0",
+      "top": 205,
+      "left": 330,
+      "attrs": {
+        "color": "green",
+        "label": "k0",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "kHash",
+      "top": 205,
+      "left": 435,
+      "attrs": {
+        "color": "green",
+        "label": "kHash",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "kD",
+      "top": 300,
+      "left": 120,
+      "attrs": {
+        "color": "green",
+        "label": "kD",
+        "bounce": "0"
+      }
     }
   ],
   "connections": [
     [
-      "keypad1:R1",
+      "k1:1.r",
       "mega:9",
       "green",
       []
     ],
     [
-      "keypad1:R2",
-      "mega:8",
-      "green",
-      []
-    ],
-    [
-      "keypad1:R3",
-      "mega:7",
-      "green",
-      []
-    ],
-    [
-      "keypad1:R4",
-      "mega:6",
-      "green",
-      []
-    ],
-    [
-      "keypad1:C1",
+      "k1:2.r",
       "mega:5",
       "green",
       []
     ],
     [
-      "keypad1:C2",
+      "k2:1.r",
+      "mega:9",
+      "green",
+      []
+    ],
+    [
+      "k2:2.r",
       "mega:4",
       "green",
       []
     ],
     [
-      "keypad1:C3",
+      "k3:1.r",
+      "mega:9",
+      "green",
+      []
+    ],
+    [
+      "k3:2.r",
       "mega:3",
       "green",
       []
     ],
     [
-      "keypad1:C4",
+      "kA:1.r",
+      "mega:9",
+      "green",
+      []
+    ],
+    [
+      "kA:2.r",
+      "mega:2",
+      "green",
+      []
+    ],
+    [
+      "k4:1.r",
+      "mega:8",
+      "green",
+      []
+    ],
+    [
+      "k4:2.r",
+      "mega:5",
+      "green",
+      []
+    ],
+    [
+      "k5:1.r",
+      "mega:8",
+      "green",
+      []
+    ],
+    [
+      "k5:2.r",
+      "mega:4",
+      "green",
+      []
+    ],
+    [
+      "k6:1.r",
+      "mega:8",
+      "green",
+      []
+    ],
+    [
+      "k6:2.r",
+      "mega:3",
+      "green",
+      []
+    ],
+    [
+      "kB:1.r",
+      "mega:8",
+      "green",
+      []
+    ],
+    [
+      "kB:2.r",
+      "mega:2",
+      "green",
+      []
+    ],
+    [
+      "k7:1.r",
+      "mega:7",
+      "green",
+      []
+    ],
+    [
+      "k7:2.r",
+      "mega:5",
+      "green",
+      []
+    ],
+    [
+      "k8:1.r",
+      "mega:7",
+      "green",
+      []
+    ],
+    [
+      "k8:2.r",
+      "mega:4",
+      "green",
+      []
+    ],
+    [
+      "k9:1.r",
+      "mega:7",
+      "green",
+      []
+    ],
+    [
+      "k9:2.r",
+      "mega:3",
+      "green",
+      []
+    ],
+    [
+      "kC:1.r",
+      "mega:7",
+      "green",
+      []
+    ],
+    [
+      "kC:2.r",
+      "mega:2",
+      "green",
+      []
+    ],
+    [
+      "kStar:1.r",
+      "mega:6",
+      "green",
+      []
+    ],
+    [
+      "kStar:2.r",
+      "mega:5",
+      "green",
+      []
+    ],
+    [
+      "k0:1.r",
+      "mega:6",
+      "green",
+      []
+    ],
+    [
+      "k0:2.r",
+      "mega:4",
+      "green",
+      []
+    ],
+    [
+      "kHash:1.r",
+      "mega:6",
+      "green",
+      []
+    ],
+    [
+      "kHash:2.r",
+      "mega:3",
+      "green",
+      []
+    ],
+    [
+      "kD:1.r",
+      "mega:6",
+      "green",
+      []
+    ],
+    [
+      "kD:2.r",
       "mega:2",
       "green",
       []

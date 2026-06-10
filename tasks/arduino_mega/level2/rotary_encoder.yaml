@@ -2,23 +2,57 @@ task_id: rotary_encoder
 name: Track rotary encoder position and direction on serial
 platform: arduino_mega
 level: level2
-support:
-  status: manual
-  reason: Wokwi rotary encoder rotations are UI-driven and not reliably automated by CLI scenarios
+# Live-supported via a dual digital-source surrogate. The native KY-040 has no
+# automation control, so CLK (pin 2) and DT (pin 3) are driven by two active-low
+# pull-up sources (idle HIGH, pulse LOW) that reproduce the KY-040 pin behaviour.
+# The scenario steps them through a clean Gray-code sequence (one bit per step):
+# one full quadrature cycle = one detent, +1 per CW detent and -1 per CCW detent.
+# The oracle checks the exact position/direction sequence.
 fixture:
   family: composite
   components:
-    - type: rotary_encoder
-      id: enc1
-      pins: {clk: "2", dt: "3", sw: "4"}
+    - {type: digital_pullup, id: enc_clk, pins: {signal: "2"}}
+    - {type: digital_pullup, id: enc_dt, pins: {signal: "3"}}
+    - {type: digital_pullup, id: enc_sw, pins: {signal: "4"}}
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+    # 3 CW detents: idle(1,1) -> (0,1) -> (0,0) -> (1,0) -> (1,1), one bit per step.
+    - {part_id: enc_clk, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 0, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 0, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 0, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 0, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 0, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 0, duration_ms: 40}
+    # 2 CCW detents: idle(1,1) -> (1,0) -> (0,0) -> (0,1) -> (1,1) (DT leads).
+    - {part_id: enc_dt, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 0, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 0, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 0, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 0, duration_ms: 40}
 validator:
   family: composite
   checks:
     - family: static_checks
       params:
-        required_patterns: ["digitalRead\\s*\\(\\s*2\\s*\\)", "digitalRead\\s*\\(\\s*3\\s*\\)"]
-    - family: serial_regex_sequence
+        required_patterns: ["digitalRead", "Serial\\.print"]
+    - family: serial_observation_sequence
       params:
-        patterns: ["Position.*(CW|Clockwise)", "Position.*(CCW|Counter)"]
-simulation: {timeout_ms: 1000}
+        observations:
+          - {label: cw1, patterns: ["Direction: CW"], numeric_ranges: [[1, 1]]}
+          - {label: cw2, patterns: ["Direction: CW"], numeric_ranges: [[2, 2]]}
+          - {label: cw3, patterns: ["Direction: CW"], numeric_ranges: [[3, 3]]}
+          - {label: ccw1, patterns: ["Direction: CCW"], numeric_ranges: [[2, 2]]}
+          - {label: ccw2, patterns: ["Direction: CCW"], numeric_ranges: [[1, 1]]}
+simulation: {timeout_ms: 1200}
 case: {id: rotary-encoder-wokwi-mega, sketch_name: rotary_encoder}

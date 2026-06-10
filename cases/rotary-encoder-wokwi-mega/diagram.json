@@ -11,42 +11,140 @@
       "attrs": {}
     },
     {
-      "type": "wokwi-ky-040",
-      "id": "enc1",
+      "type": "wokwi-pushbutton",
+      "id": "enc_clk",
       "top": -80,
       "left": 225,
-      "attrs": {}
+      "attrs": {
+        "color": "green",
+        "label": "enc_clk",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_src_1",
+      "top": 5,
+      "left": 273,
+      "attrs": {
+        "value": "10000"
+      },
+      "rotate": 90
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "enc_dt",
+      "top": -80,
+      "left": 330,
+      "attrs": {
+        "color": "green",
+        "label": "enc_dt",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_src_2",
+      "top": 5,
+      "left": 378,
+      "attrs": {
+        "value": "10000"
+      },
+      "rotate": 90
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "enc_sw",
+      "top": -80,
+      "left": 435,
+      "attrs": {
+        "color": "green",
+        "label": "enc_sw",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_src_3",
+      "top": 5,
+      "left": 483,
+      "attrs": {
+        "value": "10000"
+      },
+      "rotate": 90
     }
   ],
   "connections": [
     [
-      "enc1:CLK",
+      "enc_clk:1.r",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "enc_clk:2.r",
       "mega:2",
       "green",
       []
     ],
     [
-      "enc1:DT",
-      "mega:3",
+      "r_src_1:1",
+      "mega:2",
       "green",
       []
     ],
     [
-      "enc1:SW",
-      "mega:4",
-      "green",
-      []
-    ],
-    [
-      "enc1:VCC",
+      "r_src_1:2",
       "mega:5V",
       "red",
       []
     ],
     [
-      "enc1:GND",
+      "enc_dt:1.r",
       "mega:GND.1",
       "black",
+      []
+    ],
+    [
+      "enc_dt:2.r",
+      "mega:3",
+      "green",
+      []
+    ],
+    [
+      "r_src_2:1",
+      "mega:3",
+      "green",
+      []
+    ],
+    [
+      "r_src_2:2",
+      "mega:5V",
+      "red",
+      []
+    ],
+    [
+      "enc_sw:1.r",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "enc_sw:2.r",
+      "mega:4",
+      "green",
+      []
+    ],
+    [
+      "r_src_3:1",
+      "mega:4",
+      "green",
+      []
+    ],
+    [
+      "r_src_3:2",
+      "mega:5V",
+      "red",
       []
     ]
   ],

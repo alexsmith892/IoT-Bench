@@ -18,23 +18,71 @@
       "attrs": {}
     },
     {
-      "type": "wokwi-membrane-keypad",
-      "id": "keypad1",
+      "type": "wokwi-pushbutton",
+      "id": "k1",
       "top": -80,
       "left": 225,
-      "attrs": {}
+      "attrs": {
+        "color": "green",
+        "label": "k1",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k2",
+      "top": -80,
+      "left": 330,
+      "attrs": {
+        "color": "green",
+        "label": "k2",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k3",
+      "top": -80,
+      "left": 435,
+      "attrs": {
+        "color": "green",
+        "label": "k3",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k4",
+      "top": 15,
+      "left": 120,
+      "attrs": {
+        "color": "green",
+        "label": "k4",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k5",
+      "top": 15,
+      "left": 225,
+      "attrs": {
+        "color": "green",
+        "label": "k5",
+        "bounce": "0"
+      }
     },
     {
       "type": "wokwi-relay-module",
       "id": "relay1",
-      "top": -80,
+      "top": 15,
       "left": 330,
       "attrs": {}
     },
     {
       "type": "wokwi-lcd1602",
       "id": "lcd1",
-      "top": -80,
+      "top": 15,
       "left": 435,
       "attrs": {}
     }
@@ -47,50 +95,62 @@
       []
     ],
     [
-      "keypad1:R1",
+      "k1:1.r",
       "mega:22",
       "green",
       []
     ],
     [
-      "keypad1:R2",
-      "mega:24",
-      "green",
-      []
-    ],
-    [
-      "keypad1:R3",
-      "mega:26",
-      "green",
-      []
-    ],
-    [
-      "keypad1:R4",
-      "mega:28",
-      "green",
-      []
-    ],
-    [
-      "keypad1:C1",
+      "k1:2.r",
       "mega:30",
       "green",
       []
     ],
     [
-      "keypad1:C2",
+      "k2:1.r",
+      "mega:22",
+      "green",
+      []
+    ],
+    [
+      "k2:2.r",
       "mega:32",
       "green",
       []
     ],
     [
-      "keypad1:C3",
+      "k3:1.r",
+      "mega:22",
+      "green",
+      []
+    ],
+    [
+      "k3:2.r",
       "mega:34",
       "green",
       []
     ],
     [
-      "keypad1:C4",
-      "mega:36",
+      "k4:1.r",
+      "mega:24",
+      "green",
+      []
+    ],
+    [
+      "k4:2.r",
+      "mega:30",
+      "green",
+      []
+    ],
+    [
+      "k5:1.r",
+      "mega:24",
+      "green",
+      []
+    ],
+    [
+      "k5:2.r",
+      "mega:32",
       "green",
       []
     ],
