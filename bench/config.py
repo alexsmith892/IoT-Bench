@@ -15,6 +15,52 @@ DEFAULT_BOARD_TYPE = "wokwi-arduino-mega"
 DEFAULT_FQBN = "arduino:avr:mega"
 
 
+# Known families. These MUST stay in sync with the dispatch tables that
+# implement them (enforced by tests/test_registry_consistency.py):
+#   FIXTURE_FAMILIES   <-> bench.diagrams.FIXTURE_GENERATORS
+#   VALIDATOR_FAMILIES <-> bench.validators.VALIDATORS
+#   SCENARIO_FAMILIES  <-> bench.scenarios.SCENARIO_GENERATORS
+FIXTURE_FAMILIES = {
+    "composite",
+    "single_led_output",
+    "dual_led_output",
+    "button_to_buzzer",
+    "button_serial",
+    "pir_serial",
+    "analog_temperature_serial",
+}
+VALIDATOR_FAMILIES = {
+    "composite",
+    "static_checks",
+    "serial_regex_sequence",
+    "serial_numeric_ranges",
+    "lcd_text",
+    "window_ratios",
+    "frequency_windows",
+    "waveform_frequency",
+    "morse_sos",
+    "no_delay_static_plus_waveform",
+    "multi_channel_frequency",
+    "pwm_breathing",
+    "stimulus_to_output",
+    "serial_contains_on_stimulus",
+    "serial_count_sequence",
+    "debounce_serial",
+    "analog_temperature_serial",
+    "serial_observation_sequence",
+    "bus_activity",
+    "lcd_text_sequence",
+}
+SCENARIO_FAMILIES = {
+    "timeline",
+    "button_press_sequence",
+    "bounced_button_sequence",
+    "pir_state_sequence",
+    "analog_position_sequence",
+    "control_sequence",
+}
+
+
 class ConfigError(Exception):
     """Raised when task YAML is missing or structurally invalid."""
 
@@ -220,54 +266,15 @@ def validate_task(task: TaskConfig) -> None:
 
 
 def validate_families(task: TaskConfig, channels: list[dict[str, Any]]) -> None:
-    fixture_families = {
-        "composite",
-        "single_led_output",
-        "dual_led_output",
-        "button_to_buzzer",
-        "button_serial",
-        "pir_serial",
-        "analog_temperature_serial",
-    }
-    validator_families = {
-        "composite",
-        "static_checks",
-        "serial_regex_sequence",
-        "serial_numeric_ranges",
-        "lcd_text",
-        "window_ratios",
-        "frequency_windows",
-        "waveform_frequency",
-        "morse_sos",
-        "no_delay_static_plus_waveform",
-        "multi_channel_frequency",
-        "pwm_breathing",
-        "stimulus_to_output",
-        "serial_contains_on_stimulus",
-        "serial_count_sequence",
-        "debounce_serial",
-        "analog_temperature_serial",
-        "serial_observation_sequence",
-        "bus_activity",
-        "lcd_text_sequence",
-    }
-    scenario_families = {
-        "timeline",
-        "button_press_sequence",
-        "bounced_button_sequence",
-        "pir_state_sequence",
-        "analog_position_sequence",
-        "control_sequence",
-    }
-    if task.fixture_family not in fixture_families:
+    if task.fixture_family not in FIXTURE_FAMILIES:
         raise ConfigError(f"{task.path}: unknown fixture family {task.fixture_family}")
-    if task.validator_family not in validator_families:
+    if task.validator_family not in VALIDATOR_FAMILIES:
         raise ConfigError(f"{task.path}: unknown validator family {task.validator_family}")
     if task.scenario:
         if not isinstance(task.scenario, dict):
             raise ConfigError(f"{task.path}: scenario must be a mapping")
         family = task.scenario.get("family")
-        if family not in scenario_families:
+        if family not in SCENARIO_FAMILIES:
             raise ConfigError(f"{task.path}: unknown scenario family {family}")
 
     params = task.validator_params()
@@ -541,8 +548,8 @@ def validate_serial_observation_config(task: TaskConfig, params: dict[str, Any])
 
 def validate_bus_activity_config(task: TaskConfig, params: dict[str, Any]) -> None:
     bus = params.get("bus")
-    if bus not in {"i2c", "spi", "one_wire", "hcsr04"}:
-        raise ConfigError(f"{task.path}: bus_activity bus must be i2c, spi, one_wire, or hcsr04")
+    if bus not in {"i2c", "spi", "one_wire", "hcsr04", "buzzer"}:
+        raise ConfigError(f"{task.path}: bus_activity bus must be i2c, spi, one_wire, hcsr04, or buzzer")
     pins = params.get("pins")
     if not isinstance(pins, list) or not pins:
         raise ConfigError(f"{task.path}: bus_activity requires pins")

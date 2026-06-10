@@ -23,16 +23,8 @@ def generate_scenario(task: TaskConfig) -> dict[str, Any] | None:
     if not scenario:
         return None
     family = scenario.get("family")
-    generators = {
-        "timeline": timeline,
-        "button_press_sequence": button_press_sequence,
-        "bounced_button_sequence": bounced_button_sequence,
-        "pir_state_sequence": pir_state_sequence,
-        "analog_position_sequence": analog_position_sequence,
-        "control_sequence": control_sequence,
-    }
     try:
-        return generators[family](task)
+        return SCENARIO_GENERATORS[family](task)
     except KeyError as exc:
         raise ScenarioError(f"unknown scenario family: {family}") from exc
 
@@ -135,6 +127,18 @@ def timeline(task: TaskConfig) -> dict[str, Any]:
         else:
             raise ScenarioError(f"{task.path}: timeline step requires delay_ms or set_control")
     return scenario
+
+
+# Scenario-family -> scenario generator. Keys MUST stay in sync with
+# bench.config.SCENARIO_FAMILIES (enforced by tests/test_registry_consistency.py).
+SCENARIO_GENERATORS = {
+    "timeline": timeline,
+    "button_press_sequence": button_press_sequence,
+    "bounced_button_sequence": bounced_button_sequence,
+    "pir_state_sequence": pir_state_sequence,
+    "analog_position_sequence": analog_position_sequence,
+    "control_sequence": control_sequence,
+}
 
 
 def write_scenario(path: Path, scenario: dict[str, Any] | None) -> None:

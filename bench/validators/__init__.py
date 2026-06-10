@@ -32,31 +32,9 @@ from bench.vcd import (
 
 def validate_task(task: TaskConfig, paths: CasePaths) -> ValidationResult:
     family = task.validator_family
-    validators = {
-        "composite": validate_composite,
-        "static_checks": validate_static_patterns,
-        "serial_regex_sequence": validate_serial_regex_sequence,
-        "serial_numeric_ranges": validate_serial_numeric_ranges,
-        "lcd_text": validate_lcd_text,
-        "window_ratios": validate_window_ratios,
-        "frequency_windows": validate_frequency_windows,
-        "waveform_frequency": validate_waveform_frequency,
-        "morse_sos": validate_morse_sos,
-        "no_delay_static_plus_waveform": validate_no_delay_static_plus_waveform,
-        "multi_channel_frequency": validate_multi_channel_frequency,
-        "pwm_breathing": validate_pwm_breathing,
-        "stimulus_to_output": validate_stimulus_to_output,
-        "serial_contains_on_stimulus": validate_serial_contains_on_stimulus,
-        "serial_count_sequence": validate_serial_count_sequence,
-        "debounce_serial": validate_debounce_serial,
-        "analog_temperature_serial": validate_analog_temperature_serial,
-        "serial_observation_sequence": validate_serial_observation_sequence,
-        "bus_activity": validate_bus_activity,
-        "lcd_text_sequence": validate_lcd_text_sequence,
-    }
-    if family not in validators:
+    if family not in VALIDATORS:
         return ValidationResult(FAIL, f"unknown validator family: {family}", base_metrics(task, paths))
-    result = validators[family](task, paths)
+    result = VALIDATORS[family](task, paths)
     merged = base_metrics(task, paths)
     merged.update(result.metrics)
     return ValidationResult(
@@ -89,27 +67,9 @@ def validate_composite(task: TaskConfig, paths: CasePaths) -> ValidationResult:
 def validate_check(task: TaskConfig, paths: CasePaths, check: dict[str, Any]) -> ValidationResult:
     proxy = TaskConfig(path=task.path, data={**task.data, "validator": check})
     family = check.get("family")
-    validators = {
-        "static_checks": validate_static_patterns,
-        "serial_regex_sequence": validate_serial_regex_sequence,
-        "serial_numeric_ranges": validate_serial_numeric_ranges,
-        "lcd_text": validate_lcd_text,
-        "window_ratios": validate_window_ratios,
-        "frequency_windows": validate_frequency_windows,
-        "waveform_frequency": validate_waveform_frequency,
-        "multi_channel_frequency": validate_multi_channel_frequency,
-        "stimulus_to_output": validate_stimulus_to_output,
-        "serial_contains_on_stimulus": validate_serial_contains_on_stimulus,
-        "serial_count_sequence": validate_serial_count_sequence,
-        "debounce_serial": validate_debounce_serial,
-        "analog_temperature_serial": validate_analog_temperature_serial,
-        "serial_observation_sequence": validate_serial_observation_sequence,
-        "bus_activity": validate_bus_activity,
-        "lcd_text_sequence": validate_lcd_text_sequence,
-    }
-    if family not in validators:
+    if family not in COMPOSITE_CHECK_VALIDATORS:
         return ValidationResult(FAIL, f"unknown composite check family: {family}")
-    return validators[family](proxy, paths)
+    return COMPOSITE_CHECK_VALIDATORS[family](proxy, paths)
 
 
 def validate_static_patterns(task: TaskConfig, paths: CasePaths) -> ValidationResult:
@@ -677,6 +637,15 @@ def validate_stimulus_to_output(task: TaskConfig, paths: CasePaths) -> Validatio
     params = task.validator_params()
     signal = params.get("channel", "D0")
     events = parse_vcd_signal(paths.vcd, signal)
+    # A signal that is driven to a level and never transitions again has no closing
+    # event, so its final level is not represented as a segment. Hold the last level
+    # until the end of the latest analysis window so an output that stays asserted
+    # until the end of the trace is measured correctly (mirrors validate_window_ratios).
+    windows = list(params.get("active_windows_s", [])) + list(params.get("inactive_windows_s", []))
+    if events and windows:
+        max_end = max(float(window[1]) for window in windows)
+        if events[-1].timestamp_s < max_end:
+            events = [*events, VcdEvent(max_end, events[-1].value)]
     segments = build_segments(events)
     active_min = float(params.get("active_ratio_min", 0.8))
     inactive_max = float(params.get("inactive_ratio_max", 0.2))
@@ -935,6 +904,58 @@ def next_ordered_temperature_match(
 
 def position_to_tmp36_celsius(position: float) -> float:
     return ((position * 5.0) - 0.5) * 100.0
+
+
+# Top-level validator dispatch. Keys MUST stay in sync with
+# bench.config.VALIDATOR_FAMILIES (enforced by tests/test_registry_consistency.py).
+VALIDATORS = {
+    "composite": validate_composite,
+    "static_checks": validate_static_patterns,
+    "serial_regex_sequence": validate_serial_regex_sequence,
+    "serial_numeric_ranges": validate_serial_numeric_ranges,
+    "lcd_text": validate_lcd_text,
+    "window_ratios": validate_window_ratios,
+    "frequency_windows": validate_frequency_windows,
+    "waveform_frequency": validate_waveform_frequency,
+    "morse_sos": validate_morse_sos,
+    "no_delay_static_plus_waveform": validate_no_delay_static_plus_waveform,
+    "multi_channel_frequency": validate_multi_channel_frequency,
+    "pwm_breathing": validate_pwm_breathing,
+    "stimulus_to_output": validate_stimulus_to_output,
+    "serial_contains_on_stimulus": validate_serial_contains_on_stimulus,
+    "serial_count_sequence": validate_serial_count_sequence,
+    "debounce_serial": validate_debounce_serial,
+    "analog_temperature_serial": validate_analog_temperature_serial,
+    "serial_observation_sequence": validate_serial_observation_sequence,
+    "bus_activity": validate_bus_activity,
+    "lcd_text_sequence": validate_lcd_text_sequence,
+}
+
+# Families that may appear as a sub-check inside a `composite` validator. This is
+# intentionally a subset of VALIDATORS: `composite` cannot nest itself, and the
+# whole-trace waveform families (morse_sos, no_delay_static_plus_waveform,
+# pwm_breathing) are not composable sub-checks.
+COMPOSITE_CHECK_VALIDATORS = {
+    family: VALIDATORS[family]
+    for family in (
+        "static_checks",
+        "serial_regex_sequence",
+        "serial_numeric_ranges",
+        "lcd_text",
+        "window_ratios",
+        "frequency_windows",
+        "waveform_frequency",
+        "multi_channel_frequency",
+        "stimulus_to_output",
+        "serial_contains_on_stimulus",
+        "serial_count_sequence",
+        "debounce_serial",
+        "analog_temperature_serial",
+        "serial_observation_sequence",
+        "bus_activity",
+        "lcd_text_sequence",
+    )
+}
 
 
 __all__ = [

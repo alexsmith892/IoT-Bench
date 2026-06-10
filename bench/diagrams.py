@@ -66,17 +66,8 @@ def connection(a: str, b: str, color: str) -> list[Any]:
 
 
 def generate_diagram(task: TaskConfig) -> dict[str, Any]:
-    generators = {
-        "composite": composite,
-        "single_led_output": single_led_output,
-        "dual_led_output": dual_led_output,
-        "button_to_buzzer": button_to_buzzer,
-        "button_serial": button_serial,
-        "pir_serial": pir_serial,
-        "analog_temperature_serial": analog_temperature_serial,
-    }
     try:
-        return generators[task.fixture_family](task)
+        return FIXTURE_GENERATORS[task.fixture_family](task)
     except KeyError as exc:
         raise DiagramError(f"unknown fixture family: {task.fixture_family}") from exc
 
@@ -455,6 +446,19 @@ def add_analyzer_connections(diagram: dict[str, Any], task: TaskConfig) -> None:
         diagram["connections"].append(
             connection(f"logic1:{channel['signal']}", f"mega:{channel['pin']}", "green")
         )
+
+
+# Fixture-family -> diagram generator. Keys MUST stay in sync with
+# bench.config.FIXTURE_FAMILIES (enforced by tests/test_registry_consistency.py).
+FIXTURE_GENERATORS = {
+    "composite": composite,
+    "single_led_output": single_led_output,
+    "dual_led_output": dual_led_output,
+    "button_to_buzzer": button_to_buzzer,
+    "button_serial": button_serial,
+    "pir_serial": pir_serial,
+    "analog_temperature_serial": analog_temperature_serial,
+}
 
 
 def write_diagram(path: Path, diagram: dict[str, Any]) -> None:
