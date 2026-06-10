@@ -1034,10 +1034,6 @@ def example_sketch(task: TaskConfig) -> str:
 
 
 def advanced_example_sketch(task: TaskConfig) -> str | None:
-    serial_messages = {
-        "rotary_encoder": ["Position: 1 Direction: CW", "Position: 0 Direction: CCW"],
-        "16key_keypad": ["Key: 1", "Key: 2", "Key: 3", "Key: 4"],
-    }
     sensor_serial_examples = {
         "dht11_read": dht22_serial_example,
         "ds1307_rtc": ds1307_serial_example,
@@ -1049,12 +1045,9 @@ def advanced_example_sketch(task: TaskConfig) -> str | None:
     }
     if task.task_id in sensor_serial_examples:
         return sensor_serial_examples[task.task_id]()
-    if task.task_id in serial_messages:
-        return serial_example(serial_messages[task.task_id], task.task_id)
 
     lcd_lines = {
         "lcd1602_display_hello_world": ("  Hello World", ""),
-        "safebox_display": ("Input: 1234", "Status: Success"),
     }
     lcd_sensor_examples = {
         "dht11_read_button_display": dht22_lcd_example,
@@ -1082,38 +1075,16 @@ def advanced_example_sketch(task: TaskConfig) -> str | None:
         "hcsr501_motion_alarm": digital_follow_example(input_pin="18", output_pin="3"),
         "parking_sensor": parking_sensor_example(led_pin="3", buzzer_pin="2"),
         "reverse_parking_sensor": reverse_parking_example(buzzer_pin="3"),
+        "rotary_encoder": rotary_encoder_example(),
+        "16key_keypad": keypad_scan_example(),
         "safebox": safebox_example(display=False),
+        "safebox_display": safebox_example(display=True),
         "lcd1602_auto_brightness_control": analog_pwm_example(analog_pin="A2", output_pin="10"),
         "buzzer_toggle_led_freq": button_led_frequency_example(),
         "buzzer_laser_tripwire": laser_tripwire_example(),
         "joystick_buzzer_pitch": joystick_pitch_example(),
     }
     return outputs.get(task.task_id)
-
-
-def serial_example(messages: list[str], task_id: str) -> str:
-    setup_lines = {
-        "rotary_encoder": "  pinMode(2, INPUT); pinMode(3, INPUT); pinMode(4, INPUT_PULLUP); int clk = digitalRead(2); int dt = digitalRead(3);",
-        "16key_keypad": "  for (int pin = 6; pin <= 9; ++pin) pinMode(pin, INPUT_PULLUP); for (int pin = 2; pin <= 5; ++pin) pinMode(pin, OUTPUT); digitalWrite(2, LOW); int keyProbe = digitalRead(6);",
-        "dht11_read": "  pinMode(14, INPUT_PULLUP);",
-        "ds1307_rtc": "  Wire.begin();",
-        "mpu6050_read_i2c": "  Wire.begin(); Wire.requestFrom(0x68, 1); if (Wire.available()) { Wire.read(); }",
-        "hcsr04_find_distance": "  pinMode(9, OUTPUT); pinMode(10, INPUT); digitalWrite(9, HIGH); delayMicroseconds(10); digitalWrite(9, LOW); pulseIn(10, HIGH);",
-    }.get(task_id, "")
-    includes = "#include <Wire.h>\n#include <SPI.h>\n"
-    prints = "\n".join(f'  Serial.println("{message}");' for message in messages)
-    return f"""\
-{includes}
-void setup() {{
-  Serial.begin(115200);
-{setup_lines}
-{prints}
-}}
-
-void loop() {{
-  delay(100);
-}}
-"""
 
 
 def dht22_serial_example() -> str:
@@ -1229,6 +1200,110 @@ void loop() {
     above = false;
   }
   delay(20);
+}
+"""
+
+
+def rotary_encoder_example() -> str:
+    return """\
+const int PIN_CLK = 2;
+const int PIN_DT = 3;
+const int PIN_SW = 4;
+// Quadrature transition table indexed by (previous << 2) | current, where each
+// 2-bit state is (CLK << 1) | DT. Valid edges contribute +1 (CW) or -1 (CCW).
+const int8_t QUAD[16] = {0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0};
+int lastState = 0;
+int subStep = 0;
+long position = 0;
+
+int readState() {
+  return (digitalRead(PIN_CLK) << 1) | digitalRead(PIN_DT);
+}
+
+void setup() {
+  Serial.begin(115200);
+  pinMode(PIN_CLK, INPUT_PULLUP);
+  pinMode(PIN_DT, INPUT_PULLUP);
+  pinMode(PIN_SW, INPUT_PULLUP);
+  lastState = readState();
+}
+
+void loop() {
+  int state = readState();
+  if (state != lastState) {
+    subStep += QUAD[(lastState << 2) | state];
+    lastState = state;
+    if (subStep >= 4) {
+      subStep = 0;
+      position++;
+      Serial.print("Position: ");
+      Serial.print(position);
+      Serial.println(" Direction: CW");
+    } else if (subStep <= -4) {
+      subStep = 0;
+      position--;
+      Serial.print("Position: ");
+      Serial.print(position);
+      Serial.println(" Direction: CCW");
+    }
+  }
+}
+"""
+
+
+def keypad_reader_source(row_pins: list[int], col_pins: list[int]) -> str:
+    rows = ", ".join(str(pin) for pin in row_pins)
+    cols = ", ".join(str(pin) for pin in col_pins)
+    return f"""\
+const byte ROWS = 4;
+const byte COLS = 4;
+const char KEYS[ROWS][COLS] = {{
+  {{'1', '2', '3', 'A'}},
+  {{'4', '5', '6', 'B'}},
+  {{'7', '8', '9', 'C'}},
+  {{'*', '0', '#', 'D'}}
+}};
+const byte ROW_PINS[ROWS] = {{{rows}}};
+const byte COL_PINS[COLS] = {{{cols}}};
+
+void keypadBegin() {{
+  for (byte r = 0; r < ROWS; r++) pinMode(ROW_PINS[r], INPUT_PULLUP);
+  for (byte c = 0; c < COLS; c++) pinMode(COL_PINS[c], INPUT);
+}}
+
+char scanKeypad() {{
+  char found = 0;
+  for (byte c = 0; c < COLS; c++) {{
+    pinMode(COL_PINS[c], OUTPUT);
+    digitalWrite(COL_PINS[c], LOW);
+    for (byte r = 0; r < ROWS; r++) {{
+      if (digitalRead(ROW_PINS[r]) == LOW) found = KEYS[r][c];
+    }}
+    pinMode(COL_PINS[c], INPUT);
+  }}
+  return found;
+}}
+
+"""
+
+
+def keypad_scan_example() -> str:
+    return keypad_reader_source([9, 8, 7, 6], [5, 4, 3, 2]) + """\
+char lastKey = 0;
+
+void setup() {
+  Serial.begin(115200);
+  keypadBegin();
+}
+
+void loop() {
+  char key = scanKeypad();
+  if (key && key != lastKey) {
+    Serial.print("Key: ");
+    Serial.println(key);
+  }
+  lastKey = key;
+  delay(5);
 }
 """
 
@@ -1839,12 +1914,97 @@ void loop() {{
 
 
 def safebox_example(*, display: bool) -> str:
-    return """\
+    # The two safebox cases use different keypad pins: the no-display case keeps the
+    # keypad on 9..6 / 5..2, while the display case moves it to 22..28 / 30..36 so it
+    # does not collide with the LCD data pins (4..7).
+    if display:
+        keypad = keypad_reader_source([22, 24, 26, 28], [30, 32, 34, 36])
+        return lcd_driver_source() + keypad + """\
 const int RELAY_PIN = 13;
-const int PASSWORD_CODE = 1234;
 const char PASSWORD[] = "1234";
-void setup(){ pinMode(RELAY_PIN, OUTPUT); digitalWrite(13, HIGH); }
-void loop(){ digitalWrite(13, HIGH); }
+char entry[5] = "";
+byte entryLen = 0;
+char lastKey = 0;
+bool unlocked = false;
+
+void showStatus(const char *status) {
+  lcdClear();
+  lcdSetCursor(0, 0);
+  lcdPrint("Input: ");
+  lcdPrint(entry);
+  lcdSetCursor(0, 1);
+  lcdPrint("Status: ");
+  lcdPrint(status);
+}
+
+void setup() {
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, LOW);
+  keypadBegin();
+  lcdBegin();
+  showStatus("Enter");
+}
+
+void loop() {
+  char key = scanKeypad();
+  if (key && key != lastKey && !unlocked) {
+    if (entryLen < 4) {
+      entry[entryLen++] = key;
+      entry[entryLen] = '\\0';
+    }
+    if (entryLen == 4) {
+      if (strcmp(entry, PASSWORD) == 0) {
+        unlocked = true;
+        digitalWrite(RELAY_PIN, HIGH);
+        showStatus("Success");
+      } else {
+        showStatus("Denied");
+        entryLen = 0;
+        entry[0] = '\\0';
+      }
+    } else {
+      showStatus("Enter");
+    }
+  }
+  lastKey = key;
+  delay(5);
+}
+"""
+    keypad = keypad_reader_source([9, 8, 7, 6], [5, 4, 3, 2])
+    return keypad + """\
+const int RELAY_PIN = 13;
+const char PASSWORD[] = "1234";
+char entry[5] = "";
+byte entryLen = 0;
+char lastKey = 0;
+bool unlocked = false;
+
+void setup() {
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, LOW);
+  keypadBegin();
+}
+
+void loop() {
+  char key = scanKeypad();
+  if (key && key != lastKey && !unlocked) {
+    if (entryLen < 4) {
+      entry[entryLen++] = key;
+      entry[entryLen] = '\\0';
+    }
+    if (entryLen == 4) {
+      if (strcmp(entry, PASSWORD) == 0) {
+        unlocked = true;
+        digitalWrite(RELAY_PIN, HIGH);
+      } else {
+        entryLen = 0;
+        entry[0] = '\\0';
+      }
+    }
+  }
+  lastKey = key;
+  delay(5);
+}
 """
 
 
