@@ -26,10 +26,12 @@ validator:
   family: serial_contains_on_stimulus
   params:
     expected_texts: ["Motion Detected!", "No Motion Detected!"]
+    state_texts:
+      "0": "No Motion Detected!"
+      "1": "Motion Detected!"
     min_count: 1
 simulation:
   timeout_ms: 1400
 case:
   id: sensor-pir-human-motion-wokwi-mega
   sketch_name: sensor_pir_human_motion
-

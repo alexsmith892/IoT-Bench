@@ -28,6 +28,7 @@ def assert_classification(testcase: unittest.TestCase, args: list[str], expected
     testcase.assertIn("result", payload)
     testcase.assertNotIn("legacy_classification", payload)
     testcase.assertIn("failure_stage", payload)
+    testcase.assertIn("failure_source", payload)
     return payload
 
 

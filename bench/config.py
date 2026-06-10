@@ -217,6 +217,8 @@ def validate_families(task: TaskConfig, channels: list[dict[str, Any]]) -> None:
     if task.validator_family not in validator_families:
         raise ConfigError(f"{task.path}: unknown validator family {task.validator_family}")
     if task.scenario:
+        if not isinstance(task.scenario, dict):
+            raise ConfigError(f"{task.path}: scenario must be a mapping")
         family = task.scenario.get("family")
         if family not in scenario_families:
             raise ConfigError(f"{task.path}: unknown scenario family {family}")
@@ -255,6 +257,10 @@ def validate_families(task: TaskConfig, channels: list[dict[str, Any]]) -> None:
         expected = params.get("expected_texts") or [params.get("expected_text")]
         if not expected or any(not item for item in expected):
             raise ConfigError(f"{task.path}: serial_contains_on_stimulus requires expected text")
+        if task.scenario and task.scenario.get("family") == "pir_state_sequence":
+            state_texts = params.get("state_texts")
+            if not isinstance(state_texts, dict) or set(map(str, state_texts)) != {"0", "1"}:
+                raise ConfigError(f"{task.path}: PIR serial validation requires state_texts for 0 and 1")
     if task.validator_family == "serial_count_sequence" and "expected_count" not in params:
         raise ConfigError(f"{task.path}: serial_count_sequence requires expected_count")
     if task.validator_family == "debounce_serial":
@@ -266,6 +272,19 @@ def validate_families(task: TaskConfig, channels: list[dict[str, Any]]) -> None:
             raise ConfigError(f"{task.path}: analog_temperature_serial requires expected_celsius")
         if "tolerance_celsius" not in params:
             raise ConfigError(f"{task.path}: analog_temperature_serial requires tolerance_celsius")
+        if task.scenario and task.scenario.get("family") == "analog_position_sequence":
+            positions = task.scenario.get("positions") or []
+            if len(expected) != len(positions):
+                raise ConfigError(f"{task.path}: expected_celsius must match analog position count")
+            tolerance = float(params["tolerance_celsius"])
+            for wanted, position in zip(expected, positions):
+                if not isinstance(position, dict) or not isinstance(position.get("value"), (int, float)):
+                    continue
+                derived = ((float(position.get("value")) * 5.0) - 0.5) * 100.0
+                if abs(float(wanted) - derived) > tolerance:
+                    raise ConfigError(
+                        f"{task.path}: expected_celsius {wanted!r} does not match analog position {position.get('value')!r}"
+                    )
     validate_scenario(task)
 
 
@@ -311,10 +330,16 @@ def validate_scenario(task: TaskConfig) -> None:
     part_id = scenario.get("part_id")
     if part_id not in expected_parts[family]:
         raise ConfigError(f"{task.path}: scenario part_id {part_id!r} is invalid for {family}")
+    validate_optional_duration(task, scenario, "initial_delay_ms", allow_zero=True)
+    validate_optional_duration(task, scenario, "final_delay_ms", allow_zero=True)
     if family == "button_press_sequence":
         presses = scenario.get("presses")
         if not isinstance(presses, list) or not presses:
             raise ConfigError(f"{task.path}: button_press_sequence requires presses")
+        for press in presses:
+            validate_binary_absent_or_value(task, press, "value")
+            validate_required_duration(task, press, "duration_ms")
+            validate_optional_duration(task, press, "after_ms", allow_zero=True)
     elif family == "bounced_button_sequence":
         sequence = scenario.get("sequence")
         if not isinstance(sequence, list) or not sequence:
@@ -322,10 +347,16 @@ def validate_scenario(task: TaskConfig) -> None:
         values = {item.get("value") for item in sequence}
         if values != {0, 1}:
             raise ConfigError(f"{task.path}: bounced_button_sequence must include 0 and 1 values")
+        for item in sequence:
+            validate_binary_value(task, item, "value")
+            validate_required_duration(task, item, "duration_ms")
     elif family == "pir_state_sequence":
         states = scenario.get("states")
         if not isinstance(states, list) or not states:
             raise ConfigError(f"{task.path}: pir_state_sequence requires states")
+        for state in states:
+            validate_binary_value(task, state, "value")
+            validate_required_duration(task, state, "duration_ms")
     elif family == "analog_position_sequence":
         positions = scenario.get("positions")
         if not isinstance(positions, list) or not positions:
@@ -334,6 +365,40 @@ def validate_scenario(task: TaskConfig) -> None:
             value = position.get("value")
             if not isinstance(value, (int, float)) or not 0 <= value <= 1:
                 raise ConfigError(f"{task.path}: analog position must be between 0 and 1")
+            validate_required_duration(task, position, "duration_ms")
+
+
+def validate_binary_absent_or_value(task: TaskConfig, item: dict[str, Any], name: str) -> None:
+    if name in item:
+        validate_binary_value(task, item, name)
+
+
+def validate_binary_value(task: TaskConfig, item: dict[str, Any], name: str) -> None:
+    if item.get(name) not in {0, 1}:
+        raise ConfigError(f"{task.path}: scenario {name} must be 0 or 1")
+
+
+def validate_required_duration(task: TaskConfig, item: dict[str, Any], name: str) -> None:
+    if name not in item:
+        raise ConfigError(f"{task.path}: scenario {name} is required")
+    validate_duration_value(task, item[name], name, allow_zero=False)
+
+
+def validate_optional_duration(
+    task: TaskConfig, item: dict[str, Any], name: str, *, allow_zero: bool
+) -> None:
+    if name in item:
+        validate_duration_value(task, item[name], name, allow_zero=allow_zero)
+
+
+def validate_duration_value(
+    task: TaskConfig, value: Any, name: str, *, allow_zero: bool
+) -> None:
+    if not isinstance(value, (int, float)):
+        raise ConfigError(f"{task.path}: scenario {name} must be numeric")
+    if value < 0 or (value == 0 and not allow_zero):
+        relation = "non-negative" if allow_zero else "positive"
+        raise ConfigError(f"{task.path}: scenario {name} must be {relation}")
 
 
 def to_yaml_text(data: dict[str, Any]) -> str:

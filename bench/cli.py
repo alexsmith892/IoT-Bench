@@ -13,7 +13,17 @@ from typing import Any
 
 from .config import ConfigError, iter_tasks, load_task
 from .diagrams import DiagramError, validate_diagram_file
-from .results import FAIL, PASS, SIM_INFRA_FAIL, SIM_OUTPUT_FAIL, emit_result, result_payload
+from .results import (
+    FAIL,
+    PASS,
+    SIM_INFRA_FAIL,
+    SIM_OUTPUT_FAIL,
+    SOURCE_ARTIFACT,
+    SOURCE_HARNESS,
+    SOURCE_USER_CODE,
+    emit_result,
+    result_payload,
+)
 from .runner import (
     BuildSimulationError,
     CaseConfigError,
@@ -23,6 +33,7 @@ from .runner import (
     expected_firmware_paths,
     generate_case,
     load_case_paths,
+    normalize_sketch_override,
     prepare_artifacts,
     run_case,
     with_archived_vcd,
@@ -146,9 +157,9 @@ def main(argv: list[str] | None = None) -> int:
             print_many_or_one(results)
             return 0
     except (ConfigError, CaseConfigError, DiagramError, ScenarioError) as exc:
-        return emit_result(SIM_INFRA_FAIL, str(exc))
+        return emit_result(SIM_INFRA_FAIL, str(exc), failure_source=SOURCE_HARNESS)
 
-    return emit_result(FAIL, f"unsupported command: {args.command}")
+    return emit_result(FAIL, f"unsupported command: {args.command}", failure_source=SOURCE_HARNESS)
 
 
 def selected_tasks(args: argparse.Namespace):
@@ -164,14 +175,17 @@ def ensure_case(task):
     return load_case_paths(task, case_dir)
 
 
-def with_sketch_override(paths: CasePaths, sketch_override: Path | None) -> CasePaths:
+def with_sketch_override(task, paths: CasePaths, sketch_override: Path | None) -> CasePaths:
     if not sketch_override:
+        return paths
+    normalized = normalize_sketch_override(task, paths, sketch_override)
+    if normalized is None:
         return paths
     return CasePaths(
         task_id=paths.task_id,
         case_id=paths.case_id,
         case_dir=paths.case_dir,
-        sketch=sketch_override.resolve(),
+        sketch=normalized,
         diagram=paths.diagram,
         wokwi_toml=paths.wokwi_toml,
         build_dir=paths.build_dir,
@@ -193,7 +207,7 @@ def resolve_case(
         paths = generate_case(task)
     else:
         paths = ensure_case(task) if case_dir is None else load_case_paths(task, case_dir)
-    return with_sketch_override(paths, sketch_override)
+    return with_sketch_override(task, paths, sketch_override)
 
 
 def build_single_task(
@@ -225,9 +239,14 @@ def build_single_task(
             },
         )
     except BuildSimulationError as exc:
-        return result_payload(exc.classification, str(exc), failure_stage=exc.failure_stage)
+        return result_payload(
+            exc.classification,
+            str(exc),
+            failure_stage=exc.failure_stage,
+            failure_source=exc.failure_source,
+        )
     except (ConfigError, CaseConfigError, DiagramError, ScenarioError) as exc:
-        return result_payload(SIM_INFRA_FAIL, str(exc))
+        return result_payload(SIM_INFRA_FAIL, str(exc), failure_source=SOURCE_HARNESS)
 
 
 def run_single_task(
@@ -270,13 +289,18 @@ def run_single_task(
             command="run",
         )
     except BuildSimulationError as exc:
-        return result_payload(exc.classification, str(exc), failure_stage=exc.failure_stage)
+        return result_payload(
+            exc.classification,
+            str(exc),
+            failure_stage=exc.failure_stage,
+            failure_source=exc.failure_source,
+        )
     except (ConfigError, CaseConfigError, DiagramError, ScenarioError) as exc:
-        return result_payload(SIM_INFRA_FAIL, str(exc))
+        return result_payload(SIM_INFRA_FAIL, str(exc), failure_source=SOURCE_HARNESS)
     except (VcdParseError, SerialLogError, OSError, ValueError, json.JSONDecodeError) as exc:
-        return result_payload(SIM_OUTPUT_FAIL, str(exc))
+        return result_payload(SIM_OUTPUT_FAIL, str(exc), failure_source=SOURCE_ARTIFACT)
     except StaticCheckError as exc:
-        return result_payload(FAIL, str(exc))
+        return result_payload(FAIL, str(exc), failure_source=SOURCE_USER_CODE)
 
 
 def summarize(results: list[dict[str, Any]]) -> dict[str, int]:

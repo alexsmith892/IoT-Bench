@@ -20,6 +20,11 @@ from .diagrams import generate_diagram, validate_diagram_file, write_diagram
 from .results import (
     COMPILE_FAIL,
     PASS,
+    SOURCE_ARTIFACT,
+    SOURCE_ENVIRONMENT,
+    SOURCE_HARNESS,
+    SOURCE_SIMULATOR,
+    SOURCE_USER_CODE,
     SIM_INFRA_FAIL,
     SIM_OUTPUT_FAIL,
     STAGE_COMPILE,
@@ -47,10 +52,12 @@ class BuildSimulationError(RunnerError):
         *,
         classification: str,
         failure_stage: str,
+        failure_source: str,
     ) -> None:
         super().__init__(message)
         self.classification = classification
         self.failure_stage = failure_stage
+        self.failure_source = failure_source
 
 
 @dataclass(frozen=True)
@@ -282,6 +289,69 @@ def load_case_paths(
     )
 
 
+def normalize_sketch_override(task: TaskConfig, paths: CasePaths, sketch_override: Path | None) -> Path | None:
+    if sketch_override is None:
+        return None
+    source = sketch_override.resolve()
+    if not source.exists():
+        raise BuildSimulationError(
+            f"submitted sketch path not found: {source}",
+            classification=COMPILE_FAIL,
+            failure_stage=STAGE_COMPILE,
+            failure_source=SOURCE_USER_CODE,
+        )
+
+    destination = paths.case_dir / "artifacts" / "submissions" / task.sketch_name
+    if destination.exists():
+        shutil.rmtree(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+
+    expected_name = f"{task.sketch_name}.ino"
+    if source.is_file():
+        if source.suffix.lower() != ".ino":
+            raise BuildSimulationError(
+                f"submitted sketch file must be an .ino file: {source}",
+                classification=COMPILE_FAIL,
+                failure_stage=STAGE_COMPILE,
+                failure_source=SOURCE_USER_CODE,
+            )
+        destination.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, destination / expected_name)
+        return destination
+
+    ino_files = sorted(source.rglob("*.ino"))
+    if not ino_files:
+        raise BuildSimulationError(
+            f"submitted sketch directory contains no .ino file: {source}",
+            classification=COMPILE_FAIL,
+            failure_stage=STAGE_COMPILE,
+            failure_source=SOURCE_USER_CODE,
+        )
+    matching = [path for path in ino_files if path.name.lower() == expected_name.lower()]
+    if matching:
+        primary = matching[0]
+    elif len(ino_files) == 1:
+        primary = ino_files[0]
+    else:
+        names = ", ".join(str(path.relative_to(source)) for path in ino_files)
+        raise BuildSimulationError(
+            f"submitted sketch directory has multiple .ino files and none named {expected_name}: {names}",
+            classification=COMPILE_FAIL,
+            failure_stage=STAGE_COMPILE,
+            failure_source=SOURCE_USER_CODE,
+        )
+
+    source_root = primary.parent
+    shutil.copytree(source_root, destination)
+    copied_primary = destination / primary.name
+    expected_primary = destination / expected_name
+    if copied_primary != expected_primary:
+        if expected_primary.exists():
+            expected_primary.unlink()
+        copied_primary.rename(expected_primary)
+    return destination
+
+
 def required_path(paths: dict[str, str], key: str) -> str:
     value = paths.get(key)
     if not value:
@@ -350,18 +420,21 @@ def build_case(
             f"sketch path not found: {paths.sketch}",
             classification=COMPILE_FAIL,
             failure_stage=STAGE_COMPILE,
+            failure_source=SOURCE_USER_CODE,
         )
     if not paths.diagram.exists():
         raise BuildSimulationError(
             f"diagram.json not found: {paths.diagram}",
             classification=SIM_INFRA_FAIL,
             failure_stage=STAGE_SIM_INFRA,
+            failure_source=SOURCE_HARNESS,
         )
     if not paths.wokwi_toml.exists():
         raise BuildSimulationError(
             f"wokwi.toml not found: {paths.wokwi_toml}",
             classification=SIM_INFRA_FAIL,
             failure_stage=STAGE_SIM_INFRA,
+            failure_source=SOURCE_HARNESS,
         )
 
     paths.build_dir.mkdir(parents=True, exist_ok=True)
@@ -383,6 +456,8 @@ def build_case(
         command_failure_stage=STAGE_COMPILE,
         infra_failure_classification=SIM_INFRA_FAIL,
         infra_failure_stage=STAGE_SIM_INFRA,
+        command_failure_source=SOURCE_USER_CODE,
+        infra_failure_source=SOURCE_ENVIRONMENT,
     )
     ensure_firmware_outputs(paths)
 
@@ -401,18 +476,21 @@ def simulate_case(
             f"diagram.json not found: {paths.diagram}",
             classification=SIM_INFRA_FAIL,
             failure_stage=STAGE_SIM_INFRA,
+            failure_source=SOURCE_HARNESS,
         )
     if not paths.wokwi_toml.exists():
         raise BuildSimulationError(
             f"wokwi.toml not found: {paths.wokwi_toml}",
             classification=SIM_INFRA_FAIL,
             failure_stage=STAGE_SIM_INFRA,
+            failure_source=SOURCE_HARNESS,
         )
     if paths.scenario and not paths.scenario.exists():
         raise BuildSimulationError(
             f"scenario.yaml not found: {paths.scenario}",
             classification=SIM_INFRA_FAIL,
             failure_stage=STAGE_SIM_INFRA,
+            failure_source=SOURCE_HARNESS,
         )
 
     archive_current_outputs(paths)
@@ -446,6 +524,8 @@ def simulate_case(
         command_failure_stage=STAGE_SIM_INFRA,
         infra_failure_classification=SIM_INFRA_FAIL,
         infra_failure_stage=STAGE_SIM_INFRA,
+        command_failure_source=SOURCE_SIMULATOR,
+        infra_failure_source=SOURCE_ENVIRONMENT,
     )
     ensure_existing_outputs(task, paths)
 
@@ -489,6 +569,7 @@ def ensure_firmware_outputs(paths: CasePaths) -> None:
             f"firmware binary artifact(s) missing after compile: {names}",
             classification=COMPILE_FAIL,
             failure_stage=STAGE_COMPILE,
+            failure_source=SOURCE_USER_CODE,
         )
     for path in (firmware_hex, firmware_elf):
         if path.stat().st_size == 0:
@@ -496,6 +577,7 @@ def ensure_firmware_outputs(paths: CasePaths) -> None:
                 f"firmware binary artifact is empty: {path}",
                 classification=COMPILE_FAIL,
                 failure_stage=STAGE_COMPILE,
+                failure_source=SOURCE_USER_CODE,
             )
 
 
@@ -538,12 +620,14 @@ def ensure_existing_outputs(task: TaskConfig, paths: CasePaths) -> None:
                 f"VCD not found: {paths.vcd}",
                 classification=SIM_OUTPUT_FAIL,
                 failure_stage=STAGE_SIM_OUTPUT,
+                failure_source=SOURCE_ARTIFACT,
             )
         if paths.vcd.stat().st_size == 0:
             raise BuildSimulationError(
                 f"VCD is empty: {paths.vcd}",
                 classification=SIM_OUTPUT_FAIL,
                 failure_stage=STAGE_SIM_OUTPUT,
+                failure_source=SOURCE_ARTIFACT,
             )
     if task.requires_serial_log:
         if paths.serial_log is None or not paths.serial_log.exists():
@@ -551,12 +635,14 @@ def ensure_existing_outputs(task: TaskConfig, paths: CasePaths) -> None:
                 f"serial log not found: {paths.serial_log}",
                 classification=SIM_OUTPUT_FAIL,
                 failure_stage=STAGE_SIM_OUTPUT,
+                failure_source=SOURCE_ARTIFACT,
             )
         if paths.serial_log.stat().st_size == 0:
             raise BuildSimulationError(
                 f"serial log is empty: {paths.serial_log}",
                 classification=SIM_OUTPUT_FAIL,
                 failure_stage=STAGE_SIM_OUTPUT,
+                failure_source=SOURCE_ARTIFACT,
             )
 
 
@@ -590,6 +676,8 @@ def run_checked(
     command_failure_stage: str,
     infra_failure_classification: str,
     infra_failure_stage: str,
+    command_failure_source: str,
+    infra_failure_source: str,
 ) -> None:
     try:
         completed = subprocess.run(
@@ -606,18 +694,21 @@ def run_checked(
             f"{stage} failed: {command[0]} was not found on PATH",
             classification=infra_failure_classification,
             failure_stage=infra_failure_stage,
+            failure_source=infra_failure_source,
         ) from exc
     except subprocess.TimeoutExpired as exc:
         raise BuildSimulationError(
             f"{stage} timed out after {timeout_s:.1f}s",
             classification=command_failure_classification,
             failure_stage=command_failure_stage,
+            failure_source=command_failure_source,
         ) from exc
     except OSError as exc:
         raise BuildSimulationError(
             f"{stage} failed: {exc}",
             classification=infra_failure_classification,
             failure_stage=infra_failure_stage,
+            failure_source=infra_failure_source,
         ) from exc
 
     if completed.returncode != 0:
@@ -625,6 +716,7 @@ def run_checked(
             f"{stage} failed with exit code {completed.returncode}: {short_process_output(completed)}",
             classification=command_failure_classification,
             failure_stage=command_failure_stage,
+            failure_source=command_failure_source,
         )
 
 
@@ -658,6 +750,7 @@ def write_verification(
         "result": result.get("result"),
         "classification": result.get("classification"),
         "failure_stage": result.get("failure_stage"),
+        "failure_source": result.get("failure_source"),
         "reason": result.get("reason"),
         "metrics": result.get("metrics", {}),
     }

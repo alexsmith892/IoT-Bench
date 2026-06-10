@@ -22,6 +22,12 @@ STAGE_SIM_INFRA = "simulate"
 STAGE_SIM_OUTPUT = "sim_output"
 STAGE_BEHAVIOR = "behavior"
 
+SOURCE_USER_CODE = "user_code"
+SOURCE_HARNESS = "harness"
+SOURCE_SIMULATOR = "simulator"
+SOURCE_ENVIRONMENT = "environment"
+SOURCE_ARTIFACT = "artifact"
+
 RESULT_BY_CLASSIFICATION = {
     COMPILE_FAIL: RESULT_CF,
     SIM_INFRA_FAIL: RESULT_CF,
@@ -38,6 +44,14 @@ DEFAULT_FAILURE_STAGE = {
     PASS: None,
 }
 
+DEFAULT_FAILURE_SOURCE = {
+    COMPILE_FAIL: SOURCE_USER_CODE,
+    SIM_INFRA_FAIL: SOURCE_SIMULATOR,
+    SIM_OUTPUT_FAIL: SOURCE_ARTIFACT,
+    FAIL: SOURCE_USER_CODE,
+    PASS: None,
+}
+
 
 @dataclass(frozen=True)
 class ValidationResult:
@@ -45,6 +59,7 @@ class ValidationResult:
     reason: str
     metrics: dict[str, Any] = field(default_factory=dict)
     failure_stage: str | None = None
+    failure_source: str | None = None
 
     def payload(self) -> dict[str, Any]:
         return result_payload(
@@ -52,6 +67,7 @@ class ValidationResult:
             self.reason,
             self.metrics,
             failure_stage=self.failure_stage,
+            failure_source=self.failure_source,
         )
 
 
@@ -61,6 +77,7 @@ def result_payload(
     metrics: dict[str, Any] | None = None,
     *,
     failure_stage: str | None = None,
+    failure_source: str | None = None,
 ) -> dict[str, Any]:
     """Build the stable JSON result payload used by the benchmark CLI."""
 
@@ -71,6 +88,11 @@ def result_payload(
             failure_stage
             if failure_stage is not None
             else DEFAULT_FAILURE_STAGE[classification]
+        ),
+        "failure_source": (
+            failure_source
+            if failure_source is not None
+            else DEFAULT_FAILURE_SOURCE[classification]
         ),
         "reason": reason,
         "metrics": metrics or {},
@@ -83,6 +105,7 @@ def emit_result(
     metrics: dict[str, Any] | None = None,
     *,
     failure_stage: str | None = None,
+    failure_source: str | None = None,
 ) -> int:
     print(
         json.dumps(
@@ -91,6 +114,7 @@ def emit_result(
                 reason,
                 metrics,
                 failure_stage=failure_stage,
+                failure_source=failure_source,
             ),
             indent=2,
         )

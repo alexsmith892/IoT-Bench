@@ -9,7 +9,6 @@ from bench.results import FAIL, PASS, ValidationResult
 from bench.runner import CasePaths
 from bench.serial import (
     SerialLogError,
-    contains_text,
     count_occurrences,
     extract_floats,
     extract_ints,
@@ -53,6 +52,7 @@ def validate_task(task: TaskConfig, paths: CasePaths) -> ValidationResult:
         result.reason,
         merged,
         failure_stage=result.failure_stage,
+        failure_source=result.failure_source,
     )
 
 
@@ -400,7 +400,57 @@ def validate_serial_contains_on_stimulus(task: TaskConfig, paths: CasePaths) -> 
     params = task.validator_params()
     expected = params.get("expected_texts") or [params.get("expected_text")]
     min_count = int(params.get("min_count", 1))
-    metrics = {"expected_texts": expected, "counts": {}}
+    scenario = task.scenario or {}
+    lines = nonempty_lines(text)
+    metrics: dict[str, Any] = {
+        "expected_texts": expected,
+        "counts": {},
+        "matching_lines": matching_serial_lines(lines, expected),
+    }
+
+    if scenario.get("family") == "button_press_sequence" and len(expected) == 1:
+        expected_count = len(scenario.get("presses") or [])
+        observed_count = count_matching_lines(lines, expected[0])
+        metrics.update(
+            {
+                "scenario_family": "button_press_sequence",
+                "expected_response_count": expected_count,
+                "observed_response_count": observed_count,
+                "stimulus_windows_ms": button_press_windows_ms(scenario),
+            }
+        )
+        if observed_count != expected_count:
+            return ValidationResult(
+                FAIL,
+                f"expected exactly {expected_count} serial response(s) for configured button presses, found {observed_count}",
+                metrics,
+            )
+        return ValidationResult(PASS, "serial log matches configured button press response count", metrics)
+
+    if scenario.get("family") == "pir_state_sequence":
+        state_texts = params.get("state_texts") or {}
+        expected_sequence = [
+            state_texts.get(str(state.get("value")), state_texts.get(state.get("value")))
+            for state in scenario.get("states", [])
+        ]
+        if expected_sequence and all(expected_sequence):
+            observed_sequence = observed_text_sequence(lines, list(state_texts.values()))
+            metrics.update(
+                {
+                    "scenario_family": "pir_state_sequence",
+                    "expected_sequence": expected_sequence,
+                    "observed_sequence": observed_sequence,
+                    "stimulus_windows_ms": state_windows_ms(scenario, "states"),
+                }
+            )
+            if observed_sequence != expected_sequence:
+                return ValidationResult(
+                    FAIL,
+                    "serial log does not follow configured PIR state transition sequence",
+                    metrics,
+                )
+            return ValidationResult(PASS, "serial log follows configured PIR state transitions", metrics)
+
     for item in expected:
         count = count_occurrences(text, item, case_sensitive=params.get("case_sensitive", True))
         metrics["counts"][item] = count
@@ -449,19 +499,43 @@ def validate_analog_temperature_serial(task: TaskConfig, paths: CasePaths) -> Va
     params = task.validator_params()
     expected = [float(value) for value in params.get("expected_celsius", [])]
     tolerance = float(params.get("tolerance_celsius", 5.0))
-    values = extract_floats(text)
+    observations = numeric_line_observations(text)
+    values = [value for _index, value, _line in observations]
     metrics = {
         "expected_celsius": expected,
         "observed_numbers": rounded(values, digits=3),
         "tolerance_celsius": tolerance,
+        "ordered_matches": [],
     }
+    if task.scenario and task.scenario.get("family") == "analog_position_sequence":
+        metrics["scenario_positions"] = [item.get("value") for item in task.scenario.get("positions", [])]
+        metrics["scenario_expected_celsius"] = rounded(
+            [position_to_tmp36_celsius(float(item.get("value"))) for item in task.scenario.get("positions", [])],
+            digits=3,
+        )
+
+    start_index = 0
+    matches: list[dict[str, Any]] = []
     for wanted in expected:
-        if not any(abs(actual - wanted) <= tolerance for actual in values):
+        match = next_ordered_temperature_match(observations, wanted, tolerance, start_index)
+        if match is None:
+            metrics["ordered_matches"] = matches
             return ValidationResult(
                 FAIL,
-                f"serial log does not contain plausible temperature near {wanted:g}C",
+                f"serial log does not contain ordered temperature observation near {wanted:g}C",
                 metrics,
             )
+        line_index, actual, line = match
+        matches.append(
+            {
+                "line": line_index,
+                "expected_celsius": round(wanted, 3),
+                "observed_celsius": round(actual, 3),
+                "text": line,
+            }
+        )
+        start_index = line_index + 1
+    metrics["ordered_matches"] = matches
     return ValidationResult(PASS, "serial log contains plausible configured TMP36 temperatures", metrics)
 
 
@@ -477,6 +551,86 @@ def rounded(values: list[float], *, digits: int = 9) -> list[float]:
 
 def rounded_scalar(value: float | None, *, digits: int = 9) -> float | None:
     return round(value, digits) if value is not None else None
+
+
+def nonempty_lines(text: str) -> list[str]:
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+def serial_line_matches(line: str, expected: str, *, case_sensitive: bool = True) -> bool:
+    haystack = line if case_sensitive else line.lower()
+    needle = expected if case_sensitive else expected.lower()
+    return haystack == needle or needle in haystack
+
+
+def count_matching_lines(lines: list[str], expected: str, *, case_sensitive: bool = True) -> int:
+    return sum(1 for line in lines if serial_line_matches(line, expected, case_sensitive=case_sensitive))
+
+
+def matching_serial_lines(lines: list[str], expected: list[str]) -> list[str]:
+    return [
+        line
+        for line in lines
+        if any(serial_line_matches(line, item) for item in sorted(expected, key=len, reverse=True))
+    ]
+
+
+def observed_text_sequence(lines: list[str], expected_texts: list[str]) -> list[str]:
+    ordered = sorted(expected_texts, key=len, reverse=True)
+    observed: list[str] = []
+    for line in lines:
+        for expected in ordered:
+            if serial_line_matches(line, expected):
+                observed.append(expected)
+                break
+    return observed
+
+
+def state_windows_ms(scenario: dict[str, Any], key: str) -> list[dict[str, Any]]:
+    cursor = float(scenario.get("initial_delay_ms", 0))
+    windows: list[dict[str, Any]] = []
+    for item in scenario.get(key, []):
+        duration = float(item.get("duration_ms", 0))
+        windows.append({"value": item.get("value"), "start_ms": cursor, "end_ms": cursor + duration})
+        cursor += duration
+    return windows
+
+
+def button_press_windows_ms(scenario: dict[str, Any]) -> list[dict[str, float]]:
+    cursor = float(scenario.get("initial_delay_ms", 0))
+    windows: list[dict[str, float]] = []
+    for press in scenario.get("presses", []):
+        duration = float(press.get("duration_ms", 200))
+        windows.append({"start_ms": cursor, "end_ms": cursor + duration})
+        cursor += duration + float(press.get("after_ms", 200))
+    return windows
+
+
+def numeric_line_observations(text: str) -> list[tuple[int, float, str]]:
+    observations: list[tuple[int, float, str]] = []
+    for index, line in enumerate(nonempty_lines(text), start=1):
+        values = extract_floats(line)
+        if len(values) == 1:
+            observations.append((index, values[0], line))
+    return observations
+
+
+def next_ordered_temperature_match(
+    observations: list[tuple[int, float, str]],
+    wanted: float,
+    tolerance: float,
+    start_line: int,
+) -> tuple[int, float, str] | None:
+    for line_index, actual, line in observations:
+        if line_index < start_line:
+            continue
+        if abs(actual - wanted) <= tolerance:
+            return line_index, actual, line
+    return None
+
+
+def position_to_tmp36_celsius(position: float) -> float:
+    return ((position * 5.0) - 0.5) * 100.0
 
 
 __all__ = [

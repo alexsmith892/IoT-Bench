@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from bench.config import ConfigError, iter_tasks, load_task, load_task_file
 from bench.diagrams import generate_diagram, validate_analyzer_wiring
-from bench.results import COMPILE_FAIL, FAIL, PASS, SIM_INFRA_FAIL, result_payload
+from bench.results import COMPILE_FAIL, FAIL, PASS, SIM_INFRA_FAIL, SOURCE_USER_CODE, result_payload
 from bench.runner import (
     BuildSimulationError,
     CasePaths,
@@ -14,6 +14,7 @@ from bench.runner import (
     case_dir_for_task,
     expected_firmware_paths,
     generate_case,
+    normalize_sketch_override,
     write_verification,
 )
 from bench.scenarios import generate_scenario
@@ -190,6 +191,8 @@ class BenchPackageTests(unittest.TestCase):
         self.assertEqual(result_payload(FAIL, "bad")["result"], "BF")
         self.assertEqual(result_payload(COMPILE_FAIL, "compile")["result"], "CF")
         self.assertEqual(result_payload(SIM_INFRA_FAIL, "infra")["result"], "CF")
+        self.assertIsNone(result_payload(PASS, "ok")["failure_source"])
+        self.assertEqual(result_payload(FAIL, "bad")["failure_source"], SOURCE_USER_CODE)
 
     def test_build_case_fails_if_expected_firmware_is_missing_after_compile(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -236,6 +239,105 @@ class BenchPackageTests(unittest.TestCase):
             self.assertEqual(manifest["firmware_hex"], f"artifacts/build/{task.sketch_name}.ino.hex")
             self.assertEqual(manifest["firmware_elf"], f"artifacts/build/{task.sketch_name}.ino.elf")
             self.assertEqual(manifest["serial_log_path"], "artifacts/serial/serial.log")
+            self.assertIsNone(manifest["failure_source"])
+
+    def test_invalid_scenario_values_and_durations_are_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad-pir.yaml"
+            path.write_text(
+                (
+                    "task_id: bad_pir\n"
+                    "fixture:\n"
+                    "  family: pir_serial\n"
+                    "validator:\n"
+                    "  family: serial_contains_on_stimulus\n"
+                    "  params:\n"
+                    "    expected_texts: ['Motion Detected!', 'No Motion Detected!']\n"
+                    "    state_texts: {'0': 'No Motion Detected!', '1': 'Motion Detected!'}\n"
+                    "scenario:\n"
+                    "  family: pir_state_sequence\n"
+                    "  part_id: pir1\n"
+                    "  states:\n"
+                    "    - value: 2\n"
+                    "      duration_ms: 100\n"
+                    "case:\n"
+                    "  id: bad-pir\n"
+                    "  sketch_name: bad_pir\n"
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(ConfigError):
+                load_task_file(path)
+
+            path.write_text(
+                path.read_text(encoding="utf-8").replace("value: 2", "value: 1").replace(
+                    "duration_ms: 100", "duration_ms: 0"
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(ConfigError):
+                load_task_file(path)
+
+    def test_tmp36_expected_temperatures_must_match_positions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "bad-tmp36.yaml"
+            path.write_text(
+                (
+                    "task_id: bad_tmp36\n"
+                    "fixture:\n"
+                    "  family: analog_temperature_serial\n"
+                    "validator:\n"
+                    "  family: analog_temperature_serial\n"
+                    "  params:\n"
+                    "    expected_celsius: [25.0, 0.0]\n"
+                    "    tolerance_celsius: 6.0\n"
+                    "scenario:\n"
+                    "  family: analog_position_sequence\n"
+                    "  part_id: pot1\n"
+                    "  positions:\n"
+                    "    - value: 0.10\n"
+                    "      duration_ms: 350\n"
+                    "    - value: 0.15\n"
+                    "      duration_ms: 350\n"
+                    "case:\n"
+                    "  id: bad-tmp36\n"
+                    "  sketch_name: bad_tmp36\n"
+                ),
+                encoding="utf-8",
+            )
+
+            with self.assertRaises(ConfigError):
+                load_task_file(path)
+
+    def test_sketch_override_file_is_normalized_to_task_sketch_name(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            task = load_task("button_status_display")
+            paths = generate_case(task, root=Path(tmp))
+            submitted = Path(tmp) / "answer.ino"
+            submitted.write_text("void setup(){}\nvoid loop(){}\n", encoding="utf-8")
+
+            normalized = normalize_sketch_override(task, paths, submitted)
+
+            assert normalized is not None
+            self.assertEqual(normalized.name, task.sketch_name)
+            self.assertTrue((normalized / f"{task.sketch_name}.ino").exists())
+
+    def test_ambiguous_multi_ino_sketch_override_fails_clearly(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            task = load_task("button_status_display")
+            paths = generate_case(task, root=Path(tmp))
+            submitted = Path(tmp) / "submission"
+            submitted.mkdir()
+            (submitted / "a.ino").write_text("void setup(){}\n", encoding="utf-8")
+            (submitted / "b.ino").write_text("void loop(){}\n", encoding="utf-8")
+
+            with self.assertRaises(BuildSimulationError) as caught:
+                normalize_sketch_override(task, paths, submitted)
+
+            self.assertEqual(caught.exception.classification, "COMPILE_FAIL")
+            self.assertEqual(caught.exception.failure_source, SOURCE_USER_CODE)
 
 
 def write_two_channel_vcd(path: Path, *, d0_half_s: float, d1_half_s: float, cycles: int) -> None:
