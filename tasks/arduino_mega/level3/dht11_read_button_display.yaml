@@ -1,0 +1,44 @@
+task_id: dht11_read_button_display
+name: Read DHT data on button interrupt and display temperature/RH on LCD
+platform: arduino_mega
+level: level3
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "12"}
+      - {signal: D1, pin: "11"}
+      - {signal: D2, pin: "4"}
+      - {signal: D3, pin: "5"}
+      - {signal: D4, pin: "6"}
+      - {signal: D5, pin: "7"}
+  components:
+    - type: button
+      id: btn1
+      pin: "2"
+    # Wokwi DHT22 is used as the deterministic DHT-family surrogate for DHT11.
+    - type: dht11
+      id: dht1
+      pin: "3"
+      temperature: "24"
+      humidity: "40"
+    - type: lcd1602
+      id: lcd1
+      pins: {rs: "12", e: "11", d4: "4", d5: "5", d6: "6", d7: "7"}
+scenario:
+  family: button_press_sequence
+  part_id: btn1
+  initial_delay_ms: 200
+  presses:
+    - {duration_ms: 150, after_ms: 800}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_any_patterns: [["attachInterrupt", "digitalPinToInterrupt"]]
+    - family: lcd_text
+      params:
+        expected_texts: ["Temp:", "RH:"]
+simulation: {timeout_ms: 1800}
+case: {id: dht11-read-button-display-wokwi-mega, sketch_name: dht11_read_button_display}

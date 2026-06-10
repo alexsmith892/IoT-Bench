@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/reaction_timer_display.ino.hex'
+elf = 'artifacts/build/reaction_timer_display.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

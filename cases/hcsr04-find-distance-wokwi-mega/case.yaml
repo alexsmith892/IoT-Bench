@@ -1,0 +1,11 @@
+task_id: hcsr04_find_distance
+case_id: hcsr04-find-distance-wokwi-mega
+board:
+  type: wokwi-arduino-mega
+  fqbn: arduino:avr:mega
+paths:
+  sketch: sketch/hcsr04_find_distance
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  serial_log: artifacts/serial/serial.log

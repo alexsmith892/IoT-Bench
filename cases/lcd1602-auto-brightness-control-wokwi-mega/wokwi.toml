@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/lcd1602_auto_brightness_control.ino.hex'
+elf = 'artifacts/build/lcd1602_auto_brightness_control.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

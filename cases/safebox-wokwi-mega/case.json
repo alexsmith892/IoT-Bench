@@ -1,0 +1,27 @@
+{
+  "id": "safebox-wokwi-mega",
+  "task": "safebox",
+  "name": "Unlock relay when keypad password 1234 is entered",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/safebox",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 13"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 13"
+    }
+  ]
+}

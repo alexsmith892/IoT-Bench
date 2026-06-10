@@ -1,0 +1,41 @@
+task_id: sensor_water_level_display
+name: Display analog water level as LCD bar graph
+platform: arduino_mega
+level: level3
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "12"}
+      - {signal: D1, pin: "11"}
+      - {signal: D2, pin: "4"}
+      - {signal: D3, pin: "5"}
+      - {signal: D4, pin: "6"}
+      - {signal: D5, pin: "7"}
+  components:
+    - type: water_level_surrogate
+      id: pot1
+      pin: A2
+    - type: lcd1602
+      id: lcd1
+      pins: {rs: "12", e: "11", d4: "4", d5: "5", d6: "6", d7: "7"}
+scenario:
+  family: analog_position_sequence
+  part_id: pot1
+  initial_delay_ms: 200
+  positions:
+    - {value: 0.15, duration_ms: 450}
+    - {value: 0.90, duration_ms: 650}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_patterns: ["analogRead\\s*\\(\\s*A2"]
+    - family: lcd_text_sequence
+      params:
+        frames:
+          - {expected_texts: ["Water Level"]}
+          - {expected_texts: ["####"]}
+simulation: {timeout_ms: 1800}
+case: {id: sensor-water-level-display-wokwi-mega, sketch_name: sensor_water_level_display}

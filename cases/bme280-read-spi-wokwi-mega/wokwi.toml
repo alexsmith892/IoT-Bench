@@ -1,0 +1,4 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/bme280_read_spi.ino.hex'
+elf = 'artifacts/build/bme280_read_spi.ino.elf'

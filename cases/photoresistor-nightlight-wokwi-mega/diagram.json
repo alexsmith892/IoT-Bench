@@ -1,0 +1,98 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-arduino-mega",
+      "id": "mega",
+      "top": 120,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-logic-analyzer",
+      "id": "logic1",
+      "top": -55,
+      "left": 300,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-photoresistor-sensor",
+      "id": "photo1",
+      "top": -80,
+      "left": 225,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_led_2",
+      "top": -14,
+      "left": 325,
+      "attrs": {
+        "value": "220"
+      },
+      "rotate": 90
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led1",
+      "top": -80,
+      "left": 330,
+      "attrs": {
+        "color": "red"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "logic1:GND",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "photo1:VCC",
+      "mega:5V",
+      "red",
+      []
+    ],
+    [
+      "photo1:GND",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "photo1:AO",
+      "mega:A2",
+      "green",
+      []
+    ],
+    [
+      "mega:GND.1",
+      "led1:C",
+      "black",
+      []
+    ],
+    [
+      "r_led_2:1",
+      "led1:A",
+      "blue",
+      []
+    ],
+    [
+      "mega:3",
+      "r_led_2:2",
+      "blue",
+      []
+    ],
+    [
+      "logic1:D0",
+      "mega:3",
+      "green",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

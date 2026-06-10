@@ -1,0 +1,12 @@
+task_id: tilt_detection_alarm
+case_id: tilt-detection-alarm-wokwi-mega
+board:
+  type: wokwi-arduino-mega
+  fqbn: arduino:avr:mega
+paths:
+  sketch: sketch/tilt_detection_alarm
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  vcd: artifacts/logic/wokwi.vcd
+  scenario: scenario.yaml

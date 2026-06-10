@@ -24,10 +24,12 @@ def generate_scenario(task: TaskConfig) -> dict[str, Any] | None:
         return None
     family = scenario.get("family")
     generators = {
+        "timeline": timeline,
         "button_press_sequence": button_press_sequence,
         "bounced_button_sequence": bounced_button_sequence,
         "pir_state_sequence": pir_state_sequence,
         "analog_position_sequence": analog_position_sequence,
+        "control_sequence": control_sequence,
     }
     try:
         return generators[family](task)
@@ -104,6 +106,34 @@ def analog_position_sequence(task: TaskConfig) -> dict[str, Any]:
     for position in config.get("positions", []):
         scenario["steps"].append(set_control_step(part_id, "position", position["value"]))
         scenario["steps"].append(delay_step(position.get("duration_ms", 300)))
+    return scenario
+
+
+def control_sequence(task: TaskConfig) -> dict[str, Any]:
+    config = task.scenario or {}
+    scenario = scenario_base(task)
+    scenario["steps"].append(delay_step(config.get("initial_delay_ms", 200)))
+    for item in config.get("controls", []):
+        scenario["steps"].append(
+            set_control_step(item["part_id"], item["control"], item["value"])
+        )
+        scenario["steps"].append(delay_step(item.get("duration_ms", 300)))
+    return scenario
+
+
+def timeline(task: TaskConfig) -> dict[str, Any]:
+    config = task.scenario or {}
+    scenario = scenario_base(task)
+    for item in config.get("steps", []):
+        if "delay_ms" in item:
+            scenario["steps"].append(delay_step(item["delay_ms"]))
+        elif "set_control" in item:
+            control = item["set_control"]
+            scenario["steps"].append(
+                set_control_step(control["part_id"], control["control"], control["value"])
+            )
+        else:
+            raise ScenarioError(f"{task.path}: timeline step requires delay_ms or set_control")
     return scenario
 
 

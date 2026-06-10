@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/lcd1602_display_hello_world.ino.hex'
+elf = 'artifacts/build/lcd1602_display_hello_world.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

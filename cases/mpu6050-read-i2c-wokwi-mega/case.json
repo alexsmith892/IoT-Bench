@@ -1,0 +1,17 @@
+{
+  "id": "mpu6050-read-i2c-wokwi-mega",
+  "task": "mpu6050_read_i2c",
+  "name": "Read MPU6050 raw accelerometer and gyroscope values over I2C",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/mpu6050_read_i2c",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "serial_log": "artifacts/serial/serial.log"
+  }
+}

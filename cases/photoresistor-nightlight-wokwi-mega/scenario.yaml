@@ -1,0 +1,15 @@
+name: photoresistor_nightlight automation
+version: 1
+author: IoT-Bench
+steps:
+- delay: 200ms
+- set-control:
+    part-id: photo1
+    control: lux
+    value: 1000
+- delay: 400ms
+- set-control:
+    part-id: photo1
+    control: lux
+    value: 0.1
+- delay: 400ms

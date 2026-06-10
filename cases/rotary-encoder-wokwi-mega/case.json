@@ -1,0 +1,17 @@
+{
+  "id": "rotary-encoder-wokwi-mega",
+  "task": "rotary_encoder",
+  "name": "Track rotary encoder position and direction on serial",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/rotary_encoder",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "serial_log": "artifacts/serial/serial.log"
+  }
+}

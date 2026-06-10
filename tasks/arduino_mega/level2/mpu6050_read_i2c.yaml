@@ -1,0 +1,21 @@
+task_id: mpu6050_read_i2c
+name: Read MPU6050 raw accelerometer and gyroscope values over I2C
+platform: arduino_mega
+level: level2
+fixture:
+  family: composite
+  components:
+    - type: mpu6050
+      id: imu1
+      pins: {sda: "20", scl: "21"}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_patterns: ["Wire\\.begin\\s*\\(", "Wire\\.requestFrom|Wire\\.read"]
+    - family: serial_regex_sequence
+      params:
+        patterns: ["Accel", "Gyro"]
+simulation: {timeout_ms: 1200}
+case: {id: mpu6050-read-i2c-wokwi-mega, sketch_name: mpu6050_read_i2c}

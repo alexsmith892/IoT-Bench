@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/ds18b20_heat_alarm.ino.hex'
+elf = 'artifacts/build/ds18b20_heat_alarm.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

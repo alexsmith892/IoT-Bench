@@ -1,0 +1,24 @@
+task_id: bme280_read_i2c
+name: Read BME280 humidity and temperature over I2C
+platform: arduino_mega
+level: level2
+support:
+  status: unsupported
+  reason: no native Wokwi BME280 and no custom chip model
+fixture:
+  family: composite
+  components:
+    - type: bme280_i2c
+      id: bme1
+      pins: {sda: "20", scl: "21"}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_patterns: ["Wire\\.begin\\s*\\("]
+    - family: serial_regex_sequence
+      params:
+        patterns: ["Temp(erature)?", "Hum(idity)?"]
+simulation: {timeout_ms: 1200}
+case: {id: bme280-read-i2c-wokwi-mega, sketch_name: bme280_read_i2c}

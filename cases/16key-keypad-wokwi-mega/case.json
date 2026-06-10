@@ -1,0 +1,17 @@
+{
+  "id": "16key-keypad-wokwi-mega",
+  "task": "16key_keypad",
+  "name": "Scan 16 key keypad and print detected key",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/16key_keypad",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "serial_log": "artifacts/serial/serial.log"
+  }
+}

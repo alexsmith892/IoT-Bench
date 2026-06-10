@@ -1,0 +1,11 @@
+task_id: step_counter_print
+case_id: step-counter-print-wokwi-mega
+board:
+  type: wokwi-arduino-mega
+  fqbn: arduino:avr:mega
+paths:
+  sketch: sketch/step_counter_print
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  serial_log: artifacts/serial/serial.log

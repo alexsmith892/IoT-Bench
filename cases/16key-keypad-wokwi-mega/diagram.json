@@ -1,0 +1,72 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-arduino-mega",
+      "id": "mega",
+      "top": 120,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-membrane-keypad",
+      "id": "keypad1",
+      "top": -80,
+      "left": 225,
+      "attrs": {}
+    }
+  ],
+  "connections": [
+    [
+      "keypad1:R1",
+      "mega:9",
+      "green",
+      []
+    ],
+    [
+      "keypad1:R2",
+      "mega:8",
+      "green",
+      []
+    ],
+    [
+      "keypad1:R3",
+      "mega:7",
+      "green",
+      []
+    ],
+    [
+      "keypad1:R4",
+      "mega:6",
+      "green",
+      []
+    ],
+    [
+      "keypad1:C1",
+      "mega:5",
+      "green",
+      []
+    ],
+    [
+      "keypad1:C2",
+      "mega:4",
+      "green",
+      []
+    ],
+    [
+      "keypad1:C3",
+      "mega:3",
+      "green",
+      []
+    ],
+    [
+      "keypad1:C4",
+      "mega:2",
+      "green",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

@@ -1,0 +1,39 @@
+task_id: clap_switch
+name: Toggle relay on digital sound sensor clap events
+platform: arduino_mega
+level: level2
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "2"}
+  components:
+    - type: sound_sensor
+      id: sound1
+      pin: "7"
+    - type: analog_source
+      id: pot1
+      pin: A0
+    - type: relay
+      id: relay1
+      pin: "2"
+scenario:
+  family: timeline
+  steps:
+    - {delay_ms: 200}
+    - set_control: {part_id: sound1, control: pressed, value: 1}
+    - {delay_ms: 120}
+    - set_control: {part_id: sound1, control: pressed, value: 0}
+    - {delay_ms: 350}
+    - set_control: {part_id: sound1, control: pressed, value: 1}
+    - {delay_ms: 120}
+    - set_control: {part_id: sound1, control: pressed, value: 0}
+    - {delay_ms: 300}
+validator:
+  family: stimulus_to_output
+  params:
+    channel: D0
+    active_windows_s: [[0.38, 0.55]]
+    inactive_windows_s: [[0.85, 1.00]]
+simulation: {timeout_ms: 1300}
+case: {id: clap-switch-wokwi-mega, sketch_name: clap_switch}

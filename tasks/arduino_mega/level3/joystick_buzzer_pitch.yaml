@@ -1,0 +1,31 @@
+task_id: joystick_buzzer_pitch
+name: Map joystick Y-axis analog input to passive buzzer pitch
+platform: arduino_mega
+level: level3
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "3"}
+  components:
+    - type: joystick
+      id: joy1
+      pins: {vert: A0}
+    - type: passive_buzzer
+      id: buzzer1
+      pin: "3"
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+    - {part_id: joy1, control: y, value: -1, duration_ms: 350}
+    - {part_id: joy1, control: y, value: 1, duration_ms: 350}
+validator:
+  family: frequency_windows
+  params:
+    channel: D0
+    windows:
+      - {start_s: 0.30, end_s: 0.50, half_period_range_s: [0.0012, 0.0035], full_period_range_s: [0.0024, 0.0070]}
+      - {start_s: 0.70, end_s: 0.90, half_period_range_s: [0.00025, 0.00050], full_period_range_s: [0.00050, 0.00100]}
+simulation: {timeout_ms: 1200}
+case: {id: joystick-buzzer-pitch-wokwi-mega, sketch_name: joystick_buzzer_pitch}

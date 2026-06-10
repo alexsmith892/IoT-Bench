@@ -1,0 +1,31 @@
+{
+  "id": "parking-sensor-wokwi-mega",
+  "task": "parking_sensor",
+  "name": "Scale LED brightness and buzzer pitch as object approaches",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/parking_sensor",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 3"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 3"
+    },
+    {
+      "vcd_name": "D1",
+      "expected_connection": "GPIO 2"
+    }
+  ]
+}

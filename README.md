@@ -1,7 +1,7 @@
-# IoT-Bench Arduino Mega Level 1 Harness
+# IoT-Bench Arduino Mega Harness
 
 This repository uses the `bench` package as the only supported harness for the
-Arduino Mega level-1 IoT-SkillsBench tasks. Task behavior lives in YAML; case
+Arduino Mega IoT-SkillsBench tasks. Task behavior lives in YAML; case
 generation, Wokwi diagrams, scenarios, builds, live runs, artifact validation,
 and result reporting are shared by task family.
 
@@ -28,7 +28,7 @@ bench/
   static.py           # source-level checks such as forbidden delay()
   vcd.py              # VCD parsing and waveform analysis helpers
   validators/         # reusable validator families
-tasks/arduino_mega/level1/
+tasks/arduino_mega/level*/
   *.yaml              # source of truth for task behavior
 cases/
   <task>-wokwi-mega/  # generated Wokwi projects and reference sketches
@@ -70,6 +70,8 @@ Generate or refresh Wokwi projects:
 ```powershell
 python -m bench.cli generate --task blink_led_1hz
 python -m bench.cli generate --platform arduino_mega --level level1
+python -m bench.cli generate --platform arduino_mega --level level2
+python -m bench.cli generate --platform arduino_mega --level level3
 ```
 
 Build sketches and create the firmware binaries referenced by `wokwi.toml`:
@@ -85,6 +87,8 @@ Run live Wokwi simulation, capture artifacts, validate behavior, and write
 ```powershell
 python -m bench.cli run --task blink_led_1hz
 python -m bench.cli run --platform arduino_mega --level level1
+python -m bench.cli run --platform arduino_mega --level level2 --regenerate
+python -m bench.cli run --platform arduino_mega --level level3 --regenerate
 ```
 
 Validate existing VCD or serial artifacts without compiling or running Wokwi:
@@ -105,8 +109,9 @@ python -m bench.cli run --task button_status_count --sketch path/to/submission
 python -m bench.cli validate-artifacts --task blink_led_no_delay --case cases/blink-led-no-delay-wokwi-mega --sketch path/to/submission
 ```
 
-## Supported Tasks
+## Task Coverage
 
+Level 1:
 - `blink_led_1hz`
 - `blink_led_morse_code`
 - `blink_led_no_delay`
@@ -118,6 +123,60 @@ python -m bench.cli validate-artifacts --task blink_led_no_delay --case cases/bl
 - `breathing_led`
 - `sensor_pir_human_motion`
 - `tmp36_read`
+
+Level 2 live-supported:
+- `lcd1602_display_hello_world`
+- `dht11_read`
+- `ds1307_rtc`
+- `mpu6050_read_i2c`
+- `tilt_detection_alarm`
+- `photoresistor_nightlight`
+- `ds18b20_heat_alarm`
+- `clap_switch`
+- `hcsr501_motion_alarm`
+- `hcsr04_find_distance`
+- `parking_sensor`
+- `reverse_parking_sensor`
+
+Level 2 non-live/manual or unsupported:
+- `rotary_encoder` (manual: UI-driven rotation is not reliably automated)
+- `16key_keypad` (manual: UI-driven keypad entry is not reliably automated)
+- `bme280_read_i2c` (unsupported: no native Wokwi BME280 and no custom chip model)
+- `bme280_read_spi` (unsupported: no native Wokwi BME280 and no custom chip model)
+
+Level 3 live-supported:
+- `dht11_read_button_display`
+- `mpu6050_read_button_display`
+- `mpu6050_read_periodic_display`
+- `lcd1602_auto_brightness_control`
+- `buzzer_toggle_led_freq`
+- `tmp36_read_button_display`
+- `tmp36_read_periodic_display`
+- `reaction_timer_display`
+- `sensor_water_level_display`
+- `buzzer_laser_tripwire`
+- `joystick_buzzer_pitch`
+
+Level 3 non-live/manual:
+- `safebox` (manual: UI-driven keypad entry is not reliably automated)
+- `safebox_display` (manual: UI-driven keypad entry is not reliably automated)
+- `step_counter_print` (manual: MPU6050 motion spike stimulus is not reliably automated)
+
+## Shared Families
+
+- `composite` fixtures assemble reusable Wokwi components from YAML instead of
+  adding task-specific diagram code.
+- `timeline` scenarios provide generic ordered delays and `set-control` events.
+- `control_sequence` scenarios drive documented Wokwi part controls such as
+  DHT temperature/humidity, DS18B20 temperature, photoresistor lux, and joystick
+  axes.
+- `composite` validators combine static, serial, LCD, waveform, frequency, and
+  window-ratio checks for multi-part tasks.
+- LCD1602 displays are validated by decoding the 4-bit parallel bus from VCD.
+- LCD sequence validators can match intermediate frames instead of only the
+  final display state.
+- Static checks support forbidden calls, required regex patterns, and
+  "any-of" required pattern groups.
 
 ## Testing
 
@@ -147,6 +206,9 @@ python -m unittest discover tests
   availability. Use `doctor` when diagnosing environment failures.
 - Wokwi scenario automation is treated as an isolated surface in
   `bench.scenarios`.
+- Tasks with `support.status: unsupported` or `manual` are reported as `CF`
+  with a harness reason. They are skipped by bulk `generate` and `lint` so
+  invalid diagrams are not mistaken for live benchmark cases.
 - Debounce uses a synthetic rapid press/release sequence with Wokwi button
   bounce disabled. This gives a stable benchmark oracle, not a full physical
   switch model.
@@ -155,3 +217,16 @@ python -m unittest discover tests
 - TMP36 is benchmarked with a potentiometer analog source and the formula
   `C = (Vout - 0.5) * 100`; this checks TMP36-style conversion behavior, not a
   full sensor model.
+- DHT11 tasks use Wokwi's DHT22 component as a deterministic DHT-family
+  surrogate because Wokwi does not expose a distinct DHT11 part.
+- BME280 I2C/SPI tasks are not live-supported until the harness has a real
+  custom chip model; Wokwi does not provide a native BME280 part.
+- DS1307 validation focuses on the RTC date/time contract. The upstream wording
+  mentions temperature data, but Wokwi's DS1307 model does not provide a
+  trustworthy temperature observable for this harness.
+- Photoresistor and joystick tasks use native Wokwi parts with scenario-driven
+  controls. Water-level, laser-block, sound, shock, tilt, and some motion/input
+  tasks use controllable potentiometer or pushbutton surrogates when Wokwi lacks
+  a scenario-controllable physical module.
+- Logic analyzer channel names in YAML use Wokwi pins `D0`, `D1`, etc. The
+  semantic meaning is documented by the connected component and validator.

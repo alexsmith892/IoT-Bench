@@ -1,0 +1,32 @@
+{
+  "id": "ds18b20-heat-alarm-wokwi-mega",
+  "task": "ds18b20_heat_alarm",
+  "name": "Flash LED and sound buzzer when DS18B20 temperature exceeds 30 C",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/ds18b20_heat_alarm",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd",
+    "scenario": "scenario.yaml"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 2"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 2"
+    },
+    {
+      "vcd_name": "D1",
+      "expected_connection": "GPIO 3"
+    }
+  ]
+}

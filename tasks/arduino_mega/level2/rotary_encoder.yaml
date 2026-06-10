@@ -1,0 +1,24 @@
+task_id: rotary_encoder
+name: Track rotary encoder position and direction on serial
+platform: arduino_mega
+level: level2
+support:
+  status: manual
+  reason: Wokwi rotary encoder rotations are UI-driven and not reliably automated by CLI scenarios
+fixture:
+  family: composite
+  components:
+    - type: rotary_encoder
+      id: enc1
+      pins: {clk: "2", dt: "3", sw: "4"}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_patterns: ["digitalRead\\s*\\(\\s*2\\s*\\)", "digitalRead\\s*\\(\\s*3\\s*\\)"]
+    - family: serial_regex_sequence
+      params:
+        patterns: ["Position.*(CW|Clockwise)", "Position.*(CCW|Counter)"]
+simulation: {timeout_ms: 1000}
+case: {id: rotary-encoder-wokwi-mega, sketch_name: rotary_encoder}

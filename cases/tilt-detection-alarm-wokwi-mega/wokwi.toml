@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/tilt_detection_alarm.ino.hex'
+elf = 'artifacts/build/tilt_detection_alarm.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

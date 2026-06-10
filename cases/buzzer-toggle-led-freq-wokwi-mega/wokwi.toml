@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/buzzer_toggle_led_freq.ino.hex'
+elf = 'artifacts/build/buzzer_toggle_led_freq.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

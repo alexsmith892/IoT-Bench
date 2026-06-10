@@ -1,0 +1,32 @@
+{
+  "id": "buzzer-laser-tripwire-wokwi-mega",
+  "task": "buzzer_laser_tripwire",
+  "name": "Trigger buzzer when laser beam to photoresistor is blocked",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/buzzer_laser_tripwire",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd",
+    "scenario": "scenario.yaml"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 8"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 8"
+    },
+    {
+      "vcd_name": "D1",
+      "expected_connection": "GPIO 3"
+    }
+  ]
+}

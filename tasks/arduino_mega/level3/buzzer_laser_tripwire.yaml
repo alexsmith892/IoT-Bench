@@ -1,0 +1,42 @@
+task_id: buzzer_laser_tripwire
+name: Trigger buzzer when laser beam to photoresistor is blocked
+platform: arduino_mega
+level: level3
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "8"}
+      - {signal: D1, pin: "3"}
+  components:
+    - type: laser
+      id: laser1
+      pin: "8"
+    - type: photoresistor_surrogate
+      id: pot1
+      pin: A0
+    - type: active_buzzer
+      id: buzzer1
+      pin: "3"
+scenario:
+  family: analog_position_sequence
+  part_id: pot1
+  initial_delay_ms: 200
+  positions:
+    - {value: 0.90, duration_ms: 350}
+    - {value: 0.10, duration_ms: 350}
+validator:
+  family: composite
+  checks:
+    - family: window_ratios
+      params:
+        channel: D0
+        windows: [{start_s: 0.20, end_s: 0.90, ratio_range: [0.80, 1.0]}]
+    - family: stimulus_to_output
+      params:
+        channel: D1
+        active_windows_s: [[0.70, 0.90]]
+        inactive_windows_s: [[0.30, 0.50]]
+        active_ratio_min: 0.40
+simulation: {timeout_ms: 1200}
+case: {id: buzzer-laser-tripwire-wokwi-mega, sketch_name: buzzer_laser_tripwire}

@@ -1,0 +1,25 @@
+task_id: reverse_parking_sensor
+name: Pulse passive buzzer faster as object approaches
+platform: arduino_mega
+level: level2
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "3"}
+  components:
+    - type: hcsr04
+      id: sonar1
+      pins: {trig: "9", echo: "10"}
+      attrs: {distance: "40"}
+    - type: passive_buzzer
+      id: buzzer1
+      pin: "3"
+validator:
+  family: frequency_windows
+  params:
+    channel: D0
+    windows:
+      - {start_s: 0.20, end_s: 1.20, half_period_range_s: [0.00025, 0.00045], full_period_range_s: [0.00050, 0.00090]}
+simulation: {timeout_ms: 1400}
+case: {id: reverse-parking-sensor-wokwi-mega, sketch_name: reverse_parking_sensor}

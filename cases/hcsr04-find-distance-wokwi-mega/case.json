@@ -1,0 +1,17 @@
+{
+  "id": "hcsr04-find-distance-wokwi-mega",
+  "task": "hcsr04_find_distance",
+  "name": "Measure HC-SR04 distance and print centimeters",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/hcsr04_find_distance",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "serial_log": "artifacts/serial/serial.log"
+  }
+}

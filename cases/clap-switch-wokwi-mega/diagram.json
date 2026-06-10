@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-arduino-mega",
+      "id": "mega",
+      "top": 120,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-logic-analyzer",
+      "id": "logic1",
+      "top": -55,
+      "left": 300,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "sound1",
+      "top": -80,
+      "left": 225,
+      "attrs": {
+        "color": "green",
+        "label": "sound_sensor",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_btn_1",
+      "top": 5,
+      "left": 273,
+      "attrs": {
+        "value": "10000"
+      },
+      "rotate": 90
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "pot1",
+      "top": -80,
+      "left": 330,
+      "attrs": {
+        "value": "512"
+      }
+    },
+    {
+      "type": "wokwi-relay-module",
+      "id": "relay1",
+      "top": -80,
+      "left": 435,
+      "attrs": {}
+    }
+  ],
+  "connections": [
+    [
+      "logic1:GND",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "sound1:1.r",
+      "mega:5V",
+      "red",
+      []
+    ],
+    [
+      "sound1:2.r",
+      "mega:7",
+      "green",
+      []
+    ],
+    [
+      "r_btn_1:1",
+      "mega:7",
+      "green",
+      []
+    ],
+    [
+      "r_btn_1:2",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "pot1:GND",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "pot1:VCC",
+      "mega:5V",
+      "red",
+      []
+    ],
+    [
+      "pot1:SIG",
+      "mega:A0",
+      "green",
+      []
+    ],
+    [
+      "relay1:VCC",
+      "mega:5V",
+      "red",
+      []
+    ],
+    [
+      "relay1:GND",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "relay1:IN",
+      "mega:2",
+      "green",
+      []
+    ],
+    [
+      "logic1:D0",
+      "mega:2",
+      "green",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

@@ -1,0 +1,42 @@
+task_id: mpu6050_read_button_display
+name: Read MPU6050 on button interrupt and display accel/gyro on LCD
+platform: arduino_mega
+level: level3
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "12"}
+      - {signal: D1, pin: "11"}
+      - {signal: D2, pin: "4"}
+      - {signal: D3, pin: "5"}
+      - {signal: D4, pin: "6"}
+      - {signal: D5, pin: "7"}
+  components:
+    - type: button
+      id: btn1
+      pin: "2"
+    - type: mpu6050
+      id: imu1
+      pins: {sda: "20", scl: "21"}
+    - type: lcd1602
+      id: lcd1
+      pins: {rs: "12", e: "11", d4: "4", d5: "5", d6: "6", d7: "7"}
+scenario:
+  family: button_press_sequence
+  part_id: btn1
+  initial_delay_ms: 200
+  presses:
+    - {duration_ms: 150, after_ms: 800}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_patterns: ["Wire\\.begin\\s*\\("]
+        required_any_patterns: [["attachInterrupt", "digitalPinToInterrupt"]]
+    - family: lcd_text
+      params:
+        expected_texts: ["Accel:", "Gyro:"]
+simulation: {timeout_ms: 1800}
+case: {id: mpu6050-read-button-display-wokwi-mega, sketch_name: mpu6050_read_button_display}

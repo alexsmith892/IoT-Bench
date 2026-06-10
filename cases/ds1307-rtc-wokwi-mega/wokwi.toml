@@ -1,0 +1,4 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/ds1307_rtc.ino.hex'
+elf = 'artifacts/build/ds1307_rtc.ino.elf'

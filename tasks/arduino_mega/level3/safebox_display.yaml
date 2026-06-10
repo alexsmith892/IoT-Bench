@@ -1,0 +1,41 @@
+task_id: safebox_display
+name: Unlock relay and display password/status on LCD
+platform: arduino_mega
+level: level3
+support:
+  status: manual
+  reason: Wokwi keypad password entry is UI-driven and not reliably automated by CLI scenarios
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "13"}
+      - {signal: D1, pin: "12"}
+      - {signal: D2, pin: "11"}
+      - {signal: D3, pin: "4"}
+      - {signal: D4, pin: "5"}
+      - {signal: D5, pin: "6"}
+      - {signal: D6, pin: "7"}
+  components:
+    - type: keypad4x4
+      id: keypad1
+      pins: {r1: "22", r2: "24", r3: "26", r4: "28", c1: "30", c2: "32", c3: "34", c4: "36"}
+    - type: relay
+      id: relay1
+      pin: "13"
+    - type: lcd1602
+      id: lcd1
+      pins: {rs: "12", e: "11", d4: "4", d5: "5", d6: "6", d7: "7"}
+validator:
+  family: composite
+  checks:
+    - family: lcd_text
+      params:
+        signals: {rs: D1, e: D2, d4: D3, d5: D4, d6: D5, d7: D6}
+        expected_texts: ["Input: 1234", "Status: Success"]
+    - family: window_ratios
+      params:
+        channel: D0
+        windows: [{start_s: 0.20, end_s: 0.80, ratio_range: [0.80, 1.0]}]
+simulation: {timeout_ms: 1800}
+case: {id: safebox-display-wokwi-mega, sketch_name: safebox_display}

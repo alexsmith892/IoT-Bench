@@ -1,0 +1,17 @@
+{
+  "id": "bme280-read-i2c-wokwi-mega",
+  "task": "bme280_read_i2c",
+  "name": "Read BME280 humidity and temperature over I2C",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/bme280_read_i2c",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "serial_log": "artifacts/serial/serial.log"
+  }
+}

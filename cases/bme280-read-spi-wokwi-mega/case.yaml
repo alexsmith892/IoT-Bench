@@ -1,0 +1,11 @@
+task_id: bme280_read_spi
+case_id: bme280-read-spi-wokwi-mega
+board:
+  type: wokwi-arduino-mega
+  fqbn: arduino:avr:mega
+paths:
+  sketch: sketch/bme280_read_spi
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  serial_log: artifacts/serial/serial.log

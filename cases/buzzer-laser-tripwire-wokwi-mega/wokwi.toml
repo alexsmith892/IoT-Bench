@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/buzzer_laser_tripwire.ino.hex'
+elf = 'artifacts/build/buzzer_laser_tripwire.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

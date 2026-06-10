@@ -1,0 +1,133 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-arduino-mega",
+      "id": "mega",
+      "top": 120,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-logic-analyzer",
+      "id": "logic1",
+      "top": -55,
+      "left": 300,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_led_1",
+      "top": -14,
+      "left": 220,
+      "attrs": {
+        "value": "220"
+      },
+      "rotate": 90
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led1",
+      "top": -80,
+      "left": 225,
+      "attrs": {
+        "color": "red"
+      }
+    },
+    {
+      "type": "wokwi-hc-sr04",
+      "id": "sonar1",
+      "top": -80,
+      "left": 330,
+      "attrs": {
+        "distance": "35"
+      }
+    },
+    {
+      "type": "wokwi-buzzer",
+      "id": "buzzer1",
+      "top": -80,
+      "left": 435,
+      "attrs": {
+        "volume": "0.2"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "logic1:GND",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "mega:GND.1",
+      "led1:C",
+      "black",
+      []
+    ],
+    [
+      "r_led_1:1",
+      "led1:A",
+      "blue",
+      []
+    ],
+    [
+      "mega:3",
+      "r_led_1:2",
+      "blue",
+      []
+    ],
+    [
+      "sonar1:VCC",
+      "mega:5V",
+      "red",
+      []
+    ],
+    [
+      "sonar1:GND",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "sonar1:TRIG",
+      "mega:9",
+      "green",
+      []
+    ],
+    [
+      "sonar1:ECHO",
+      "mega:10",
+      "green",
+      []
+    ],
+    [
+      "buzzer1:1",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "buzzer1:2",
+      "mega:2",
+      "red",
+      []
+    ],
+    [
+      "logic1:D0",
+      "mega:3",
+      "green",
+      []
+    ],
+    [
+      "logic1:D1",
+      "mega:2",
+      "green",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

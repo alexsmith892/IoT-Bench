@@ -1,0 +1,28 @@
+{
+  "id": "photoresistor-nightlight-wokwi-mega",
+  "task": "photoresistor_nightlight",
+  "name": "Turn on LED when photoresistor light level falls below threshold",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/photoresistor_nightlight",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd",
+    "scenario": "scenario.yaml"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 3"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 3"
+    }
+  ]
+}

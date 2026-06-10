@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/mpu6050_read_button_display.ino.hex'
+elf = 'artifacts/build/mpu6050_read_button_display.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

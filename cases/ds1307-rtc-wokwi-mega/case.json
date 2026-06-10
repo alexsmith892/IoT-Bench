@@ -1,0 +1,17 @@
+{
+  "id": "ds1307-rtc-wokwi-mega",
+  "task": "ds1307_rtc",
+  "name": "Set and print DS1307 RTC date/time over I2C",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/ds1307_rtc",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "serial_log": "artifacts/serial/serial.log"
+  }
+}

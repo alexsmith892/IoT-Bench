@@ -1,0 +1,12 @@
+task_id: ds18b20_heat_alarm
+case_id: ds18b20-heat-alarm-wokwi-mega
+board:
+  type: wokwi-arduino-mega
+  fqbn: arduino:avr:mega
+paths:
+  sketch: sketch/ds18b20_heat_alarm
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  vcd: artifacts/logic/wokwi.vcd
+  scenario: scenario.yaml

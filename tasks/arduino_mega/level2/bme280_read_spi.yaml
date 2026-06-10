@@ -1,0 +1,24 @@
+task_id: bme280_read_spi
+name: Read BME280 humidity and temperature over SPI
+platform: arduino_mega
+level: level2
+support:
+  status: unsupported
+  reason: no native Wokwi BME280 and no custom chip model
+fixture:
+  family: composite
+  components:
+    - type: bme280_spi
+      id: bme1
+      pins: {sck: "35", miso: "37", mosi: "36", cs: "21"}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_patterns: ["SPI\\.begin\\s*\\(", "pinMode\\s*\\(\\s*21"]
+    - family: serial_regex_sequence
+      params:
+        patterns: ["Temp(erature)?", "Hum(idity)?"]
+simulation: {timeout_ms: 1200}
+case: {id: bme280-read-spi-wokwi-mega, sketch_name: bme280_read_spi}

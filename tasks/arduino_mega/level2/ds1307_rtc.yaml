@@ -1,0 +1,23 @@
+task_id: ds1307_rtc
+name: Set and print DS1307 RTC date/time over I2C
+platform: arduino_mega
+level: level2
+fixture:
+  family: composite
+  components:
+    - type: ds1307
+      id: rtc1
+      pins: {sda: "20", scl: "21"}
+      attrs: {initTime: "2026-02-02T15:37:00Z"}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_patterns: ["Wire\\.begin\\s*\\("]
+    - family: serial_regex_sequence
+      params:
+        # DS1307 has no reliable temperature observable in Wokwi; validate the RTC date/time contract.
+        patterns: ["2026[/:-]02[/:-]02", "15[:.]37"]
+simulation: {timeout_ms: 1200}
+case: {id: ds1307-rtc-wokwi-mega, sketch_name: ds1307_rtc}

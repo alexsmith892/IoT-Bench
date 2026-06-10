@@ -1,0 +1,18 @@
+{
+  "id": "dht11-read-wokwi-mega",
+  "task": "dht11_read",
+  "name": "Read DHT11-style temperature and humidity on serial",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/dht11_read",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "scenario": "scenario.yaml",
+    "serial_log": "artifacts/serial/serial.log"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "id": "reverse-parking-sensor-wokwi-mega",
+  "task": "reverse_parking_sensor",
+  "name": "Pulse passive buzzer faster as object approaches",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/reverse_parking_sensor",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 3"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 3"
+    }
+  ]
+}

@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/tmp36_read_periodic_display.ino.hex'
+elf = 'artifacts/build/tmp36_read_periodic_display.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

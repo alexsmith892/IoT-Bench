@@ -26,6 +26,38 @@ def validate_forbidden_calls(sketch_path: Path, forbidden_calls: list[str]) -> N
             raise StaticCheckError(f"source contains forbidden {call}() call")
 
 
+def validate_required_patterns(sketch_path: Path, patterns: list[str]) -> None:
+    source = strip_comments_and_strings(read_arduino_sources(sketch_path))
+    missing = [pattern for pattern in patterns if not re.search(pattern, source)]
+    if missing:
+        raise StaticCheckError(
+            "source is missing required pattern(s): " + ", ".join(missing)
+        )
+
+
+def validate_required_any_patterns(sketch_path: Path, pattern_groups: list[list[str]]) -> None:
+    source = strip_comments_and_strings(read_arduino_sources(sketch_path))
+    for group in pattern_groups:
+        if not group:
+            continue
+        if not any(re.search(pattern, source) for pattern in group):
+            raise StaticCheckError(
+                "source is missing one of required patterns: " + ", ".join(group)
+            )
+
+
+def validate_static_checks(sketch_path: Path, checks: dict) -> None:
+    forbidden = checks.get("forbidden_calls") or []
+    required = checks.get("required_patterns") or []
+    required_any = checks.get("required_any_patterns") or []
+    if forbidden:
+        validate_forbidden_calls(sketch_path, list(forbidden))
+    if required:
+        validate_required_patterns(sketch_path, list(required))
+    if required_any:
+        validate_required_any_patterns(sketch_path, [list(group) for group in required_any])
+
+
 def strip_comments_and_strings(source: str) -> str:
     result: list[str] = []
     index = 0

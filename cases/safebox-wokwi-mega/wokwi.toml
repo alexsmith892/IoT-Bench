@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/safebox.ino.hex'
+elf = 'artifacts/build/safebox.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

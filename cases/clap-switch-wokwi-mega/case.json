@@ -1,0 +1,28 @@
+{
+  "id": "clap-switch-wokwi-mega",
+  "task": "clap_switch",
+  "name": "Toggle relay on digital sound sensor clap events",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/clap_switch",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd",
+    "scenario": "scenario.yaml"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 2"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 2"
+    }
+  ]
+}

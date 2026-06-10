@@ -1,0 +1,4 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/16key_keypad.ino.hex'
+elf = 'artifacts/build/16key_keypad.ino.elf'

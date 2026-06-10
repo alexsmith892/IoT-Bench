@@ -1,0 +1,17 @@
+{
+  "id": "bme280-read-spi-wokwi-mega",
+  "task": "bme280_read_spi",
+  "name": "Read BME280 humidity and temperature over SPI",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/bme280_read_spi",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "serial_log": "artifacts/serial/serial.log"
+  }
+}

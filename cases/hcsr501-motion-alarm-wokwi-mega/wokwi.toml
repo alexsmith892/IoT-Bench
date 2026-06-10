@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/hcsr501_motion_alarm.ino.hex'
+elf = 'artifacts/build/hcsr501_motion_alarm.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

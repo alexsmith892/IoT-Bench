@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-arduino-mega",
+      "id": "mega",
+      "top": 120,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-ky-040",
+      "id": "enc1",
+      "top": -80,
+      "left": 225,
+      "attrs": {}
+    }
+  ],
+  "connections": [
+    [
+      "enc1:CLK",
+      "mega:2",
+      "green",
+      []
+    ],
+    [
+      "enc1:DT",
+      "mega:3",
+      "green",
+      []
+    ],
+    [
+      "enc1:SW",
+      "mega:4",
+      "green",
+      []
+    ],
+    [
+      "enc1:VCC",
+      "mega:5V",
+      "red",
+      []
+    ],
+    [
+      "enc1:GND",
+      "mega:GND.1",
+      "black",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

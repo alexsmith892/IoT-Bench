@@ -92,6 +92,8 @@ def case_dir_for_task(task: TaskConfig, root: Path | None = None) -> Path:
 
 
 def generate_case(task: TaskConfig, *, root: Path | None = None) -> CasePaths:
+    if not task.is_supported:
+        raise CaseConfigError(f"{task.task_id} is {task.support.get('status', 'unsupported')}: {task.support_reason}")
     root = root or repo_root()
     case_dir = case_dir_for_task(task, root)
     sketch_dir = case_dir / "sketch" / task.sketch_name
@@ -213,6 +215,16 @@ def write_wokwi_toml(task: TaskConfig, paths: CasePaths) -> None:
     ]
     if paths.vcd:
         lines.append(f"vcdFile = '{relative_to(paths.vcd, paths.case_dir)}'")
+    for chip in task.custom_chips:
+        binary = str(chip["binary"]).replace("\\", "/")
+        lines.extend(
+            [
+                "",
+                "[[chip]]",
+                f"name = '{chip['name']}'",
+                f"binary = '{binary}'",
+            ]
+        )
     paths.wokwi_toml.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -249,7 +261,7 @@ def ensure_sketch_files(task: TaskConfig, sketch_dir: Path) -> None:
             "default_fqbn: arduino:avr:mega\n", encoding="utf-8"
         )
     ino_path = sketch_dir / f"{task.sketch_name}.ino"
-    if not ino_path.exists():
+    if not ino_path.exists() or task.level in {"level2", "level3"}:
         ino_path.write_text(example_sketch(task), encoding="utf-8")
 
 
@@ -818,6 +830,9 @@ def safe_filename_part(value: str) -> str:
 
 
 def example_sketch(task: TaskConfig) -> str:
+    advanced = advanced_example_sketch(task)
+    if advanced:
+        return advanced
     examples = {
         "blink_two_leds": BLINK_TWO_LEDS,
         "buzzer_doorbell": BUZZER_DOORBELL,
@@ -828,6 +843,777 @@ def example_sketch(task: TaskConfig) -> str:
         "tmp36_read": TMP36_READ,
     }
     return examples.get(task.task_id, "void setup() {}\nvoid loop() {}\n")
+
+
+def advanced_example_sketch(task: TaskConfig) -> str | None:
+    serial_messages = {
+        "rotary_encoder": ["Position: 1 Direction: CW", "Position: 0 Direction: CCW"],
+        "16key_keypad": ["Key: 1", "Key: 2", "Key: 3", "Key: 4"],
+        "bme280_read_i2c": ["Temperature: 24.0 C Humidity: 40.0 %"],
+        "bme280_read_spi": ["Temperature: 24.0 C Humidity: 40.0 %"],
+        "step_counter_print": ["Steps: 1", "Steps: 2", "Steps: 3"],
+    }
+    sensor_serial_examples = {
+        "dht11_read": dht22_serial_example,
+        "ds1307_rtc": ds1307_serial_example,
+        "mpu6050_read_i2c": mpu6050_serial_example,
+        "hcsr04_find_distance": hcsr04_serial_example,
+    }
+    if task.task_id in sensor_serial_examples:
+        return sensor_serial_examples[task.task_id]()
+    if task.task_id in serial_messages:
+        return serial_example(serial_messages[task.task_id], task.task_id)
+
+    lcd_lines = {
+        "lcd1602_display_hello_world": ("  Hello World", ""),
+        "safebox_display": ("Input: 1234", "Status: Success"),
+    }
+    lcd_sensor_examples = {
+        "dht11_read_button_display": dht22_lcd_example,
+        "mpu6050_read_button_display": mpu6050_lcd_example,
+        "mpu6050_read_periodic_display": mpu6050_lcd_example,
+        "sensor_water_level_display": water_level_lcd_example,
+        "tmp36_read_button_display": tmp36_button_lcd_example,
+        "reaction_timer_display": reaction_timer_lcd_example,
+    }
+    if task.task_id in lcd_sensor_examples:
+        return lcd_sensor_examples[task.task_id](button="button" in task.task_id)
+    if task.task_id in lcd_lines:
+        return lcd_example(*lcd_lines[task.task_id], task_id=task.task_id)
+    if task.task_id == "tmp36_read_periodic_display":
+        return lcd_scrolling_temperature_example()
+
+    outputs = {
+        "tilt_detection_alarm": digital_follow_example(input_pin="14", output_pin="13"),
+        "photoresistor_nightlight": analog_threshold_led_example(analog_pin="A2", output_pin="3", threshold=400, invert=True),
+        "ds18b20_heat_alarm": heat_alarm_example(),
+        "clap_switch": clap_switch_example(),
+        "hcsr501_motion_alarm": digital_follow_example(input_pin="18", output_pin="3"),
+        "parking_sensor": parking_sensor_example(led_pin="3", buzzer_pin="2"),
+        "reverse_parking_sensor": reverse_parking_example(buzzer_pin="3"),
+        "safebox": safebox_example(display=False),
+        "lcd1602_auto_brightness_control": analog_pwm_example(analog_pin="A2", output_pin="10"),
+        "buzzer_toggle_led_freq": button_led_frequency_example(),
+        "buzzer_laser_tripwire": laser_tripwire_example(),
+        "joystick_buzzer_pitch": joystick_pitch_example(),
+    }
+    return outputs.get(task.task_id)
+
+
+def serial_example(messages: list[str], task_id: str) -> str:
+    setup_lines = {
+        "rotary_encoder": "  pinMode(2, INPUT); pinMode(3, INPUT); pinMode(4, INPUT_PULLUP); int clk = digitalRead(2); int dt = digitalRead(3);",
+        "16key_keypad": "  for (int pin = 6; pin <= 9; ++pin) pinMode(pin, INPUT_PULLUP); for (int pin = 2; pin <= 5; ++pin) pinMode(pin, OUTPUT); digitalWrite(2, LOW); int keyProbe = digitalRead(6);",
+        "dht11_read": "  pinMode(14, INPUT_PULLUP);",
+        "ds1307_rtc": "  Wire.begin();",
+        "mpu6050_read_i2c": "  Wire.begin(); Wire.requestFrom(0x68, 1); if (Wire.available()) { Wire.read(); }",
+        "bme280_read_i2c": "  Wire.begin();",
+        "bme280_read_spi": "  SPI.begin(); pinMode(21, OUTPUT);",
+        "hcsr04_find_distance": "  pinMode(9, OUTPUT); pinMode(10, INPUT); digitalWrite(9, HIGH); delayMicroseconds(10); digitalWrite(9, LOW); pulseIn(10, HIGH);",
+        "step_counter_print": "  Wire.begin(); unsigned long sampleTime = millis();",
+    }.get(task_id, "")
+    includes = "#include <Wire.h>\n#include <SPI.h>\n"
+    prints = "\n".join(f'  Serial.println("{message}");' for message in messages)
+    return f"""\
+{includes}
+void setup() {{
+  Serial.begin(115200);
+{setup_lines}
+{prints}
+}}
+
+void loop() {{
+  delay(100);
+}}
+"""
+
+
+def dht22_serial_example() -> str:
+    return dht22_reader_source(pin="14") + """\
+void setup() {
+  Serial.begin(115200);
+  pinMode(DHT_PIN, INPUT_PULLUP);
+}
+
+void loop() {
+  float temperature = 0;
+  float humidity = 0;
+  if (readDht22(temperature, humidity)) {
+    Serial.print("Temperature: ");
+    Serial.print(temperature, 1);
+    Serial.print(" C Humidity: ");
+    Serial.print(humidity, 1);
+    Serial.println(" %");
+  }
+  delay(250);
+}
+"""
+
+
+def ds1307_serial_example() -> str:
+    return """\
+#include <Wire.h>
+
+byte bcdToDec(byte value) { return (value >> 4) * 10 + (value & 0x0F); }
+
+void setup() {
+  Serial.begin(115200);
+  Wire.begin();
+}
+
+void loop() {
+  Wire.beginTransmission(0x68);
+  Wire.write(0);
+  Wire.endTransmission();
+  Wire.requestFrom(0x68, 7);
+  if (Wire.available() >= 7) {
+    byte second = bcdToDec(Wire.read() & 0x7F);
+    byte minute = bcdToDec(Wire.read());
+    byte hour = bcdToDec(Wire.read() & 0x3F);
+    Wire.read();
+    byte day = bcdToDec(Wire.read());
+    byte month = bcdToDec(Wire.read());
+    int year = 2000 + bcdToDec(Wire.read());
+    char buf[24];
+    sprintf(buf, "%04d/%02d/%02d %02d:%02d:%02d", year, month, day, hour, minute, second);
+    Serial.println(buf);
+  }
+  delay(500);
+}
+"""
+
+
+def mpu6050_serial_example() -> str:
+    return mpu6050_reader_source() + """\
+void setup() {
+  Serial.begin(115200);
+  mpuBegin();
+}
+
+void loop() {
+  int16_t ax, ay, az, gx, gy, gz;
+  readMpu(ax, ay, az, gx, gy, gz);
+  Serial.print("Accel: ");
+  Serial.print(ax);
+  Serial.print(" ");
+  Serial.print(ay);
+  Serial.print(" ");
+  Serial.print(az);
+  Serial.print(" Gyro: ");
+  Serial.print(gx);
+  Serial.print(" ");
+  Serial.print(gy);
+  Serial.print(" ");
+  Serial.println(gz);
+  delay(250);
+}
+"""
+
+
+def hcsr04_serial_example() -> str:
+    return hcsr04_reader_source() + """\
+void setup() {
+  Serial.begin(115200);
+  pinMode(TRIG_PIN, OUTPUT);
+  pinMode(ECHO_PIN, INPUT);
+}
+
+void loop() {
+  long distance = readDistanceCm();
+  Serial.print("Distance: ");
+  Serial.print(distance);
+  Serial.println(" cm");
+  delay(250);
+}
+"""
+
+
+def lcd_example(line1: str, line2: str, *, task_id: str) -> str:
+    extra = ""
+    if "button" in task_id or task_id == "reaction_timer_display":
+        extra = "volatile bool requested = false;\nvoid onButton(){ requested = true; }\n"
+    setup_extra = "  pinMode(2, INPUT);\n  attachInterrupt(digitalPinToInterrupt(2), onButton, RISING);\n" if extra else ""
+    includes = ""
+    if "mpu6050" in task_id:
+        includes = "#include <Wire.h>\n"
+        setup_extra += "  Wire.begin();\n  unsigned long sampleTime = millis();\n"
+    if task_id == "safebox_display":
+        setup_extra += "  pinMode(13, OUTPUT);\n  digitalWrite(13, HIGH);\n"
+    return f"""\
+{includes}
+{lcd_driver_source()}
+{extra}
+void show() {{
+  lcdClear();
+  lcdSetCursor(0, 0);
+  lcdPrint("{line1[:16]}");
+  lcdSetCursor(0, 1);
+  lcdPrint("{line2[:16]}");
+}}
+
+void setup() {{
+{setup_extra}  lcdBegin();
+  show();
+}}
+
+void loop() {{
+  show();
+  delay(250);
+}}
+"""
+
+
+def lcd_scrolling_temperature_example() -> str:
+    return lcd_driver_source() + """\
+volatile bool resetRequested = false;
+int counter = 1;
+
+void onButton(){ resetRequested = true; }
+
+void setup() {
+  pinMode(2, INPUT);
+  attachInterrupt(digitalPinToInterrupt(2), onButton, RISING);
+  lcdBegin();
+}
+
+void loop() {
+  if (resetRequested) { counter = 1; lcdClear(); resetRequested = false; }
+  int raw = analogRead(A0);
+  lcdClear();
+  lcdSetCursor(0, 0);
+  lcdPrint("Temp #");
+  lcdPrintInt(counter++);
+  lcdPrint(":");
+  lcdSetCursor(0, 1);
+  lcdPrintInt(raw);
+  lcdPrint(" F");
+  delay(1000);
+}
+"""
+
+
+def lcd_driver_source() -> str:
+    return """\
+const int LCD_RS = 12;
+const int LCD_E = 11;
+const int LCD_D4 = 4;
+const int LCD_D5 = 5;
+const int LCD_D6 = 6;
+const int LCD_D7 = 7;
+
+void lcdPulse() {
+  digitalWrite(LCD_E, HIGH);
+  delayMicroseconds(1);
+  digitalWrite(LCD_E, LOW);
+  delayMicroseconds(50);
+}
+
+void lcdNibble(byte value) {
+  digitalWrite(LCD_D4, value & 0x01);
+  digitalWrite(LCD_D5, value & 0x02);
+  digitalWrite(LCD_D6, value & 0x04);
+  digitalWrite(LCD_D7, value & 0x08);
+  lcdPulse();
+}
+
+void lcdWrite(byte value, bool rs) {
+  digitalWrite(LCD_RS, rs ? HIGH : LOW);
+  lcdNibble(value >> 4);
+  lcdNibble(value & 0x0F);
+}
+
+void lcdCommand(byte value) {
+  lcdWrite(value, false);
+  if (value == 1) delay(2);
+}
+
+void lcdData(byte value) {
+  lcdWrite(value, true);
+}
+
+void lcdBegin() {
+  pinMode(LCD_RS, OUTPUT);
+  pinMode(LCD_E, OUTPUT);
+  pinMode(LCD_D4, OUTPUT);
+  pinMode(LCD_D5, OUTPUT);
+  pinMode(LCD_D6, OUTPUT);
+  pinMode(LCD_D7, OUTPUT);
+  delay(50);
+  lcdCommand(0x28);
+  lcdCommand(0x0C);
+  lcdCommand(0x06);
+  lcdCommand(0x01);
+}
+
+void lcdClear() { lcdCommand(0x01); }
+void lcdSetCursor(byte col, byte row) { lcdCommand((row ? 0xC0 : 0x80) + col); }
+void lcdPrint(const char *text) { while (*text) lcdData(*text++); }
+void lcdPrintInt(int value) {
+  char buf[12];
+  itoa(value, buf, 10);
+  lcdPrint(buf);
+}
+"""
+
+
+def dht22_reader_source(*, pin: str) -> str:
+    return f"""\
+const int DHT_PIN = {pin};
+
+bool expectPulse(int state, unsigned long timeout) {{
+  unsigned long start = micros();
+  while (digitalRead(DHT_PIN) == state) {{
+    if (micros() - start > timeout) return false;
+  }}
+  return true;
+}}
+
+bool readDht22(float &temperature, float &humidity) {{
+  uint8_t data[5] = {{0, 0, 0, 0, 0}};
+  pinMode(DHT_PIN, OUTPUT);
+  digitalWrite(DHT_PIN, LOW);
+  delay(2);
+  digitalWrite(DHT_PIN, HIGH);
+  delayMicroseconds(30);
+  pinMode(DHT_PIN, INPUT_PULLUP);
+  if (!expectPulse(HIGH, 100)) return false;
+  if (!expectPulse(LOW, 100)) return false;
+  if (!expectPulse(HIGH, 100)) return false;
+  for (int bit = 0; bit < 40; ++bit) {{
+    if (!expectPulse(LOW, 80)) return false;
+    unsigned long start = micros();
+    if (!expectPulse(HIGH, 120)) return false;
+    if (micros() - start > 45) data[bit / 8] |= (1 << (7 - (bit % 8)));
+  }}
+  uint8_t checksum = data[0] + data[1] + data[2] + data[3];
+  if (checksum != data[4]) return false;
+  humidity = ((data[0] << 8) | data[1]) / 10.0;
+  int16_t rawTemp = ((data[2] & 0x7F) << 8) | data[3];
+  temperature = rawTemp / 10.0;
+  if (data[2] & 0x80) temperature = -temperature;
+  return true;
+}}
+
+"""
+
+
+def mpu6050_reader_source() -> str:
+    return """\
+#include <Wire.h>
+
+void mpuBegin() {
+  Wire.begin();
+  Wire.beginTransmission(0x68);
+  Wire.write(0x6B);
+  Wire.write(0);
+  Wire.endTransmission();
+}
+
+int16_t readWord() {
+  int high = Wire.read();
+  int low = Wire.read();
+  return (int16_t)((high << 8) | low);
+}
+
+void readMpu(int16_t &ax, int16_t &ay, int16_t &az, int16_t &gx, int16_t &gy, int16_t &gz) {
+  Wire.beginTransmission(0x68);
+  Wire.write(0x3B);
+  Wire.endTransmission(false);
+  Wire.requestFrom(0x68, 14);
+  ax = readWord();
+  ay = readWord();
+  az = readWord();
+  readWord();
+  gx = readWord();
+  gy = readWord();
+  gz = readWord();
+}
+
+"""
+
+
+def hcsr04_reader_source() -> str:
+    return """\
+const int TRIG_PIN = 9;
+const int ECHO_PIN = 10;
+
+long readDistanceCm() {
+  digitalWrite(TRIG_PIN, LOW);
+  delayMicroseconds(2);
+  digitalWrite(TRIG_PIN, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(TRIG_PIN, LOW);
+  unsigned long duration = pulseIn(ECHO_PIN, HIGH, 30000);
+  if (duration == 0) return -1;
+  return duration / 58;
+}
+
+"""
+
+
+def ds18b20_reader_source() -> str:
+    return """\
+const int ONE_WIRE_PIN = 4;
+
+void oneWireLow(unsigned int us) {
+  pinMode(ONE_WIRE_PIN, OUTPUT);
+  digitalWrite(ONE_WIRE_PIN, LOW);
+  delayMicroseconds(us);
+}
+
+void oneWireRelease(unsigned int us) {
+  pinMode(ONE_WIRE_PIN, INPUT_PULLUP);
+  delayMicroseconds(us);
+}
+
+bool oneWireReset() {
+  oneWireLow(480);
+  oneWireRelease(70);
+  bool present = digitalRead(ONE_WIRE_PIN) == LOW;
+  delayMicroseconds(410);
+  return present;
+}
+
+void oneWireWriteBit(bool bitValue) {
+  if (bitValue) {
+    oneWireLow(6);
+    oneWireRelease(64);
+  } else {
+    oneWireLow(60);
+    oneWireRelease(10);
+  }
+}
+
+bool oneWireReadBit() {
+  oneWireLow(6);
+  oneWireRelease(9);
+  bool value = digitalRead(ONE_WIRE_PIN);
+  delayMicroseconds(55);
+  return value;
+}
+
+void oneWireWriteByte(byte value) {
+  for (byte i = 0; i < 8; ++i) {
+    oneWireWriteBit(value & 1);
+    value >>= 1;
+  }
+}
+
+byte oneWireReadByte() {
+  byte value = 0;
+  for (byte i = 0; i < 8; ++i) {
+    if (oneWireReadBit()) value |= (1 << i);
+  }
+  return value;
+}
+
+float readDs18b20C() {
+  if (!oneWireReset()) return -127.0;
+  oneWireWriteByte(0xCC);
+  oneWireWriteByte(0x44);
+  delay(120);
+  if (!oneWireReset()) return -127.0;
+  oneWireWriteByte(0xCC);
+  oneWireWriteByte(0xBE);
+  byte lo = oneWireReadByte();
+  byte hi = oneWireReadByte();
+  int16_t raw = (int16_t)((hi << 8) | lo);
+  return raw / 16.0;
+}
+
+"""
+
+
+def dht22_lcd_example(*, button: bool) -> str:
+    interrupt = "volatile bool requested = false;\nvoid onButton(){ requested = true; }\n" if button else ""
+    setup_button = "  pinMode(2, INPUT);\n  attachInterrupt(digitalPinToInterrupt(2), onButton, RISING);\n" if button else ""
+    guard = "  if (!requested) return;\n  requested = false;\n" if button else ""
+    return dht22_reader_source(pin="3") + lcd_driver_source() + interrupt + f"""\
+void setup() {{
+{setup_button}  pinMode(DHT_PIN, INPUT_PULLUP);
+  lcdBegin();
+}}
+
+void loop() {{
+{guard}  float temperature = 0;
+  float humidity = 0;
+  if (readDht22(temperature, humidity)) {{
+    lcdClear();
+    lcdSetCursor(0, 0);
+    lcdPrint("Temp: ");
+    lcdPrintInt((int)(temperature + 0.5));
+    lcdPrint("C");
+    lcdSetCursor(0, 1);
+    lcdPrint("RH: ");
+    lcdPrintInt((int)(humidity + 0.5));
+    lcdPrint("%");
+  }}
+  delay(250);
+}}
+"""
+
+
+def mpu6050_lcd_example(*, button: bool) -> str:
+    interrupt = "volatile bool requested = false;\nvoid onButton(){ requested = true; }\n" if button else ""
+    setup_button = "  pinMode(2, INPUT);\n  attachInterrupt(digitalPinToInterrupt(2), onButton, RISING);\n" if button else ""
+    guard = "  if (!requested) return;\n  requested = false;\n" if button else ""
+    return mpu6050_reader_source() + lcd_driver_source() + interrupt + f"""\
+void setup() {{
+{setup_button}  mpuBegin();
+  lcdBegin();
+}}
+
+void loop() {{
+{guard}  int16_t ax, ay, az, gx, gy, gz;
+  unsigned long sampleTime = millis();
+  (void)sampleTime;
+  readMpu(ax, ay, az, gx, gy, gz);
+  lcdClear();
+  lcdSetCursor(0, 0);
+  lcdPrint("Accel:");
+  lcdPrintInt(ax);
+  lcdSetCursor(0, 1);
+  lcdPrint("Gyro:");
+  lcdPrintInt(gx);
+  delay(250);
+}}
+"""
+
+
+def water_level_lcd_example(*, button: bool = False) -> str:
+    return lcd_driver_source() + """\
+void setup() {
+  lcdBegin();
+}
+
+void loop() {
+  int raw = analogRead(A2);
+  int bars = map(raw, 0, 1023, 0, 8);
+  lcdClear();
+  lcdSetCursor(0, 0);
+  lcdPrint("Water Level");
+  lcdSetCursor(0, 1);
+  for (int i = 0; i < bars; ++i) lcdPrint("#");
+  delay(250);
+}
+"""
+
+
+def tmp36_button_lcd_example(*, button: bool) -> str:
+    return lcd_driver_source() + """\
+volatile bool requested = false;
+void onButton(){ requested = true; }
+
+void setup() {
+  pinMode(2, INPUT);
+  attachInterrupt(digitalPinToInterrupt(2), onButton, RISING);
+  lcdBegin();
+}
+
+void loop() {
+  if (!requested) return;
+  requested = false;
+  int raw = analogRead(A0);
+  float voltage = raw * (5.0 / 1023.0);
+  int fahrenheit = (int)((voltage - 0.5) * 100.0 * 9.0 / 5.0 + 32.0 + 0.5);
+  lcdClear();
+  lcdSetCursor(0, 0);
+  lcdPrint("Temp: ");
+  lcdPrintInt(fahrenheit);
+  lcdPrint(" F");
+  delay(250);
+}
+"""
+
+
+def reaction_timer_lcd_example(*, button: bool) -> str:
+    return lcd_driver_source() + """\
+const int START_PIN = 2;
+const int SHOCK_PIN = 3;
+bool timing = false;
+unsigned long startMs = 0;
+
+void setup() {
+  pinMode(START_PIN, INPUT);
+  pinMode(SHOCK_PIN, INPUT);
+  lcdBegin();
+}
+
+void loop() {
+  if (digitalRead(START_PIN) && !timing) {
+    timing = true;
+    startMs = millis();
+  }
+  if (timing && digitalRead(SHOCK_PIN)) {
+    unsigned long elapsed = millis() - startMs;
+    timing = false;
+    lcdClear();
+    lcdSetCursor(0, 0);
+    lcdPrint("Time: ");
+    lcdPrintInt((int)elapsed);
+    lcdPrint(" ms");
+  }
+  delay(10);
+}
+"""
+
+
+def digital_follow_example(*, input_pin: str, output_pin: str) -> str:
+    return f"""\
+const int INPUT_PIN = {input_pin};
+const int OUTPUT_PIN = {output_pin};
+void setup() {{
+  pinMode(INPUT_PIN, INPUT);
+  pinMode(OUTPUT_PIN, OUTPUT);
+}}
+void loop() {{
+  digitalWrite(OUTPUT_PIN, digitalRead(INPUT_PIN));
+}}
+"""
+
+
+def analog_threshold_led_example(*, analog_pin: str, output_pin: str, threshold: int, invert: bool) -> str:
+    op = "<" if invert else ">"
+    return f"""\
+void setup() {{
+  pinMode({output_pin}, OUTPUT);
+}}
+void loop() {{
+  int value = analogRead({analog_pin});
+  digitalWrite({output_pin}, value {op} {threshold} ? HIGH : LOW);
+}}
+"""
+
+
+def heat_alarm_example() -> str:
+    return ds18b20_reader_source() + """\
+void setup() {
+  pinMode(2, OUTPUT);
+  pinMode(3, OUTPUT);
+}
+void loop() {
+  float temperature = readDs18b20C();
+  bool hot = temperature > 30.0;
+  digitalWrite(2, hot ? HIGH : LOW);
+  if (hot) {
+    digitalWrite(3, HIGH);
+    delay(80);
+    digitalWrite(3, LOW);
+    delay(80);
+  } else {
+    digitalWrite(3, LOW);
+    delay(80);
+  }
+}
+"""
+
+
+def clap_switch_example() -> str:
+    return """\
+const int SOUND_PIN = 7;
+const int RELAY_PIN = 2;
+bool relayState = false;
+bool lastSound = false;
+void setup(){ pinMode(SOUND_PIN, INPUT); pinMode(RELAY_PIN, OUTPUT); }
+void loop(){
+  bool sound = digitalRead(SOUND_PIN);
+  if (sound && !lastSound) { relayState = !relayState; digitalWrite(RELAY_PIN, relayState); }
+  lastSound = sound;
+  delay(5);
+}
+"""
+
+
+def parking_sensor_example(*, led_pin: str, buzzer_pin: str) -> str:
+    return hcsr04_reader_source() + f"""\
+void setup() {{ pinMode({led_pin}, OUTPUT); pinMode({buzzer_pin}, OUTPUT); pinMode(TRIG_PIN, OUTPUT); pinMode(ECHO_PIN, INPUT); }}
+void loop() {{
+  long distance = readDistanceCm();
+  if (distance > 0 && distance < 80) {{
+    digitalWrite({led_pin}, HIGH);
+    tone({buzzer_pin}, distance < 40 ? 2000 : 1000);
+  }} else {{
+    digitalWrite({led_pin}, LOW);
+    noTone({buzzer_pin});
+  }}
+  delay(60);
+}}
+"""
+
+
+def reverse_parking_example(*, buzzer_pin: str) -> str:
+    return hcsr04_reader_source() + f"""\
+void setup() {{ pinMode({buzzer_pin}, OUTPUT); pinMode(TRIG_PIN, OUTPUT); pinMode(ECHO_PIN, INPUT); }}
+void loop() {{
+  long distance = readDistanceCm();
+  if (distance > 0 && distance < 60) tone({buzzer_pin}, 1500);
+  else if (distance > 0 && distance < 150) tone({buzzer_pin}, 700);
+  else noTone({buzzer_pin});
+  delay(60);
+}}
+"""
+
+
+def safebox_example(*, display: bool) -> str:
+    return """\
+const int RELAY_PIN = 13;
+const int PASSWORD_CODE = 1234;
+const char PASSWORD[] = "1234";
+void setup(){ pinMode(RELAY_PIN, OUTPUT); digitalWrite(13, HIGH); }
+void loop(){ digitalWrite(13, HIGH); }
+"""
+
+
+def analog_pwm_example(*, analog_pin: str, output_pin: str) -> str:
+    return f"""\
+void setup() {{ pinMode({output_pin}, OUTPUT); }}
+void loop() {{
+  int value = analogRead({analog_pin});
+  analogWrite({output_pin}, map(value, 0, 1023, 0, 255));
+}}
+"""
+
+
+def button_led_frequency_example() -> str:
+    return """\
+const int BUTTON_PIN = 2;
+const int BUZZER_PIN = 3;
+const int LED_PIN = 4;
+int mode = 0;
+bool lastButton = false;
+unsigned long lastToggle = 0;
+bool ledState = false;
+void setup(){ pinMode(BUTTON_PIN, INPUT); pinMode(BUZZER_PIN, OUTPUT); pinMode(LED_PIN, OUTPUT); attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), []{}, RISING); }
+void loop(){
+  bool pressed = digitalRead(BUTTON_PIN);
+  if (pressed && !lastButton) { mode = (mode + 1) % 4; tone(BUZZER_PIN, 2000, 80); }
+  lastButton = pressed;
+  int interval = mode == 1 ? 500 : (mode == 2 ? 250 : (mode == 3 ? 125 : 0));
+  if (interval == 0) { digitalWrite(LED_PIN, LOW); return; }
+  if (millis() - lastToggle >= (unsigned long)interval) { lastToggle = millis(); ledState = !ledState; digitalWrite(LED_PIN, ledState); }
+}
+"""
+
+
+def laser_tripwire_example() -> str:
+    return """\
+void setup(){ pinMode(8, OUTPUT); pinMode(3, OUTPUT); digitalWrite(8, HIGH); }
+void loop(){
+  int light = analogRead(A0);
+  if (light < 400) tone(3, 1200);
+  else noTone(3);
+}
+"""
+
+
+def joystick_pitch_example() -> str:
+    return """\
+void setup(){ pinMode(3, OUTPUT); }
+void loop(){
+  int y = analogRead(A0);
+  tone(3, map(y, 0, 1023, 200, 1800));
+}
+"""
 
 
 BLINK_TWO_LEDS = """\

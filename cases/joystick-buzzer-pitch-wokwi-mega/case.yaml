@@ -1,0 +1,12 @@
+task_id: joystick_buzzer_pitch
+case_id: joystick-buzzer-pitch-wokwi-mega
+board:
+  type: wokwi-arduino-mega
+  fqbn: arduino:avr:mega
+paths:
+  sketch: sketch/joystick_buzzer_pitch
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  vcd: artifacts/logic/wokwi.vcd
+  scenario: scenario.yaml

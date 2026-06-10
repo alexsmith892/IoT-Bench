@@ -1,0 +1,166 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-arduino-mega",
+      "id": "mega",
+      "top": 120,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-logic-analyzer",
+      "id": "logic1",
+      "top": -55,
+      "left": 300,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "pot1",
+      "top": -80,
+      "left": 225,
+      "attrs": {
+        "value": "512"
+      }
+    },
+    {
+      "type": "wokwi-lcd1602",
+      "id": "lcd1",
+      "top": -80,
+      "left": 330,
+      "attrs": {}
+    }
+  ],
+  "connections": [
+    [
+      "logic1:GND",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "pot1:GND",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "pot1:VCC",
+      "mega:5V",
+      "red",
+      []
+    ],
+    [
+      "pot1:SIG",
+      "mega:A2",
+      "green",
+      []
+    ],
+    [
+      "lcd1:VSS",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "lcd1:VDD",
+      "mega:5V",
+      "red",
+      []
+    ],
+    [
+      "lcd1:RW",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "lcd1:K",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "lcd1:RS",
+      "mega:12",
+      "green",
+      []
+    ],
+    [
+      "lcd1:E",
+      "mega:11",
+      "green",
+      []
+    ],
+    [
+      "lcd1:D4",
+      "mega:4",
+      "green",
+      []
+    ],
+    [
+      "lcd1:D5",
+      "mega:5",
+      "green",
+      []
+    ],
+    [
+      "lcd1:D6",
+      "mega:6",
+      "green",
+      []
+    ],
+    [
+      "lcd1:D7",
+      "mega:7",
+      "green",
+      []
+    ],
+    [
+      "lcd1:A",
+      "mega:5V",
+      "red",
+      []
+    ],
+    [
+      "logic1:D0",
+      "mega:12",
+      "green",
+      []
+    ],
+    [
+      "logic1:D1",
+      "mega:11",
+      "green",
+      []
+    ],
+    [
+      "logic1:D2",
+      "mega:4",
+      "green",
+      []
+    ],
+    [
+      "logic1:D3",
+      "mega:5",
+      "green",
+      []
+    ],
+    [
+      "logic1:D4",
+      "mega:6",
+      "green",
+      []
+    ],
+    [
+      "logic1:D5",
+      "mega:7",
+      "green",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

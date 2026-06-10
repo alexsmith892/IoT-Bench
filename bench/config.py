@@ -76,6 +76,30 @@ class TaskConfig:
         return self.data.get("simulation") or {}
 
     @property
+    def support(self) -> dict[str, Any]:
+        support = dict(self.data.get("support") or {})
+        support.setdefault("status", "supported")
+        return support
+
+    @property
+    def is_supported(self) -> bool:
+        return self.support.get("status", "supported") == "supported"
+
+    @property
+    def support_reason(self) -> str:
+        return str(self.support.get("reason") or "task is not supported by this harness")
+
+    @property
+    def custom_chips(self) -> list[dict[str, Any]]:
+        chips = self.data.get("custom_chips") or []
+        return list(chips) if isinstance(chips, list) else []
+
+    @property
+    def simulation_variants(self) -> list[dict[str, Any]]:
+        variants = self.data.get("simulation_variants") or []
+        return list(variants) if isinstance(variants, list) else []
+
+    @property
     def case_id(self) -> str:
         return self.data["case"]["id"]
 
@@ -89,12 +113,7 @@ class TaskConfig:
 
     @property
     def requires_serial_log(self) -> bool:
-        return self.validator_family in {
-            "serial_contains_on_stimulus",
-            "serial_count_sequence",
-            "debounce_serial",
-            "analog_temperature_serial",
-        }
+        return validator_requires_serial(self.validator)
 
     def validator_params(self) -> dict[str, Any]:
         return self.validator.get("params") or {}
@@ -166,6 +185,21 @@ def validate_task(task: TaskConfig) -> None:
         raise ConfigError(f"{task.path}: fixture.family is required")
     if not isinstance(data["validator"], dict) or "family" not in data["validator"]:
         raise ConfigError(f"{task.path}: validator.family is required")
+    support = data.get("support")
+    if support is not None:
+        if not isinstance(support, dict):
+            raise ConfigError(f"{task.path}: support must be a mapping")
+        status = support.get("status", "supported")
+        if status not in {"supported", "unsupported", "manual"}:
+            raise ConfigError(f"{task.path}: unknown support status {status!r}")
+        if status != "supported" and not support.get("reason"):
+            raise ConfigError(f"{task.path}: unsupported/manual tasks require support.reason")
+    custom_chips = data.get("custom_chips")
+    if custom_chips is not None:
+        validate_custom_chips(task, custom_chips)
+    simulation_variants = data.get("simulation_variants")
+    if simulation_variants is not None:
+        validate_simulation_variants(task, simulation_variants)
 
     case = data["case"]
     if not isinstance(case, dict):
@@ -187,6 +221,7 @@ def validate_task(task: TaskConfig) -> None:
 
 def validate_families(task: TaskConfig, channels: list[dict[str, Any]]) -> None:
     fixture_families = {
+        "composite",
         "single_led_output",
         "dual_led_output",
         "button_to_buzzer",
@@ -195,6 +230,13 @@ def validate_families(task: TaskConfig, channels: list[dict[str, Any]]) -> None:
         "analog_temperature_serial",
     }
     validator_families = {
+        "composite",
+        "static_checks",
+        "serial_regex_sequence",
+        "serial_numeric_ranges",
+        "lcd_text",
+        "window_ratios",
+        "frequency_windows",
         "waveform_frequency",
         "morse_sos",
         "no_delay_static_plus_waveform",
@@ -205,12 +247,17 @@ def validate_families(task: TaskConfig, channels: list[dict[str, Any]]) -> None:
         "serial_count_sequence",
         "debounce_serial",
         "analog_temperature_serial",
+        "serial_observation_sequence",
+        "bus_activity",
+        "lcd_text_sequence",
     }
     scenario_families = {
+        "timeline",
         "button_press_sequence",
         "bounced_button_sequence",
         "pir_state_sequence",
         "analog_position_sequence",
+        "control_sequence",
     }
     if task.fixture_family not in fixture_families:
         raise ConfigError(f"{task.path}: unknown fixture family {task.fixture_family}")
@@ -231,12 +278,15 @@ def validate_families(task: TaskConfig, channels: list[dict[str, Any]]) -> None:
         "multi_channel_frequency",
         "pwm_breathing",
         "stimulus_to_output",
+        "bus_activity",
+        "lcd_text_sequence",
     }
     serial_families = {
         "serial_contains_on_stimulus",
         "serial_count_sequence",
         "debounce_serial",
         "analog_temperature_serial",
+        "serial_observation_sequence",
     }
     if task.validator_family in waveform_families and not channels:
         raise ConfigError(f"{task.path}: {task.validator_family} requires analyzer channels")
@@ -285,7 +335,30 @@ def validate_families(task: TaskConfig, channels: list[dict[str, Any]]) -> None:
                     raise ConfigError(
                         f"{task.path}: expected_celsius {wanted!r} does not match analog position {position.get('value')!r}"
                     )
+    if task.validator_family == "serial_observation_sequence":
+        validate_serial_observation_config(task, params)
+    if task.validator_family == "bus_activity":
+        validate_bus_activity_config(task, params)
+    if task.validator_family == "lcd_text_sequence":
+        validate_lcd_text_sequence_config(task, params)
     validate_scenario(task)
+
+
+def validator_requires_serial(validator: dict[str, Any]) -> bool:
+    family = validator.get("family")
+    if family in {
+        "serial_contains_on_stimulus",
+        "serial_count_sequence",
+        "debounce_serial",
+        "analog_temperature_serial",
+        "serial_regex_sequence",
+        "serial_numeric_ranges",
+        "serial_observation_sequence",
+    }:
+        return True
+    if family == "composite":
+        return any(validator_requires_serial(check) for check in validator.get("checks", []))
+    return False
 
 
 def validate_channel_params(
@@ -321,6 +394,34 @@ def validate_scenario(task: TaskConfig) -> None:
     if not scenario:
         return
     family = scenario["family"]
+    if family == "timeline":
+        steps = scenario.get("steps")
+        if not isinstance(steps, list) or not steps:
+            raise ConfigError(f"{task.path}: timeline requires steps")
+        for step in steps:
+            if "delay_ms" in step:
+                validate_required_duration(task, step, "delay_ms")
+            elif "set_control" in step:
+                control = step["set_control"]
+                if not isinstance(control, dict):
+                    raise ConfigError(f"{task.path}: set_control must be a mapping")
+                for field in ("part_id", "control", "value"):
+                    if field not in control:
+                        raise ConfigError(f"{task.path}: set_control.{field} is required")
+            else:
+                raise ConfigError(f"{task.path}: timeline step requires delay_ms or set_control")
+        return
+    if family == "control_sequence":
+        steps = scenario.get("controls")
+        if not isinstance(steps, list) or not steps:
+            raise ConfigError(f"{task.path}: control_sequence requires controls")
+        validate_optional_duration(task, scenario, "initial_delay_ms", allow_zero=True)
+        for step in steps:
+            for field in ("part_id", "control", "value"):
+                if field not in step:
+                    raise ConfigError(f"{task.path}: control_sequence item requires {field}")
+            validate_required_duration(task, step, "duration_ms")
+        return
     expected_parts = {
         "button_press_sequence": {"btn1"},
         "bounced_button_sequence": {"btn1"},
@@ -399,6 +500,63 @@ def validate_duration_value(
     if value < 0 or (value == 0 and not allow_zero):
         relation = "non-negative" if allow_zero else "positive"
         raise ConfigError(f"{task.path}: scenario {name} must be {relation}")
+
+
+def validate_custom_chips(task: TaskConfig, custom_chips: Any) -> None:
+    if not isinstance(custom_chips, list):
+        raise ConfigError(f"{task.path}: custom_chips must be a list")
+    for chip in custom_chips:
+        if not isinstance(chip, dict):
+            raise ConfigError(f"{task.path}: custom chip must be a mapping")
+        for field in ("name", "binary"):
+            if not chip.get(field):
+                raise ConfigError(f"{task.path}: custom chip requires {field}")
+
+
+def validate_simulation_variants(task: TaskConfig, variants: Any) -> None:
+    if not isinstance(variants, list) or not variants:
+        raise ConfigError(f"{task.path}: simulation_variants must be a non-empty list")
+    for variant in variants:
+        if not isinstance(variant, dict):
+            raise ConfigError(f"{task.path}: simulation variant must be a mapping")
+        if not variant.get("id"):
+            raise ConfigError(f"{task.path}: simulation variant requires id")
+        attrs = variant.get("attrs")
+        if attrs is not None and not isinstance(attrs, dict):
+            raise ConfigError(f"{task.path}: simulation variant attrs must be a mapping")
+
+
+def validate_serial_observation_config(task: TaskConfig, params: dict[str, Any]) -> None:
+    observations = params.get("observations")
+    if not isinstance(observations, list) or not observations:
+        raise ConfigError(f"{task.path}: serial_observation_sequence requires observations")
+    for observation in observations:
+        if not isinstance(observation, dict):
+            raise ConfigError(f"{task.path}: serial observation must be a mapping")
+        if not observation.get("label"):
+            raise ConfigError(f"{task.path}: serial observation requires label")
+        if not isinstance(observation.get("patterns"), list) or not observation.get("patterns"):
+            raise ConfigError(f"{task.path}: serial observation requires patterns")
+
+
+def validate_bus_activity_config(task: TaskConfig, params: dict[str, Any]) -> None:
+    bus = params.get("bus")
+    if bus not in {"i2c", "spi", "one_wire", "hcsr04"}:
+        raise ConfigError(f"{task.path}: bus_activity bus must be i2c, spi, one_wire, or hcsr04")
+    pins = params.get("pins")
+    if not isinstance(pins, list) or not pins:
+        raise ConfigError(f"{task.path}: bus_activity requires pins")
+
+
+def validate_lcd_text_sequence_config(task: TaskConfig, params: dict[str, Any]) -> None:
+    frames = params.get("frames")
+    if not isinstance(frames, list) or not frames:
+        raise ConfigError(f"{task.path}: lcd_text_sequence requires frames")
+    for frame in frames:
+        if not isinstance(frame, dict):
+            raise ConfigError(f"{task.path}: lcd_text_sequence frame must be a mapping")
+        if not isinstance(frame.get("expected_texts"), list) or not frame.get("expected_texts"):
+            raise ConfigError(f"{task.path}: lcd_text_sequence frame requires expected_texts")
 
 
 def to_yaml_text(data: dict[str, Any]) -> str:

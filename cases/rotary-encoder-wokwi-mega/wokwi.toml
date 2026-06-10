@@ -1,0 +1,4 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/rotary_encoder.ino.hex'
+elf = 'artifacts/build/rotary_encoder.ino.elf'

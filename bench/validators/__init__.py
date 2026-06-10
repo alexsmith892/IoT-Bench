@@ -1,7 +1,8 @@
-"""Reusable validator families for Arduino Mega level-1 tasks."""
+"""Reusable validator families for Arduino Mega Wokwi tasks."""
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from bench.config import TaskConfig
@@ -15,7 +16,8 @@ from bench.serial import (
     monotonic_counter_reaches,
     read_serial_log,
 )
-from bench.static import StaticCheckError, validate_forbidden_calls
+from bench.static import StaticCheckError, validate_forbidden_calls, validate_static_checks
+from bench.lcd1602 import decode_lcd1602_vcd, decode_lcd1602_vcd_frames, frame_contains, frame_metrics
 from bench.vcd import (
     VcdEvent,
     VcdParseError,
@@ -31,6 +33,13 @@ from bench.vcd import (
 def validate_task(task: TaskConfig, paths: CasePaths) -> ValidationResult:
     family = task.validator_family
     validators = {
+        "composite": validate_composite,
+        "static_checks": validate_static_patterns,
+        "serial_regex_sequence": validate_serial_regex_sequence,
+        "serial_numeric_ranges": validate_serial_numeric_ranges,
+        "lcd_text": validate_lcd_text,
+        "window_ratios": validate_window_ratios,
+        "frequency_windows": validate_frequency_windows,
         "waveform_frequency": validate_waveform_frequency,
         "morse_sos": validate_morse_sos,
         "no_delay_static_plus_waveform": validate_no_delay_static_plus_waveform,
@@ -41,6 +50,9 @@ def validate_task(task: TaskConfig, paths: CasePaths) -> ValidationResult:
         "serial_count_sequence": validate_serial_count_sequence,
         "debounce_serial": validate_debounce_serial,
         "analog_temperature_serial": validate_analog_temperature_serial,
+        "serial_observation_sequence": validate_serial_observation_sequence,
+        "bus_activity": validate_bus_activity,
+        "lcd_text_sequence": validate_lcd_text_sequence,
     }
     if family not in validators:
         return ValidationResult(FAIL, f"unknown validator family: {family}", base_metrics(task, paths))
@@ -54,6 +66,273 @@ def validate_task(task: TaskConfig, paths: CasePaths) -> ValidationResult:
         failure_stage=result.failure_stage,
         failure_source=result.failure_source,
     )
+
+
+def validate_composite(task: TaskConfig, paths: CasePaths) -> ValidationResult:
+    metrics: dict[str, Any] = {"checks": []}
+    for index, check in enumerate(task.validator.get("checks", []), start=1):
+        result = validate_check(task, paths, check)
+        metrics["checks"].append(
+            {
+                "index": index,
+                "family": check.get("family"),
+                "classification": result.classification,
+                "reason": result.reason,
+                "metrics": result.metrics,
+            }
+        )
+        if result.classification != PASS:
+            return ValidationResult(result.classification, result.reason, metrics)
+    return ValidationResult(PASS, "all composite validator checks passed", metrics)
+
+
+def validate_check(task: TaskConfig, paths: CasePaths, check: dict[str, Any]) -> ValidationResult:
+    proxy = TaskConfig(path=task.path, data={**task.data, "validator": check})
+    family = check.get("family")
+    validators = {
+        "static_checks": validate_static_patterns,
+        "serial_regex_sequence": validate_serial_regex_sequence,
+        "serial_numeric_ranges": validate_serial_numeric_ranges,
+        "lcd_text": validate_lcd_text,
+        "window_ratios": validate_window_ratios,
+        "frequency_windows": validate_frequency_windows,
+        "waveform_frequency": validate_waveform_frequency,
+        "multi_channel_frequency": validate_multi_channel_frequency,
+        "stimulus_to_output": validate_stimulus_to_output,
+        "serial_contains_on_stimulus": validate_serial_contains_on_stimulus,
+        "serial_count_sequence": validate_serial_count_sequence,
+        "debounce_serial": validate_debounce_serial,
+        "analog_temperature_serial": validate_analog_temperature_serial,
+        "serial_observation_sequence": validate_serial_observation_sequence,
+        "bus_activity": validate_bus_activity,
+        "lcd_text_sequence": validate_lcd_text_sequence,
+    }
+    if family not in validators:
+        return ValidationResult(FAIL, f"unknown composite check family: {family}")
+    return validators[family](proxy, paths)
+
+
+def validate_static_patterns(task: TaskConfig, paths: CasePaths) -> ValidationResult:
+    checks = dict(task.static_checks)
+    checks.update(task.validator_params())
+    try:
+        validate_static_checks(paths.sketch, checks)
+    except StaticCheckError as exc:
+        return ValidationResult(FAIL, str(exc), {"static_check_passed": False})
+    return ValidationResult(PASS, "static checks passed", {"static_check_passed": True})
+
+
+def validate_serial_regex_sequence(task: TaskConfig, paths: CasePaths) -> ValidationResult:
+    text = read_serial_log_or_fail(paths)
+    params = task.validator_params()
+    patterns = list(params.get("patterns") or [])
+    if not patterns:
+        return ValidationResult(FAIL, "serial regex validator requires patterns")
+    cursor = 0
+    matches: list[dict[str, Any]] = []
+    for pattern in patterns:
+        match = re.search(pattern, text[cursor:], flags=re.MULTILINE | re.IGNORECASE)
+        if not match:
+            return ValidationResult(
+                FAIL,
+                f"serial log does not contain expected pattern in order: {pattern}",
+                {"patterns": patterns, "matches": matches},
+            )
+        absolute_start = cursor + match.start()
+        absolute_end = cursor + match.end()
+        matches.append({"pattern": pattern, "text": match.group(0), "start": absolute_start})
+        cursor = absolute_end
+    return ValidationResult(PASS, "serial log contains expected regex sequence", {"patterns": patterns, "matches": matches})
+
+
+def validate_serial_observation_sequence(task: TaskConfig, paths: CasePaths) -> ValidationResult:
+    text = read_serial_log_or_fail(paths)
+    lines = nonempty_lines(text)
+    observations = task.validator_params().get("observations") or []
+    cursor = 0
+    matches: list[dict[str, Any]] = []
+    metrics = {"observations": observations, "matches": matches}
+    for observation in observations:
+        patterns = [str(pattern) for pattern in observation.get("patterns", [])]
+        ranges = observation.get("numeric_ranges") or []
+        found = None
+        for index in range(cursor, len(lines)):
+            line = lines[index]
+            if not all(re.search(pattern, line, flags=re.IGNORECASE) for pattern in patterns):
+                continue
+            numbers = extract_floats(line)
+            if ranges and not numeric_ranges_match(numbers, ranges):
+                continue
+            found = (index, line, numbers)
+            break
+        if found is None:
+            return ValidationResult(
+                FAIL,
+                f"serial log is missing observation {observation.get('label')!r}",
+                metrics,
+            )
+        cursor = found[0] + 1
+        matches.append(
+            {
+                "label": observation.get("label"),
+                "line": found[0] + 1,
+                "text": found[1],
+                "numbers": rounded(found[2], digits=3),
+            }
+        )
+    return ValidationResult(PASS, "serial log contains configured observation sequence", metrics)
+
+
+def numeric_ranges_match(numbers: list[float], ranges: list[list[float]]) -> bool:
+    if len(numbers) < len(ranges):
+        return False
+    cursor = 0
+    for bounds in ranges:
+        match_index = None
+        for index in range(cursor, len(numbers)):
+            if float(bounds[0]) <= numbers[index] <= float(bounds[1]):
+                match_index = index
+                break
+        if match_index is None:
+            return False
+        cursor = match_index + 1
+    return True
+
+
+def validate_serial_numeric_ranges(task: TaskConfig, paths: CasePaths) -> ValidationResult:
+    text = read_serial_log_or_fail(paths)
+    params = task.validator_params()
+    ranges = params.get("ranges") or []
+    values = extract_floats(text)
+    metrics = {"observed_numbers": values, "ranges": ranges}
+    if len(values) < len(ranges):
+        return ValidationResult(FAIL, "serial log does not contain enough numeric values", metrics)
+    cursor = 0
+    matched: list[float] = []
+    for bounds in ranges:
+        found = None
+        for index in range(cursor, len(values)):
+            if float(bounds[0]) <= values[index] <= float(bounds[1]):
+                found = values[index]
+                cursor = index + 1
+                break
+        if found is None:
+            return ValidationResult(FAIL, f"serial log is missing numeric value in range {bounds}", metrics)
+        matched.append(found)
+    metrics["matched_numbers"] = matched
+    return ValidationResult(PASS, "serial numeric ranges matched in order", metrics)
+
+
+def validate_lcd_text(task: TaskConfig, paths: CasePaths) -> ValidationResult:
+    if paths.vcd is None:
+        return ValidationResult(FAIL, "case does not define a VCD artifact")
+    params = task.validator_params()
+    frame = decode_lcd1602_vcd(paths.vcd, signals=params.get("signals"))
+    metrics = frame_metrics(frame)
+    expected = params.get("expected_texts") or params.get("expected_lines") or []
+    metrics["expected_texts"] = expected
+    for item in expected:
+        if not frame_contains(frame, str(item)):
+            return ValidationResult(FAIL, f"LCD frame is missing expected text: {item}", metrics)
+    return ValidationResult(PASS, "LCD frame contains expected text", metrics)
+
+
+def validate_lcd_text_sequence(task: TaskConfig, paths: CasePaths) -> ValidationResult:
+    if paths.vcd is None:
+        return ValidationResult(FAIL, "case does not define a VCD artifact")
+    params = task.validator_params()
+    frames = decode_lcd1602_vcd_frames(paths.vcd, signals=params.get("signals"))
+    expected_frames = params.get("frames") or []
+    cursor = 0
+    matches: list[dict[str, Any]] = []
+    metrics = {
+        "frame_count": len(frames),
+        "expected_frames": expected_frames,
+        "matches": matches,
+    }
+    for expected in expected_frames:
+        texts = [str(item) for item in expected.get("expected_texts", [])]
+        start_s = expected.get("start_s")
+        end_s = expected.get("end_s")
+        found = None
+        for index in range(cursor, len(frames)):
+            timed = frames[index]
+            if start_s is not None and timed.timestamp_s < float(start_s):
+                continue
+            if end_s is not None and timed.timestamp_s > float(end_s):
+                break
+            if all(frame_contains(timed.frame, text) for text in texts):
+                found = (index, timed)
+                break
+        if found is None:
+            return ValidationResult(FAIL, f"LCD frames are missing expected text sequence item: {texts}", metrics)
+        cursor = found[0] + 1
+        matches.append(
+            {
+                "expected_texts": texts,
+                "timestamp_s": rounded_scalar(found[1].timestamp_s),
+                **frame_metrics(found[1].frame),
+            }
+        )
+    return ValidationResult(PASS, "LCD frames contain expected text sequence", metrics)
+
+
+def validate_window_ratios(task: TaskConfig, paths: CasePaths) -> ValidationResult:
+    if paths.vcd is None:
+        return ValidationResult(FAIL, "case does not define a VCD artifact")
+    params = task.validator_params()
+    signal = params.get("channel", "D0")
+    events = parse_vcd_signal(paths.vcd, signal)
+    windows = params.get("windows") or []
+    if events and windows:
+        max_end = max(float(window["end_s"]) for window in windows)
+        if events[-1].timestamp_s < max_end:
+            events = [*events, VcdEvent(max_end, events[-1].value)]
+    segments = build_segments(events)
+    ratios = []
+    for window in windows:
+        ratio = value_ratio(segments, float(window["start_s"]), float(window["end_s"]))
+        ratios.append(ratio)
+        bounds = window.get("ratio_range", [0.0, 1.0])
+        if not in_range(ratio, bounds):
+            return ValidationResult(
+                FAIL,
+                f"{signal} ratio {ratio:.3f} outside expected range {bounds}",
+                {"ratios": rounded(ratios, digits=4), "windows": windows},
+            )
+    return ValidationResult(PASS, f"{signal} ratios matched configured windows", {"ratios": rounded(ratios, digits=4), "windows": windows})
+
+
+def validate_frequency_windows(task: TaskConfig, paths: CasePaths) -> ValidationResult:
+    if paths.vcd is None:
+        return ValidationResult(FAIL, "case does not define a VCD artifact")
+    params = task.validator_params()
+    signal = params.get("channel", "D0")
+    events = parse_vcd_signal(paths.vcd, signal)
+    metrics: dict[str, Any] = {"windows": []}
+    for window in params.get("windows") or []:
+        start = float(window["start_s"])
+        end = float(window["end_s"])
+        subset = [event for event in events if start <= event.timestamp_s <= end]
+        transitions = max(0, len(subset) - 1)
+        item = {"start_s": start, "end_s": end, "transitions": transitions}
+        if window.get("inactive"):
+            max_transitions = int(window.get("max_transitions", 1))
+            item["max_transitions"] = max_transitions
+            metrics["windows"].append(item)
+            if transitions > max_transitions:
+                return ValidationResult(FAIL, f"{signal} was active during inactive window", metrics)
+            continue
+        if len(subset) < 4:
+            metrics["windows"].append(item)
+            return ValidationResult(FAIL, f"{signal} has too few transitions in frequency window", metrics)
+        local = [VcdEvent(event.timestamp_s - start, event.value) for event in subset]
+        result = validate_frequency_events(local, window, signal)
+        item.update(result.metrics)
+        metrics["windows"].append(item)
+        if result.classification != PASS:
+            return ValidationResult(result.classification, result.reason, metrics)
+    return ValidationResult(PASS, f"{signal} frequency windows matched expectations", metrics)
 
 
 def base_metrics(task: TaskConfig, paths: CasePaths) -> dict[str, Any]:
@@ -101,6 +380,30 @@ def validate_frequency_channels(
     return ValidationResult(PASS, "all waveform frequencies matched expectations", {"channels": channel_metrics})
 
 
+def validate_bus_activity(task: TaskConfig, paths: CasePaths) -> ValidationResult:
+    if paths.vcd is None:
+        return ValidationResult(FAIL, "case does not define a VCD artifact")
+    params = task.validator_params()
+    pins = [str(pin) for pin in params.get("pins", [])]
+    min_transitions = int(params.get("min_transitions", 2))
+    events_by_pin = parse_vcd_signals(paths.vcd, pins)
+    metrics: dict[str, Any] = {
+        "bus": params.get("bus"),
+        "pins": {},
+        "min_transitions": min_transitions,
+    }
+    for pin, events in events_by_pin.items():
+        transitions = max(0, len(events) - 1)
+        metrics["pins"][pin] = {"transitions": transitions}
+        if transitions < min_transitions:
+            return ValidationResult(
+                FAIL,
+                f"{params.get('bus')} pin {pin} has too few transitions",
+                metrics,
+            )
+    return ValidationResult(PASS, f"{params.get('bus')} bus activity observed", metrics)
+
+
 def validate_frequency_events(
     events: list[VcdEvent], params: dict[str, Any], signal: str
 ) -> ValidationResult:
@@ -113,14 +416,15 @@ def validate_frequency_events(
     if len(events) < 2:
         return ValidationResult(FAIL, f"{signal} has too few events", metrics)
     segments = build_segments(events)
-    if len(segments) < (min_cycles * 2 + 1):
+    skip_segments = int(params.get("skip_startup_segments", 1))
+    if len(segments) < (min_cycles * 2 + skip_segments):
         return ValidationResult(
             FAIL,
             f"too few {signal} transitions for {min_cycles} post-startup cycles",
             metrics,
         )
 
-    steady_segments = segments[1:]
+    steady_segments = segments[skip_segments:]
     cycles: list[tuple[float, float]] = []
     index = 0
     while index + 1 < len(steady_segments) and len(cycles) < min_cycles:

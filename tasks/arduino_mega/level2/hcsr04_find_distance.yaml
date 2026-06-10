@@ -1,0 +1,31 @@
+task_id: hcsr04_find_distance
+name: Measure HC-SR04 distance and print centimeters
+platform: arduino_mega
+level: level2
+fixture:
+  family: composite
+  components:
+    - type: hcsr04
+      id: sonar1
+      pins: {trig: "9", echo: "10"}
+      attrs: {distance: "100"}
+simulation_variants:
+  - id: far
+    attrs: {sonar1: {distance: "100"}}
+  - id: near
+    attrs: {sonar1: {distance: "40"}}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_patterns: ["pulseIn|digitalRead"]
+        required_any_patterns: [["digitalWrite\\s*\\(\\s*9", "digitalWrite\\s*\\(\\s*TRIG_PIN"]]
+    - family: serial_observation_sequence
+      params:
+        observations:
+          - label: configured_distance
+            patterns: ["Distance.*100"]
+            numeric_ranges: [[95, 105]]
+simulation: {timeout_ms: 1200}
+case: {id: hcsr04-find-distance-wokwi-mega, sketch_name: hcsr04_find_distance}

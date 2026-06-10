@@ -1,0 +1,36 @@
+task_id: parking_sensor
+name: Scale LED brightness and buzzer pitch as object approaches
+platform: arduino_mega
+level: level2
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "3"}
+      - {signal: D1, pin: "2"}
+  components:
+    - type: led
+      id: led1
+      pin: "3"
+    - type: hcsr04
+      id: sonar1
+      pins: {trig: "9", echo: "10"}
+      attrs: {distance: "35"}
+    - type: passive_buzzer
+      id: buzzer1
+      pin: "2"
+validator:
+  family: composite
+  checks:
+    - family: window_ratios
+      params:
+        channel: D0
+        windows:
+          - {start_s: 0.20, end_s: 1.20, ratio_range: [0.70, 1.00]}
+    - family: frequency_windows
+      params:
+        channel: D1
+        windows:
+          - {start_s: 0.20, end_s: 1.20, half_period_range_s: [0.00020, 0.00035], full_period_range_s: [0.00040, 0.00070]}
+simulation: {timeout_ms: 1400}
+case: {id: parking-sensor-wokwi-mega, sketch_name: parking_sensor}

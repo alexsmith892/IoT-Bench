@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/clap_switch.ino.hex'
+elf = 'artifacts/build/clap_switch.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

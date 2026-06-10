@@ -1,0 +1,15 @@
+name: dht11_read_button_display automation
+version: 1
+author: IoT-Bench
+steps:
+- delay: 200ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 150ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 800ms

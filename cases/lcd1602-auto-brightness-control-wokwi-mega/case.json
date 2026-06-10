@@ -1,0 +1,28 @@
+{
+  "id": "lcd1602-auto-brightness-control-wokwi-mega",
+  "task": "lcd1602_auto_brightness_control",
+  "name": "Map photoresistor reading to LCD1602 backlight PWM",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/lcd1602_auto_brightness_control",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd",
+    "scenario": "scenario.yaml"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 10"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 10"
+    }
+  ]
+}

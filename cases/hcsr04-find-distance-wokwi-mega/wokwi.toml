@@ -1,0 +1,4 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/hcsr04_find_distance.ino.hex'
+elf = 'artifacts/build/hcsr04_find_distance.ino.elf'

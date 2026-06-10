@@ -1,0 +1,12 @@
+task_id: buzzer_laser_tripwire
+case_id: buzzer-laser-tripwire-wokwi-mega
+board:
+  type: wokwi-arduino-mega
+  fqbn: arduino:avr:mega
+paths:
+  sketch: sketch/buzzer_laser_tripwire
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  vcd: artifacts/logic/wokwi.vcd
+  scenario: scenario.yaml

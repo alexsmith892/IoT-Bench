@@ -1,0 +1,47 @@
+{
+  "id": "mpu6050-read-periodic-display-wokwi-mega",
+  "task": "mpu6050_read_periodic_display",
+  "name": "Read MPU6050 every 100 ms, average 10 samples, display on LCD",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/mpu6050_read_periodic_display",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 12"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 12"
+    },
+    {
+      "vcd_name": "D1",
+      "expected_connection": "GPIO 11"
+    },
+    {
+      "vcd_name": "D2",
+      "expected_connection": "GPIO 4"
+    },
+    {
+      "vcd_name": "D3",
+      "expected_connection": "GPIO 5"
+    },
+    {
+      "vcd_name": "D4",
+      "expected_connection": "GPIO 6"
+    },
+    {
+      "vcd_name": "D5",
+      "expected_connection": "GPIO 7"
+    }
+  ]
+}

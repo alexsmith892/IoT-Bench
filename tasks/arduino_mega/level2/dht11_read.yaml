@@ -1,0 +1,38 @@
+task_id: dht11_read
+name: Read DHT11-style temperature and humidity on serial
+platform: arduino_mega
+level: level2
+fixture:
+  family: composite
+  components:
+    # Wokwi provides DHT22, not a distinct DHT11 model; use DHT22 as a deterministic DHT-family surrogate.
+    - type: dht11
+      id: dht1
+      pin: "14"
+      temperature: "24"
+      humidity: "40"
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+    - {part_id: dht1, control: temperature, value: 18, duration_ms: 250}
+    - {part_id: dht1, control: humidity, value: 35, duration_ms: 450}
+    - {part_id: dht1, control: temperature, value: 31, duration_ms: 250}
+    - {part_id: dht1, control: humidity, value: 65, duration_ms: 450}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_any_patterns: [["pinMode\\s*\\(\\s*14", "pinMode\\s*\\(\\s*DHT_PIN"]]
+    - family: serial_observation_sequence
+      params:
+        observations:
+          - label: cool_dry
+            patterns: ["Temp(erature)?.*18", "Hum(idity)?.*35"]
+            numeric_ranges: [[16, 20], [33, 37]]
+          - label: warm_humid
+            patterns: ["Temp(erature)?.*31", "Hum(idity)?.*65"]
+            numeric_ranges: [[29, 33], [63, 67]]
+simulation: {timeout_ms: 2200}
+case: {id: dht11-read-wokwi-mega, sketch_name: dht11_read}

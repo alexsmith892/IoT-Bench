@@ -1,0 +1,11 @@
+task_id: mpu6050_read_periodic_display
+case_id: mpu6050-read-periodic-display-wokwi-mega
+board:
+  type: wokwi-arduino-mega
+  fqbn: arduino:avr:mega
+paths:
+  sketch: sketch/mpu6050_read_periodic_display
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  vcd: artifacts/logic/wokwi.vcd

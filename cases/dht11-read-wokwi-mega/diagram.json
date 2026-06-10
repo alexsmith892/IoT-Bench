@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-arduino-mega",
+      "id": "mega",
+      "top": 120,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht1",
+      "top": -80,
+      "left": 225,
+      "attrs": {
+        "temperature": "24",
+        "humidity": "40"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "dht1:VCC",
+      "mega:5V",
+      "red",
+      []
+    ],
+    [
+      "dht1:SDA",
+      "mega:14",
+      "green",
+      []
+    ],
+    [
+      "dht1:GND",
+      "mega:GND.1",
+      "black",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

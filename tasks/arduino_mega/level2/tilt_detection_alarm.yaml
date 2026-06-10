@@ -1,0 +1,32 @@
+task_id: tilt_detection_alarm
+name: Sound buzzer when tilt switch changes state
+platform: arduino_mega
+level: level2
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "13"}
+  components:
+    - type: tilt_switch
+      id: tilt1
+      pin: "14"
+    - type: active_buzzer
+      id: buzzer1
+      pin: "13"
+scenario:
+  family: timeline
+  steps:
+    - {delay_ms: 200}
+    - set_control: {part_id: tilt1, control: pressed, value: 1}
+    - {delay_ms: 500}
+    - set_control: {part_id: tilt1, control: pressed, value: 0}
+    - {delay_ms: 300}
+validator:
+  family: stimulus_to_output
+  params:
+    channel: D0
+    active_windows_s: [[0.30, 0.60]]
+    inactive_windows_s: [[0.80, 0.95]]
+simulation: {timeout_ms: 1200}
+case: {id: tilt-detection-alarm-wokwi-mega, sketch_name: tilt_detection_alarm}

@@ -1,0 +1,24 @@
+task_id: step_counter_print
+name: Count movement spikes from GY-521/MPU6050 and print steps
+platform: arduino_mega
+level: level3
+support:
+  status: manual
+  reason: MPU6050 movement spike stimulus is not reliably automated by CLI scenarios
+fixture:
+  family: composite
+  components:
+    - type: mpu6050
+      id: imu1
+      pins: {sda: "20", scl: "21"}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_patterns: ["Wire\\.begin\\s*\\(", "millis\\s*\\("]
+    - family: serial_count_sequence
+      params:
+        expected_count: 3
+simulation: {timeout_ms: 1200}
+case: {id: step-counter-print-wokwi-mega, sketch_name: step_counter_print}

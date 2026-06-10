@@ -1,0 +1,43 @@
+task_id: ds18b20_heat_alarm
+name: Flash LED and sound buzzer when DS18B20 temperature exceeds 30 C
+platform: arduino_mega
+level: level2
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "2"}
+      - {signal: D1, pin: "3"}
+  components:
+    - type: ds18b20
+      id: temp1
+      pins: {data: "4"}
+    - type: active_buzzer
+      id: buzzer1
+      pin: "2"
+    - type: led
+      id: led1
+      pin: "3"
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+    - {part_id: temp1, control: temperature, value: 22, duration_ms: 450}
+    - {part_id: temp1, control: temperature, value: 35, duration_ms: 650}
+validator:
+  family: composite
+  checks:
+    - family: window_ratios
+      params:
+        channel: D0
+        windows:
+          - {start_s: 0.30, end_s: 0.55, ratio_range: [0.00, 0.20]}
+          - {start_s: 0.85, end_s: 1.15, ratio_range: [0.50, 1.0]}
+    - family: window_ratios
+      params:
+        channel: D1
+        windows:
+          - {start_s: 0.30, end_s: 0.55, ratio_range: [0.00, 0.20]}
+          - {start_s: 0.85, end_s: 1.15, ratio_range: [0.20, 0.80]}
+simulation: {timeout_ms: 1500}
+case: {id: ds18b20-heat-alarm-wokwi-mega, sketch_name: ds18b20_heat_alarm}

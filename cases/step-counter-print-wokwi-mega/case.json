@@ -1,0 +1,17 @@
+{
+  "id": "step-counter-print-wokwi-mega",
+  "task": "step_counter_print",
+  "name": "Count movement spikes from GY-521/MPU6050 and print steps",
+  "simulator": "wokwi",
+  "board": {
+    "type": "wokwi-arduino-mega",
+    "fqbn": "arduino:avr:mega"
+  },
+  "paths": {
+    "sketch": "sketch/step_counter_print",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "serial_log": "artifacts/serial/serial.log"
+  }
+}

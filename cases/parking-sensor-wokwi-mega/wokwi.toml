@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/parking_sensor.ino.hex'
+elf = 'artifacts/build/parking_sensor.ino.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

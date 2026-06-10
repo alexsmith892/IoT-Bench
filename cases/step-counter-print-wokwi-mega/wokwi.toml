@@ -1,0 +1,4 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/step_counter_print.ino.hex'
+elf = 'artifacts/build/step_counter_print.ino.elf'

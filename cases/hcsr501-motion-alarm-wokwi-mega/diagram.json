@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-arduino-mega",
+      "id": "mega",
+      "top": 120,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-logic-analyzer",
+      "id": "logic1",
+      "top": -55,
+      "left": 300,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "pir1",
+      "top": -80,
+      "left": 225,
+      "attrs": {
+        "color": "green",
+        "label": "pir_surrogate",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_btn_1",
+      "top": 5,
+      "left": 273,
+      "attrs": {
+        "value": "10000"
+      },
+      "rotate": 90
+    },
+    {
+      "type": "wokwi-buzzer",
+      "id": "buzzer1",
+      "top": -80,
+      "left": 330,
+      "attrs": {
+        "volume": "0.2"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "logic1:GND",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "pir1:1.r",
+      "mega:5V",
+      "red",
+      []
+    ],
+    [
+      "pir1:2.r",
+      "mega:18",
+      "green",
+      []
+    ],
+    [
+      "r_btn_1:1",
+      "mega:18",
+      "green",
+      []
+    ],
+    [
+      "r_btn_1:2",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "buzzer1:1",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "buzzer1:2",
+      "mega:3",
+      "red",
+      []
+    ],
+    [
+      "logic1:D0",
+      "mega:3",
+      "green",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

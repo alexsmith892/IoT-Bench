@@ -94,8 +94,14 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "generate":
             tasks = selected_tasks(args)
-            generated = [str(generate_case(task).case_dir) for task in tasks]
-            print(json.dumps({"generated": generated}, indent=2))
+            generated = []
+            unsupported = []
+            for task in tasks:
+                if not task.is_supported:
+                    unsupported.append(unsupported_task_payload(task))
+                    continue
+                generated.append(str(generate_case(task).case_dir))
+            print(json.dumps({"generated": generated, "unsupported": unsupported}, indent=2))
             return 0
         if args.command == "build":
             tasks = selected_tasks(args)
@@ -114,11 +120,15 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "lint":
             tasks = selected_tasks(args)
             linted = []
+            unsupported = []
             for task in tasks:
+                if not task.is_supported:
+                    unsupported.append(unsupported_task_payload(task))
+                    continue
                 paths = ensure_case(task)
                 validate_diagram_file(paths.diagram, task)
                 linted.append(str(paths.diagram))
-            print(json.dumps({"linted": linted}, indent=2))
+            print(json.dumps({"linted": linted, "unsupported": unsupported}, indent=2))
             return 0
         if args.command == "doctor":
             print(json.dumps(run_doctor(), indent=2))
@@ -218,6 +228,8 @@ def build_single_task(
     regenerate: bool,
     arduino_cli: str,
 ) -> dict[str, Any]:
+    if not task.is_supported:
+        return unsupported_task_result(task)
     try:
         paths = resolve_case(
             task,
@@ -261,6 +273,8 @@ def run_single_task(
     wokwi_cli: str,
     archived_vcd: str | None,
 ) -> dict[str, Any]:
+    if not task.is_supported:
+        return unsupported_task_result(task)
     try:
         paths = resolve_case(
             task,
@@ -309,6 +323,23 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, int]:
         benchmark_result = result["result"]
         summary[benchmark_result] = summary.get(benchmark_result, 0) + 1
     return summary
+
+
+def unsupported_task_payload(task) -> dict[str, str]:
+    return {
+        "task_id": task.task_id,
+        "status": str(task.support.get("status", "unsupported")),
+        "reason": task.support_reason,
+    }
+
+
+def unsupported_task_result(task) -> dict[str, Any]:
+    return result_payload(
+        SIM_INFRA_FAIL,
+        f"{task.task_id} is {task.support.get('status', 'unsupported')}: {task.support_reason}",
+        unsupported_task_payload(task),
+        failure_source=SOURCE_HARNESS,
+    )
 
 
 def print_many_or_one(results: list[dict[str, Any]]) -> None:

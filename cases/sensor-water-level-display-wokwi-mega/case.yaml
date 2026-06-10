@@ -1,0 +1,12 @@
+task_id: sensor_water_level_display
+case_id: sensor-water-level-display-wokwi-mega
+board:
+  type: wokwi-arduino-mega
+  fqbn: arduino:avr:mega
+paths:
+  sketch: sketch/sensor_water_level_display
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  vcd: artifacts/logic/wokwi.vcd
+  scenario: scenario.yaml
