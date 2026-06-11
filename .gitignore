@@ -8,6 +8,9 @@ htmlcov/
 .venv/
 venv/
 
+# Phase 0 Renode/Zephyr spike scratch space (findings live in docs/renode-spike.md).
+spike/
+
 # Local editor and OS files.
 .vscode/
 .idea/
