@@ -1,0 +1,27 @@
+{
+  "id": "blink-1hz-renode-nano33",
+  "task": "blink_led_1hz",
+  "name": "Blink the Nano 33 BLE red LED at 1 Hz (Zephyr)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/blink_led_1hz",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/renode.vcd",
+    "resc": "case.resc"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO P0.24"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO P0.24"
+    }
+  ]
+}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import dataclasses
 from datetime import datetime, timezone
 import json
 import os
@@ -294,21 +295,7 @@ def with_sketch_override(task, paths: CasePaths, sketch_override: Path | None) -
     normalized = normalize_sketch_override(task, paths, sketch_override)
     if normalized is None:
         return paths
-    return CasePaths(
-        task_id=paths.task_id,
-        case_id=paths.case_id,
-        case_dir=paths.case_dir,
-        sketch=normalized,
-        diagram=paths.diagram,
-        wokwi_toml=paths.wokwi_toml,
-        build_dir=paths.build_dir,
-        fqbn=paths.fqbn,
-        firmware_extension=paths.firmware_extension,
-        firmware_kind=paths.firmware_kind,
-        vcd=paths.vcd,
-        scenario=paths.scenario,
-        serial_log=paths.serial_log,
-    )
+    return dataclasses.replace(paths, sketch=normalized)
 
 
 def resolve_case(

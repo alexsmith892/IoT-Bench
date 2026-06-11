@@ -132,13 +132,26 @@ def generate_repl(task: TaskConfig) -> str:
         "",
     ]
     seen_pins: dict[tuple[str, int], str] = {}
+    probes_by_port: dict[str, list[tuple[int, str]]] = {}
     for channel in analyzer_channels(task):
         signal = str(channel["signal"])
         port, index = parse_gpio_pin(str(channel["pin"]))
         name = probe_name(signal)
+        if (port, index) in seen_pins:
+            raise RenodeConfigError(
+                f"{task.task_id}: analyzer channels {seen_pins[(port, index)]!r} and {name!r} share pin {port} {index}"
+            )
         lines.append(f"{name}: Miscellaneous.LED @ {port} {index}")
         lines.append("")
         seen_pins[(port, index)] = name
+        probes_by_port.setdefault(port, []).append((index, name))
+    # Registering an LED at a GPIO pin does not wire the pin's output to it;
+    # the port must also declare the connection (same as the stock board repl).
+    for port in sorted(probes_by_port):
+        lines.append(f"{port}:")
+        for index, name in sorted(probes_by_port[port]):
+            lines.append(f"    {index} -> {name}@0")
+        lines.append("")
     for part_id, part in renode_parts(task).items():
         port, index = part["port"], part["pin"]
         if (port, index) in seen_pins:
@@ -214,7 +227,7 @@ def run_for_command(duration_ms: float) -> str:
     return f'emulation RunFor "{duration_ms / 1000.0:.6f}"'
 
 
-def vcd_hook_python(task: TaskConfig, vcd_relpath: str) -> str:
+def vcd_hook_python(task: TaskConfig, vcd_abspath: str) -> str:
     """IronPython 2 monitor block: buffer GPIO transitions, write VCD on flush.
 
     Same-timestamp events are coalesced (last value wins) and same-value runs
@@ -250,7 +263,10 @@ def _iotbench_attach(signal, path, index):
 {probes}
 
 def iotbench_write_vcd():
-    out = open(r"{vcd_relpath}", "w")
+    # Absolute path: Renode changes its process CWD to its install dir, so
+    # IronPython open() must not use case-relative paths (monitor @paths do
+    # resolve against the including script and stay relative).
+    out = open(r"{vcd_abspath}", "w")
     out.write("$timescale 1 us $end\\n")
     for signal in sorted(iotbench_symbols):
         out.write("$var wire 1 %s %s $end\\n" % (iotbench_symbols[signal], signal))
@@ -289,7 +305,7 @@ def generate_resc(
     repl_relpath: str,
     elf_relpath: str,
     serial_relpath: str | None,
-    vcd_relpath: str | None,
+    vcd_abspath: str | None,
     scenario: dict[str, Any] | None,
     timeout_ms: int,
 ) -> str:
@@ -308,8 +324,8 @@ def generate_resc(
     if serial_relpath:
         lines.append(f"uart0 CreateFileBackend @{serial_relpath}")
         lines.append("")
-    if vcd_relpath:
-        lines.append(vcd_hook_python(task, vcd_relpath))
+    if vcd_abspath:
+        lines.append(vcd_hook_python(task, vcd_abspath))
         lines.append("")
 
     scenario_commands, elapsed_s = scenario_steps_to_resc(task, scenario)
@@ -323,7 +339,7 @@ def generate_resc(
     if remaining_s > 1e-9:
         lines.append(f'emulation RunFor "{remaining_s:.6f}"')
     lines.append("")
-    if vcd_relpath:
+    if vcd_abspath:
         lines.append('python """')
         lines.append("iotbench_write_vcd()")
         lines.append('"""')
@@ -351,8 +367,33 @@ def validate_renode_case(task: TaskConfig, repl_path: Path, resc_path: Path | No
     from .scenarios import generate_scenario
 
     scenario_steps_to_resc(task, generate_scenario(task))
+    validate_variant_scenarios(task)
     if resc_path is not None and not resc_path.exists():
         raise RenodeConfigError(f"simulation script not found: {resc_path}")
+
+
+def validate_variant_scenarios(task: TaskConfig) -> None:
+    """Per-variant scenario overrides get the same control lint as the base
+    scenario; per-variant attrs are rejected until the backend grows
+    peripheral models whose state variants can seed."""
+
+    from copy import deepcopy
+
+    from .scenarios import generate_scenario
+
+    for variant in task.simulation_variants:
+        variant_label = str(variant.get("id") or "variant")
+        if variant.get("attrs"):
+            raise RenodeConfigError(
+                f"{task.task_id}: variant {variant_label!r} uses attrs, which the "
+                "Renode backend does not support yet; use a scenario override"
+            )
+        scenario = variant.get("scenario")
+        if isinstance(scenario, dict):
+            data = deepcopy(task.data)
+            data["scenario"] = deepcopy(scenario)
+            proxy = TaskConfig(path=task.path, data=data)
+            scenario_steps_to_resc(proxy, generate_scenario(proxy))
 
 
 # ---------------------------------------------------------------------------

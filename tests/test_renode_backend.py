@@ -200,7 +200,7 @@ class RescGenerationTests(unittest.TestCase):
             repl_relpath="case.repl",
             elf_relpath="artifacts/build/zephyr/zephyr.elf",
             serial_relpath=None,
-            vcd_relpath="artifacts/logic/renode.vcd",
+            vcd_abspath=r"C:\abs path\renode.vcd",
             scenario=None,
             timeout_ms=6000,
         )
@@ -220,7 +220,7 @@ class RescGenerationTests(unittest.TestCase):
                 repl_relpath="case.repl",
                 elf_relpath="artifacts/build/zephyr/zephyr.elf",
                 serial_relpath="artifacts/serial/serial.log",
-                vcd_relpath=None,
+                vcd_abspath=None,
                 scenario=generate_scenario(task),
                 timeout_ms=500,
             )

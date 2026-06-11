@@ -1,0 +1,11 @@
+task_id: blink_led_1hz
+case_id: blink-1hz-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/blink_led_1hz
+  diagram: case.repl
+  build: artifacts/build
+  vcd: artifacts/logic/renode.vcd
+  resc: case.resc

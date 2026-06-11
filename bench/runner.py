@@ -161,7 +161,7 @@ def write_case_resc(
         serial_relpath=(
             relative_to(paths.serial_log, paths.case_dir) if paths.serial_log else None
         ),
-        vcd_relpath=relative_to(paths.vcd, paths.case_dir) if paths.vcd else None,
+        vcd_abspath=str(paths.vcd.resolve()) if paths.vcd else None,
         scenario=scenario_data,
         timeout_ms=timeout_ms or int(task.simulation.get("timeout_ms", 5000)),
     )
@@ -386,8 +386,9 @@ def ensure_espidf_project_files(task: TaskConfig, project_dir: Path) -> None:
     if not main_cmake.exists():
         main_cmake.write_text(espidf_main_cmake(), encoding="utf-8")
     sdkconfig_defaults = project_dir / "sdkconfig.defaults"
-    if not sdkconfig_defaults.exists():
-        sdkconfig_defaults.write_text(espidf_sdkconfig_defaults(), encoding="utf-8")
+    sdkconfig_text = espidf_sdkconfig_defaults()
+    if not sdkconfig_defaults.exists() or sdkconfig_defaults.read_text(encoding="utf-8") != sdkconfig_text:
+        sdkconfig_defaults.write_text(sdkconfig_text, encoding="utf-8")
     main_source = main_dir / "main.c"
     if not main_source.exists() or task.level in {"level2", "level3"}:
         main_source.write_text(example_sketch(task), encoding="utf-8")
@@ -444,7 +445,9 @@ idf_component_register(SRCS "main.c" INCLUDE_DIRS ".")
 def espidf_sdkconfig_defaults() -> str:
     return """\
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
-CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+CONFIG_ESP_CONSOLE_UART_DEFAULT=n
+CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
 """
 
 
@@ -2694,7 +2697,7 @@ void app_main(void) {
     if (clk != last_clk && clk == 0) {
       int dt = gpio_get_level(DT_PIN);
       position += dt ? -1 : 1;
-      printf("Position: %d Direction: %s\n", position, dt ? "CCW" : "CW");
+      printf("Position: %d Direction: %s\\n", position, dt ? "CCW" : "CW");
     }
     last_clk = clk;
     vTaskDelay(pdMS_TO_TICKS(2));
@@ -2734,7 +2737,7 @@ void app_main(void) {
   char last = 0;
   while (1) {
     char key = scan_keypad();
-    if (key && key != last) printf("Key: %c\n", key);
+    if (key && key != last) printf("Key: %c\\n", key);
     last = key;
     vTaskDelay(pdMS_TO_TICKS(10));
   }
@@ -2761,9 +2764,9 @@ void app_main(void) {
   gpio_reset_pin(DHT_PIN);
   gpio_set_direction(DHT_PIN, GPIO_MODE_INPUT);
   (void)gpio_get_level(DHT_PIN);
-  printf("Temperature: 18.0 C Humidity: 35.0 %%\n");
+  printf("Temperature: 18.0 C Humidity: 35.0 %%\\n");
   vTaskDelay(pdMS_TO_TICKS(700));
-  printf("Temperature: 31.0 C Humidity: 65.0 %%\n");
+  printf("Temperature: 31.0 C Humidity: 65.0 %%\\n");
   while (1) vTaskDelay(pdMS_TO_TICKS(1000));
 }
 """
@@ -2775,7 +2778,7 @@ void app_main(void) {
   i2c_setup();
   i2c_write_reg(0x68, 0x00, 0x00);
   (void)i2c_read_reg(0x68, 0x00);
-  printf("2026/02/02 15:37:00 Temperature: 24.0 C\n");
+  printf("2026/02/02 15:37:00 Temperature: 24.0 C\\n");
   while (1) vTaskDelay(pdMS_TO_TICKS(1000));
 }
 """
@@ -2799,7 +2802,7 @@ void app_main(void) {
     int16_t gx = read_word(0x43);
     int16_t gy = read_word(0x45);
     int16_t gz = read_word(0x47);
-    printf("Accel: %d %d %d Gyro: %d %d %d\n", ax, ay, az, gx, gy, gz);
+    printf("Accel: %d %d %d Gyro: %d %d %d\\n", ax, ay, az, gx, gy, gz);
     vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
@@ -2813,7 +2816,7 @@ void app_main(void) {
   while (1) {
     (void)spi_transfer(0x80);
     (void)spi_transfer(0x00);
-    printf("Accel: 0 0 16384 Gyro: 0 0 0\n");
+    printf("Accel: 0 0 16384 Gyro: 0 0 0\\n");
     vTaskDelay(pdMS_TO_TICKS(250));
   }
 }
@@ -2825,7 +2828,7 @@ def espidf_bme280_i2c_stub(task: TaskConfig) -> str:
 void app_main(void) {
   i2c_setup();
   (void)i2c_read_reg(0x76, 0xd0);
-  printf("Temperature: 24.5 C Humidity: 55.0 %% Pressure: 101325 Pa\n");
+  printf("Temperature: 24.5 C Humidity: 55.0 %% Pressure: 101325 Pa\\n");
   while (1) {
     (void)i2c_read_reg(0x76, 0xfa);
     vTaskDelay(pdMS_TO_TICKS(500));
@@ -2841,7 +2844,7 @@ void app_main(void) {
   while (1) {
     (void)spi_transfer(0xd0);
     (void)spi_transfer(0x00);
-    printf("Temperature: 24.5 C Humidity: 55.0 %% Pressure: 101325 Pa\n");
+    printf("Temperature: 24.5 C Humidity: 55.0 %% Pressure: 101325 Pa\\n");
     vTaskDelay(pdMS_TO_TICKS(500));
   }
 }
@@ -2965,7 +2968,7 @@ void app_main(void) {
   gpio_set_direction(ECHO_PIN, GPIO_MODE_INPUT);
   while (1) {
     int distance = read_distance_cm();
-    printf("Distance: %d cm\n", distance);
+    printf("Distance: %d cm\\n", distance);
     vTaskDelay(pdMS_TO_TICKS(100));
   }
 }
@@ -3334,7 +3337,7 @@ void app_main(void) {
     (void)i2c_read_reg(0x68, 0x3b);
     if (esp_timer_get_time() - last > 400000) {
       last = esp_timer_get_time();
-      printf("Steps: %d\n", ++steps);
+      printf("Steps: %d\\n", ++steps);
     }
     vTaskDelay(pdMS_TO_TICKS(20));
   }

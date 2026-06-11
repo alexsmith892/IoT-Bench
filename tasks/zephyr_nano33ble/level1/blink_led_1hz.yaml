@@ -1,0 +1,27 @@
+task_id: blink_led_1hz
+name: Blink the Nano 33 BLE red LED at 1 Hz (Zephyr)
+platform: zephyr_nano33ble
+level: level1
+fixture:
+  family: single_led_output
+  pins:
+    led: "P0.24"
+  analyzer:
+    channels:
+      - signal: D0
+        pin: "P0.24"
+validator:
+  family: waveform_frequency
+  params:
+    channels:
+      D0:
+        frequency_hz: 1.0
+        min_valid_cycles_after_startup: 4
+        half_period_range_s: [0.45, 0.55]
+        full_period_range_s: [0.9, 1.1]
+        duty_cycle_range: [0.4, 0.6]
+simulation:
+  timeout_ms: 6000
+case:
+  id: blink-1hz-renode-nano33
+  sketch_name: blink_led_1hz
