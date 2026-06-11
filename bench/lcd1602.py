@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from bisect import bisect_right
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -144,6 +145,12 @@ def address_to_position(address: int, cols: int) -> tuple[int, int]:
 def frame_contains(frame: LcdFrame, expected: str) -> bool:
     normalized = frame.text().replace("\n", " ")
     return expected in frame.text() or expected in normalized
+
+
+def frame_matches_regex(frame: LcdFrame, pattern: str) -> bool:
+    compiled = re.compile(pattern)
+    normalized = frame.text().replace("\n", " ")
+    return bool(compiled.search(frame.text()) or compiled.search(normalized))
 
 
 def frame_metrics(frame: LcdFrame) -> dict[str, Any]:

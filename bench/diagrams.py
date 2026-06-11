@@ -569,7 +569,18 @@ FIXED_FAMILY_CONTROLS = {
 
 
 def scenario_control_pairs(task: TaskConfig) -> list[tuple[str, str]]:
-    scenario = task.scenario
+    # Variant scenarios fully replace the base scenario, so every variant's
+    # controls are linted too (variant attrs never change part types, so the
+    # base diagram's part map is valid for all variants).
+    pairs = scenario_dict_control_pairs(task.scenario)
+    for variant in task.simulation_variants:
+        scenario = variant.get("scenario")
+        if isinstance(scenario, dict):
+            pairs.extend(scenario_dict_control_pairs(scenario))
+    return pairs
+
+
+def scenario_dict_control_pairs(scenario: dict[str, Any] | None) -> list[tuple[str, str]]:
     if not scenario:
         return []
     family = scenario.get("family")

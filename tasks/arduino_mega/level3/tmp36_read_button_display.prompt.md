@@ -1,0 +1,2 @@
+Demonstrate a temperature logger using the TMP36 temperature sensor and ADC. Every time the button is pressed, an interrupt will be triggered, during which the samples the analog output of the TMP36 temperature sensor, and displays the temperature reading on the LCD1602 display screen (the button press will also clear the LCD screen), with a reasonable font size/layout in the format of “Temp: {ADC reading} F”
+Button: GPIO 2. LCD1602: Use GPIO 12,11,4,5,6,7 for RS, E, D4, D5, D6, D7. TMP36: A0.

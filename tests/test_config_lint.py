@@ -53,6 +53,53 @@ class VariantIdLintTests(unittest.TestCase):
         self.assertEqual(sanitize_variant_id("::"), "")
 
 
+def variant_scenario_task(timeout_ms: float) -> TaskConfig:
+    return TaskConfig(
+        path=Path("task.yaml"),
+        data={"task_id": "stub", "simulation": {"timeout_ms": timeout_ms}},
+    )
+
+
+class VariantScenarioLintTests(unittest.TestCase):
+    SCENARIO = {
+        "family": "control_sequence",
+        "initial_delay_ms": 200,
+        "controls": [{"part_id": "imu1", "control": "accelX", "value": 0.5, "duration_ms": 600}],
+    }
+
+    def test_valid_variant_scenario_passes(self):
+        validate_simulation_variants(
+            variant_scenario_task(1200),
+            [{"id": "a", "scenario": self.SCENARIO}, {"id": "b"}],
+        )
+
+    def test_variant_scenario_must_be_mapping(self):
+        with self.assertRaises(ConfigError) as ctx:
+            validate_simulation_variants(
+                variant_scenario_task(1200), [{"id": "a", "scenario": ["x"]}]
+            )
+        self.assertIn("must be a mapping", str(ctx.exception))
+
+    def test_variant_scenario_unknown_family_rejected(self):
+        with self.assertRaises(ConfigError) as ctx:
+            validate_simulation_variants(
+                variant_scenario_task(1200), [{"id": "a", "scenario": {"family": "nope"}}]
+            )
+        self.assertIn("unknown scenario family", str(ctx.exception))
+
+    def test_variant_scenario_structure_validated(self):
+        broken = {"family": "control_sequence", "controls": [{"part_id": "p", "value": 1, "duration_ms": 100}]}
+        with self.assertRaises(ConfigError):
+            validate_simulation_variants(variant_scenario_task(1200), [{"id": "a", "scenario": broken}])
+
+    def test_variant_scenario_budget_enforced_per_variant(self):
+        # The variant timeline (800 ms) exceeds the simulation timeout (700 ms).
+        with self.assertRaises(ConfigError):
+            validate_simulation_variants(
+                variant_scenario_task(700), [{"id": "a", "scenario": self.SCENARIO}]
+            )
+
+
 def budget_task(scenario: dict, timeout_ms: float) -> TaskConfig:
     return TaskConfig(
         path=Path("task.yaml"),

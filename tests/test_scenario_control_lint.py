@@ -58,6 +58,25 @@ class ScenarioControlLintTests(unittest.TestCase):
         with self.assertRaises(DiagramError):
             validate_scenario_controls(generate_diagram(task), task)
 
+    def test_variant_scenario_controls_linted(self):
+        base = load_task("dht11_read", level="level2")
+        data = copy.deepcopy(base.data)
+        data["simulation_variants"] = [
+            {
+                "id": "a",
+                "scenario": {
+                    "family": "control_sequence",
+                    "controls": [
+                        {"part_id": "dht1", "control": "luminosity", "value": 1, "duration_ms": 100}
+                    ],
+                },
+            }
+        ]
+        task = TaskConfig(path=base.path, data=data)
+        with self.assertRaises(DiagramError) as ctx:
+            validate_scenario_controls(generate_diagram(task), task)
+        self.assertIn("luminosity", str(ctx.exception))
+
     def test_every_supported_task_passes_the_control_lint(self):
         # Backstop: an allowlist omission must fail here, not during a live run.
         with tempfile.TemporaryDirectory() as tmp:

@@ -433,11 +433,19 @@ def prepare_artifacts(
     wokwi_cli: str = "wokwi-cli",
     require_provenance: bool = True,
     ignore_vcd_provenance: bool = False,
+    enforce_tool_versions: bool = True,
 ) -> None:
     if use_existing_artifacts:
         ensure_existing_variant_outputs(task, paths)
         if require_provenance:
-            validate_existing_artifact_manifest(task, paths, ignore_vcd=ignore_vcd_provenance)
+            validate_existing_artifact_manifest(
+                task,
+                paths,
+                ignore_vcd=ignore_vcd_provenance,
+                arduino_cli=arduino_cli,
+                wokwi_cli=wokwi_cli,
+                enforce_tool_versions=enforce_tool_versions,
+            )
         return
 
     build_case(task, paths, arduino_cli=arduino_cli)
@@ -606,7 +614,14 @@ def run_case(
             wokwi_cli=wokwi_cli,
         )
     result = validate_case(task, paths)
-    write_verification(task, paths, result, command=command)
+    write_verification(
+        task,
+        paths,
+        result,
+        command=command,
+        arduino_cli=arduino_cli,
+        wokwi_cli=wokwi_cli,
+    )
     return result
 
 
@@ -627,10 +642,13 @@ def simulate_variants(
 ) -> list[CasePaths]:
     simulated: list[CasePaths] = []
     for variant in task.simulation_variants:
-        variant_paths = paths_for_variant(paths, variant_id(variant))
+        variant_paths = paths_for_variant(paths, variant_id(variant), variant)
         write_variant_diagram(paths.diagram, variant_paths.diagram, variant)
+        proxy = task_for_variant(task, variant)
+        if variant_scenario_override(variant) is not None and variant_paths.scenario:
+            write_scenario(variant_paths.scenario, generate_scenario(proxy))
         simulate_case(
-            task,
+            proxy,
             variant_paths,
             simulation_time_ms=simulation_time_ms,
             wokwi_cli=wokwi_cli,
@@ -642,7 +660,7 @@ def simulate_variants(
 def ensure_existing_variant_outputs(task: TaskConfig, paths: CasePaths) -> None:
     if task.simulation_variants:
         for variant in task.simulation_variants:
-            ensure_existing_outputs(task, paths_for_variant(paths, variant_id(variant)))
+            ensure_existing_outputs(task, paths_for_variant(paths, variant_id(variant), variant))
         return
     ensure_existing_outputs(task, paths)
 
@@ -657,7 +675,7 @@ def validate_variants(task: TaskConfig, paths: CasePaths) -> dict[str, Any]:
     metrics: dict[str, Any] = {"variants": variant_results}
     for variant in task.simulation_variants:
         current_id = variant_id(variant)
-        variant_paths = paths_for_variant(paths, current_id)
+        variant_paths = paths_for_variant(paths, current_id, variant)
         proxy = task_for_variant(task, variant)
         try:
             result = validate_task(proxy, variant_paths).payload()
@@ -724,11 +742,26 @@ def variant_id(variant: dict[str, Any]) -> str:
     return sanitize_variant_id(str(variant.get("id") or "variant"))
 
 
-def paths_for_variant(paths: CasePaths, current_id: str) -> CasePaths:
+def variant_scenario_override(variant: dict[str, Any] | None) -> dict[str, Any] | None:
+    if variant is None:
+        return None
+    scenario = variant.get("scenario")
+    return scenario if isinstance(scenario, dict) else None
+
+
+def paths_for_variant(
+    paths: CasePaths, current_id: str, variant: dict[str, Any] | None = None
+) -> CasePaths:
+    variant_dir = paths.case_dir / "artifacts" / "variants" / current_id
     return replace(
         paths,
-        diagram=paths.case_dir / "artifacts" / "variants" / current_id / "diagram.json",
+        diagram=variant_dir / "diagram.json",
         vcd=(paths.case_dir / "artifacts" / "logic" / f"{current_id}.vcd" if paths.vcd else None),
+        scenario=(
+            variant_dir / "scenario.yaml"
+            if variant_scenario_override(variant) is not None
+            else paths.scenario
+        ),
         serial_log=(
             paths.case_dir / "artifacts" / "serial" / f"{current_id}.serial.log"
             if paths.serial_log
@@ -765,6 +798,11 @@ def task_for_variant(task: TaskConfig, variant: dict[str, Any]) -> TaskConfig:
     data = deepcopy(task.data)
     if isinstance(variant.get("validator"), dict):
         data["validator"] = deep_merge(data.get("validator") or {}, variant["validator"])
+    scenario_override = variant_scenario_override(variant)
+    if scenario_override is not None:
+        # Full replacement, not a merge: positionally merging stimulus timelines
+        # would silently produce hybrid scenarios.
+        data["scenario"] = deepcopy(scenario_override)
     data["active_simulation_variant"] = variant
     return TaskConfig(path=task.path, data=data)
 
@@ -981,7 +1019,10 @@ def write_verification(
     result: dict[str, Any],
     *,
     command: str,
+    arduino_cli: str = "arduino-cli",
+    wokwi_cli: str = "wokwi-cli",
 ) -> Path:
+    tool_versions = current_tool_versions(arduino_cli=arduino_cli, wokwi_cli=wokwi_cli)
     manifest = {
         "manifest_version": 2,
         "task_id": task.task_id,
@@ -989,8 +1030,8 @@ def write_verification(
         "command": command,
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "python_version": sys.version.split()[0],
-        "arduino_cli_version": command_version("arduino-cli", "version"),
-        "wokwi_cli_version": command_version("wokwi-cli", "--version"),
+        "arduino_cli_version": tool_versions["arduino_cli_version"],
+        "wokwi_cli_version": tool_versions["wokwi_cli_version"],
         "sketch_path": relative_to(paths.sketch, paths.case_dir),
         "sketch_hash": hash_path(paths.sketch),
         "diagram_path": relative_to(paths.diagram, paths.case_dir),
@@ -1021,7 +1062,8 @@ def write_verification(
         manifest["variants"] = []
         for variant in task.simulation_variants:
             sanitized = variant_id(variant)
-            variant_paths = paths_for_variant(paths, sanitized)
+            variant_paths = paths_for_variant(paths, sanitized, variant)
+            has_scenario_override = variant_scenario_override(variant) is not None
             manifest["variants"].append(
                 {
                     "id": variant.get("id"),
@@ -1029,6 +1071,14 @@ def write_verification(
                     "attrs": variant.get("attrs") or {},
                     "diagram_path": relative_to(variant_paths.diagram, paths.case_dir),
                     "diagram_hash": hash_file(variant_paths.diagram),
+                    "scenario_path": (
+                        relative_to(variant_paths.scenario, paths.case_dir)
+                        if has_scenario_override and variant_paths.scenario
+                        else None
+                    ),
+                    "scenario_hash": (
+                        hash_file(variant_paths.scenario) if has_scenario_override else None
+                    ),
                     "vcd_path": relative_to(variant_paths.vcd, paths.case_dir) if variant_paths.vcd else None,
                     "vcd_hash": hash_file(variant_paths.vcd) if variant_paths.vcd else None,
                     "serial_log_path": (
@@ -1060,6 +1110,9 @@ def validate_existing_artifact_manifest(
     paths: CasePaths,
     *,
     ignore_vcd: bool = False,
+    arduino_cli: str = "arduino-cli",
+    wokwi_cli: str = "wokwi-cli",
+    enforce_tool_versions: bool = True,
 ) -> None:
     """Require existing artifacts to match the verification manifest.
 
@@ -1091,6 +1144,8 @@ def validate_existing_artifact_manifest(
         raise artifact_provenance_error(
             f"verification manifest belongs to case {manifest.get('case_id')!r}, not {paths.case_id!r}"
         )
+    if enforce_tool_versions:
+        validate_manifest_tool_versions(manifest, arduino_cli=arduino_cli, wokwi_cli=wokwi_cli)
 
     checks: list[tuple[str, str | None, str | None]] = [
         ("sketch", manifest.get("sketch_hash"), hash_path(paths.sketch)),
@@ -1113,10 +1168,18 @@ def validate_existing_artifact_manifest(
                 raise artifact_provenance_error(
                     f"verification manifest has no record for variant {sanitized!r}"
                 )
-            variant_paths = paths_for_variant(paths, sanitized)
+            variant_paths = paths_for_variant(paths, sanitized, variant)
             checks.append(
                 (f"variant {sanitized} diagram", entry.get("diagram_hash"), hash_file(variant_paths.diagram))
             )
+            if variant_scenario_override(variant) is not None and variant_paths.scenario:
+                checks.append(
+                    (
+                        f"variant {sanitized} scenario",
+                        entry.get("scenario_hash"),
+                        hash_file(variant_paths.scenario),
+                    )
+                )
             if variant_paths.serial_log:
                 checks.append(
                     (
@@ -1163,6 +1226,106 @@ def command_version(command: str, *args: str) -> str | None:
         return None
     output = (completed.stdout or completed.stderr).strip()
     return output.splitlines()[0] if output else None
+
+
+def tool_versions_path() -> Path:
+    return Path(__file__).with_name("tool_versions.yaml")
+
+
+def pinned_tool_versions() -> dict[str, str | None]:
+    try:
+        data = yaml.safe_load(tool_versions_path().read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        data = {}
+    if not isinstance(data, dict):
+        data = {}
+    return {
+        "arduino_cli_version": data.get("arduino_cli_version"),
+        "wokwi_cli_version": data.get("wokwi_cli_version"),
+    }
+
+
+def current_tool_versions(
+    *,
+    arduino_cli: str = "arduino-cli",
+    wokwi_cli: str = "wokwi-cli",
+) -> dict[str, str | None]:
+    return {
+        "arduino_cli_version": command_version(arduino_cli, "version"),
+        "wokwi_cli_version": command_version(wokwi_cli, "--version"),
+    }
+
+
+def tool_version_report(
+    *,
+    arduino_cli: str = "arduino-cli",
+    wokwi_cli: str = "wokwi-cli",
+) -> dict[str, Any]:
+    expected = pinned_tool_versions()
+    actual = current_tool_versions(arduino_cli=arduino_cli, wokwi_cli=wokwi_cli)
+    mismatches = []
+    for key, label in (
+        ("arduino_cli_version", "arduino-cli"),
+        ("wokwi_cli_version", "wokwi-cli"),
+    ):
+        if expected.get(key) != actual.get(key):
+            mismatches.append(
+                {
+                    "tool": label,
+                    "expected": expected.get(key),
+                    "actual": actual.get(key),
+                }
+            )
+    return {
+        "ok": not mismatches,
+        "expected": expected,
+        "actual": actual,
+        "mismatches": mismatches,
+    }
+
+
+def tool_version_mismatch_error(report: dict[str, Any]) -> BuildSimulationError:
+    details = "; ".join(
+        f"{item['tool']} expected {item['expected']!r}, got {item['actual']!r}"
+        for item in report.get("mismatches", [])
+    )
+    return BuildSimulationError(
+        f"tool version mismatch: {details or 'unknown mismatch'}",
+        classification=SIM_INFRA_FAIL,
+        failure_stage=STAGE_SIM_INFRA,
+        failure_source=SOURCE_ENVIRONMENT,
+    )
+
+
+def ensure_tool_versions_compatible(
+    *,
+    arduino_cli: str = "arduino-cli",
+    wokwi_cli: str = "wokwi-cli",
+) -> dict[str, Any]:
+    report = tool_version_report(arduino_cli=arduino_cli, wokwi_cli=wokwi_cli)
+    if not report["ok"]:
+        raise tool_version_mismatch_error(report)
+    return report
+
+
+def validate_manifest_tool_versions(
+    manifest: dict[str, Any],
+    *,
+    arduino_cli: str,
+    wokwi_cli: str,
+) -> None:
+    current = current_tool_versions(arduino_cli=arduino_cli, wokwi_cli=wokwi_cli)
+    for key, label in (
+        ("arduino_cli_version", "arduino-cli"),
+        ("wokwi_cli_version", "wokwi-cli"),
+    ):
+        recorded = manifest.get(key)
+        actual = current.get(key)
+        if recorded != actual:
+            raise artifact_provenance_error(
+                f"{label} version does not match the verification manifest "
+                f"(recorded {recorded!r}, current {actual!r}); rerun the full pipeline"
+            )
 
 
 def hash_path(path: Path) -> str | None:

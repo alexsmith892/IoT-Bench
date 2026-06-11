@@ -13,15 +13,34 @@ fixture:
       id: rtc1
       pins: {sda: "20", scl: "21"}
       attrs: {initTime: "2026-02-02T15:37:00Z"}
+# Two seeded clock values: firmware that hardcodes one date/time string fails the
+# other variant, and require_distinct_variant_outputs rejects identical outputs.
+simulation_variants:
+  - id: feb_afternoon
+    attrs: {rtc1: {initTime: "2026-02-02T15:37:00Z"}}
+    validator:
+      checks:
+        - {}
+        - params:
+            patterns: ["2026[/:-]02[/:-]02", "15[:.]37"]
+  - id: jul_morning
+    attrs: {rtc1: {initTime: "2026-07-19T08:03:00Z"}}
+    validator:
+      checks:
+        - {}
+        - params:
+            patterns: ["2026[/:-]07[/:-]19", "0?8[:.]03"]
 validator:
   family: composite
   checks:
     - family: static_checks
       params:
-        required_patterns: ["Wire\\.begin\\s*\\("]
+        # Require the real I2C read path, not just Wire.begin, so a hard-coded
+        # print stub cannot pass the static gate.
+        required_patterns: ["Wire\\.begin\\s*\\(", "Wire\\.requestFrom", "Wire\\.read\\s*\\("]
     - family: serial_regex_sequence
       params:
         # DS1307 has no reliable temperature observable in Wokwi; validate the RTC date/time contract.
         patterns: ["2026[/:-]02[/:-]02", "15[:.]37"]
-simulation: {timeout_ms: 1200}
+simulation: {timeout_ms: 1200, require_distinct_variant_outputs: true}
 case: {id: ds1307-rtc-wokwi-mega, sketch_name: ds1307_rtc}

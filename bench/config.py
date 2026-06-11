@@ -13,6 +13,7 @@ import yaml
 
 DEFAULT_PLATFORM = "arduino_mega"
 DEFAULT_LEVEL = "level1"
+ALL_LEVELS = ("level1", "level2", "level3")
 DEFAULT_BOARD_TYPE = "wokwi-arduino-mega"
 DEFAULT_FQBN = "arduino:avr:mega"
 
@@ -88,6 +89,17 @@ class TaskConfig:
     @property
     def level(self) -> str:
         return self.data.get("level", DEFAULT_LEVEL)
+
+    @property
+    def prompt_path(self) -> Path:
+        return self.path.with_suffix(".prompt.md")
+
+    @property
+    def prompt_text(self) -> str:
+        try:
+            return self.prompt_path.read_text(encoding="utf-8")
+        except OSError as exc:
+            raise ConfigError(f"{self.path}: could not read prompt sidecar {self.prompt_path}: {exc}") from exc
 
     @property
     def board(self) -> dict[str, Any]:
@@ -224,6 +236,16 @@ def iter_tasks(
         yield load_task_file(path)
 
 
+def iter_platform_tasks(
+    *,
+    platform: str = DEFAULT_PLATFORM,
+    levels: Iterable[str] = ALL_LEVELS,
+    root: Path | None = None,
+) -> Iterable[TaskConfig]:
+    for level in levels:
+        yield from iter_tasks(platform=platform, level=level, root=root)
+
+
 def validate_task(task: TaskConfig) -> None:
     data = task.data
     for field in ("task_id", "fixture", "validator", "case"):
@@ -243,6 +265,8 @@ def validate_task(task: TaskConfig) -> None:
             raise ConfigError(f"{task.path}: unknown support status {status!r}")
         if status != "supported" and not support.get("reason"):
             raise ConfigError(f"{task.path}: unsupported/manual tasks require support.reason")
+    if task.is_supported:
+        validate_prompt_sidecar(task)
     custom_chips = data.get("custom_chips")
     if custom_chips is not None:
         validate_custom_chips(task, custom_chips)
@@ -266,6 +290,20 @@ def validate_task(task: TaskConfig) -> None:
                 f"{task.path}: analyzer channels require signal and pin"
             )
     validate_families(task, channels)
+
+
+def validate_prompt_sidecar(task: TaskConfig) -> None:
+    path = task.prompt_path
+    if not path.exists():
+        raise ConfigError(f"{task.path}: supported task is missing prompt sidecar {path}")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ConfigError(f"{task.path}: could not read prompt sidecar {path}: {exc}") from exc
+    if not text.strip():
+        raise ConfigError(f"{task.path}: prompt sidecar is empty: {path}")
+    if not text.endswith("\n"):
+        raise ConfigError(f"{task.path}: prompt sidecar must end with a newline: {path}")
 
 
 def validate_families(task: TaskConfig, channels: list[dict[str, Any]]) -> None:
@@ -601,6 +639,9 @@ def validate_simulation_variants(task: TaskConfig, variants: Any) -> None:
         attrs = variant.get("attrs")
         if attrs is not None and not isinstance(attrs, dict):
             raise ConfigError(f"{task.path}: simulation variant attrs must be a mapping")
+        scenario = variant.get("scenario")
+        if scenario is not None:
+            validate_variant_scenario(task, variant, scenario)
         raw_id = str(variant["id"])
         sanitized = sanitize_variant_id(raw_id)
         if not sanitized:
@@ -613,6 +654,21 @@ def validate_simulation_variants(task: TaskConfig, variants: Any) -> None:
                 f"collide after sanitization ({sanitized!r}); variant artifacts would overwrite each other"
             )
         sanitized_ids[sanitized] = raw_id
+
+
+def validate_variant_scenario(task: TaskConfig, variant: dict[str, Any], scenario: Any) -> None:
+    """Variant scenarios fully replace the task scenario, so each one must pass
+    the same structural and simulation-budget validation as the base scenario."""
+
+    variant_label = f"simulation variant {variant.get('id')!r}"
+    if not isinstance(scenario, dict):
+        raise ConfigError(f"{task.path}: {variant_label} scenario must be a mapping")
+    family = scenario.get("family")
+    if family not in SCENARIO_FAMILIES:
+        raise ConfigError(f"{task.path}: {variant_label} has unknown scenario family {family}")
+    proxy = TaskConfig(path=task.path, data={**task.data, "scenario": scenario})
+    validate_scenario(proxy)
+    validate_simulation_budget(proxy)
 
 
 def validate_serial_observation_config(task: TaskConfig, params: dict[str, Any]) -> None:
@@ -655,8 +711,25 @@ def validate_lcd_text_sequence_config(task: TaskConfig, params: dict[str, Any]) 
     for frame in frames:
         if not isinstance(frame, dict):
             raise ConfigError(f"{task.path}: lcd_text_sequence frame must be a mapping")
-        if not isinstance(frame.get("expected_texts"), list) or not frame.get("expected_texts"):
-            raise ConfigError(f"{task.path}: lcd_text_sequence frame requires expected_texts")
+        texts = frame.get("expected_texts")
+        regexps = frame.get("expected_regexps")
+        if texts is not None and not isinstance(texts, list):
+            raise ConfigError(f"{task.path}: lcd_text_sequence expected_texts must be a list")
+        if regexps is not None and not isinstance(regexps, list):
+            raise ConfigError(f"{task.path}: lcd_text_sequence expected_regexps must be a list")
+        if not texts and not regexps:
+            raise ConfigError(
+                f"{task.path}: lcd_text_sequence frame requires expected_texts or expected_regexps"
+            )
+        validate_regexps(task, regexps or [], "lcd_text_sequence expected_regexps")
+
+
+def validate_regexps(task: TaskConfig, patterns: list[Any], label: str) -> None:
+    for pattern in patterns:
+        try:
+            re.compile(str(pattern))
+        except re.error as exc:
+            raise ConfigError(f"{task.path}: {label} pattern {pattern!r} is invalid: {exc}")
 
 
 def to_yaml_text(data: dict[str, Any]) -> str:

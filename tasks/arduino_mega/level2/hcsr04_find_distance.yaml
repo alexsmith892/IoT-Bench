@@ -43,5 +43,5 @@ validator:
           - label: configured_distance
             patterns: ["Distance.*100"]
             numeric_ranges: [[95, 105]]
-simulation: {timeout_ms: 1200}
+simulation: {timeout_ms: 1200, require_distinct_variant_outputs: true}
 case: {id: hcsr04-find-distance-wokwi-mega, sketch_name: hcsr04_find_distance}

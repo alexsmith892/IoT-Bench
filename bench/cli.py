@@ -3,15 +3,17 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import json
 import os
 import shutil
 import subprocess
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
-from .config import ConfigError, iter_tasks, load_task
+from .config import ALL_LEVELS, ConfigError, iter_platform_tasks, iter_tasks, load_task
 from .diagrams import DiagramError, validate_diagram_file
 from .results import (
     FAIL,
@@ -30,12 +32,16 @@ from .runner import (
     CasePaths,
     build_case,
     case_dir_for_task,
+    ensure_tool_versions_compatible,
     expected_firmware_paths,
     generate_case,
+    hash_file,
+    hash_path,
     load_case_paths,
     normalize_sketch_override,
     prepare_artifacts,
     run_case,
+    tool_version_report,
     validate_case,
     with_archived_vcd,
 )
@@ -49,6 +55,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     add_task_selection(subparsers.add_parser("generate", help="generate case artifacts"))
+    prompt = subparsers.add_parser("prompt", help="print the frozen model-facing task prompt")
+    add_task_selection(prompt, require_task=True)
+
     build = subparsers.add_parser("build", help="compile sketches and verify firmware artifacts")
     add_task_selection(build)
     build.add_argument("--case", type=Path, help="case directory to build")
@@ -63,6 +72,27 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     add_task_selection(run)
     add_run_options(run)
 
+    evaluate = subparsers.add_parser("evaluate", help="batch-evaluate task submissions into JSONL")
+    add_task_selection(evaluate, default_level="all")
+    evaluate.add_argument("--sketch-dir", type=Path, required=True)
+    evaluate.add_argument("--output", type=Path, required=True)
+    evaluate.add_argument("--if-retries", type=int, default=1)
+    evaluate.add_argument("--regenerate", action="store_true")
+    evaluate.add_argument("--simulation-time-ms", type=int)
+    evaluate.add_argument("--arduino-cli", default="arduino-cli")
+    evaluate.add_argument("--wokwi-cli", default="wokwi-cli")
+    evaluate.add_argument("--allow-tool-version-mismatch", action="store_true")
+
+    repeatability = subparsers.add_parser("repeatability", help="run reference sketches repeatedly and emit a flake census JSONL")
+    add_task_selection(repeatability, default_level="all")
+    repeatability.add_argument("--runs", type=int, required=True)
+    repeatability.add_argument("--output", type=Path, required=True)
+    repeatability.add_argument("--regenerate", action="store_true")
+    repeatability.add_argument("--simulation-time-ms", type=int)
+    repeatability.add_argument("--arduino-cli", default="arduino-cli")
+    repeatability.add_argument("--wokwi-cli", default="wokwi-cli")
+    repeatability.add_argument("--allow-tool-version-mismatch", action="store_true")
+
     validate = subparsers.add_parser(
         "validate-artifacts", help="validate existing artifacts without running Wokwi"
     )
@@ -75,14 +105,20 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="skip verification.json provenance checks (deliberate inspection of arbitrary artifacts)",
     )
+    validate.add_argument("--allow-tool-version-mismatch", action="store_true")
 
     return parser.parse_args(argv)
 
 
-def add_task_selection(parser: argparse.ArgumentParser, *, require_task: bool = False) -> None:
+def add_task_selection(
+    parser: argparse.ArgumentParser,
+    *,
+    require_task: bool = False,
+    default_level: str = "level1",
+) -> None:
     parser.add_argument("--task", required=require_task, help="task id, e.g. blink_led_1hz")
     parser.add_argument("--platform", default="arduino_mega")
-    parser.add_argument("--level", default="level1")
+    parser.add_argument("--level", default=default_level)
 
 
 def add_run_options(parser: argparse.ArgumentParser) -> None:
@@ -98,6 +134,7 @@ def add_run_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--simulation-time-ms", type=int)
     parser.add_argument("--arduino-cli", default="arduino-cli")
     parser.add_argument("--wokwi-cli", default="wokwi-cli")
+    parser.add_argument("--allow-tool-version-mismatch", action="store_true")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -113,6 +150,10 @@ def main(argv: list[str] | None = None) -> int:
                     continue
                 generated.append(str(generate_case(task).case_dir))
             print(json.dumps({"generated": generated, "unsupported": unsupported}, indent=2))
+            return 0
+        if args.command == "prompt":
+            task = load_selected_task(args)
+            print(task.prompt_text, end="")
             return 0
         if args.command == "build":
             tasks = selected_tasks(args)
@@ -157,6 +198,7 @@ def main(argv: list[str] | None = None) -> int:
                 wokwi_cli="wokwi-cli",
                 archived_vcd=args.archived_vcd,
                 require_provenance=not args.allow_unverified_artifacts,
+                allow_tool_version_mismatch=args.allow_tool_version_mismatch,
             )
             print(json.dumps(result, indent=2))
             return 0
@@ -174,10 +216,19 @@ def main(argv: list[str] | None = None) -> int:
                     wokwi_cli=args.wokwi_cli,
                     archived_vcd=None,
                     require_provenance=not args.allow_unverified_artifacts,
+                    allow_tool_version_mismatch=args.allow_tool_version_mismatch,
                 )
                 for task in tasks
             ]
             print_many_or_one(results)
+            return 0
+        if args.command == "evaluate":
+            payload = evaluate_submissions(args)
+            print(json.dumps(payload, indent=2))
+            return 0
+        if args.command == "repeatability":
+            payload = measure_repeatability(args)
+            print(json.dumps(payload, indent=2))
             return 0
     except (ConfigError, CaseConfigError, DiagramError, ScenarioError) as exc:
         return emit_result(SIM_INFRA_FAIL, str(exc), failure_source=SOURCE_HARNESS)
@@ -187,8 +238,25 @@ def main(argv: list[str] | None = None) -> int:
 
 def selected_tasks(args: argparse.Namespace):
     if args.task:
-        return [load_task(args.task, platform=args.platform, level=args.level)]
+        return [load_selected_task(args)]
+    if args.level == "all":
+        return list(iter_platform_tasks(platform=args.platform))
     return list(iter_tasks(platform=args.platform, level=args.level))
+
+
+def load_selected_task(args: argparse.Namespace):
+    if args.level != "all":
+        return load_task(args.task, platform=args.platform, level=args.level)
+    matches = [
+        task
+        for task in iter_platform_tasks(platform=args.platform)
+        if task.task_id == args.task
+    ]
+    if not matches:
+        raise ConfigError(f"task config not found for {args.platform}/{args.task} in levels {', '.join(ALL_LEVELS)}")
+    if len(matches) > 1:
+        raise ConfigError(f"task id {args.task!r} appears in multiple levels; pass --level explicitly")
+    return matches[0]
 
 
 def ensure_case(task):
@@ -286,6 +354,7 @@ def run_single_task(
     wokwi_cli: str,
     archived_vcd: str | None,
     require_provenance: bool = True,
+    allow_tool_version_mismatch: bool = False,
 ) -> dict[str, Any]:
     if not task.is_supported:
         return unsupported_task_result(task)
@@ -297,6 +366,8 @@ def run_single_task(
             regenerate=regenerate,
         )
         paths = with_archived_vcd(paths, archived_vcd)
+        if not use_existing_artifacts and not allow_tool_version_mismatch:
+            ensure_tool_versions_compatible(arduino_cli=arduino_cli, wokwi_cli=wokwi_cli)
         validate_diagram_file(paths.diagram, task)
         if use_existing_artifacts:
             prepare_artifacts(
@@ -308,6 +379,7 @@ def run_single_task(
                 wokwi_cli=wokwi_cli,
                 require_provenance=require_provenance,
                 ignore_vcd_provenance=archived_vcd is not None,
+                enforce_tool_versions=not allow_tool_version_mismatch,
             )
             return validate_case(task, paths)
         return run_case(
@@ -341,6 +413,139 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, int]:
     return summary
 
 
+def utc_now() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def evaluate_submissions(args: argparse.Namespace) -> dict[str, Any]:
+    if args.if_retries < 0:
+        raise ConfigError("--if-retries must be non-negative")
+    rows = []
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    with args.output.open("w", encoding="utf-8", newline="\n") as stream:
+        for task in selected_tasks(args):
+            row = evaluate_one_submission(task, args)
+            rows.append(row)
+            stream.write(json.dumps(row, sort_keys=True) + "\n")
+    return {
+        "output": str(args.output),
+        "tasks": len(rows),
+        "summary": summarize([row["final_result"] for row in rows]),
+    }
+
+
+def evaluate_one_submission(task, args: argparse.Namespace) -> dict[str, Any]:
+    sketch_path = args.sketch_dir / f"{task.task_id}.ino"
+    attempts = []
+    max_attempts = args.if_retries + 1
+    for attempt_index in range(1, max_attempts + 1):
+        attempt = timed_run_single_task(
+            task,
+            case_dir=None,
+            sketch_override=sketch_path,
+            use_existing_artifacts=False,
+            regenerate=args.regenerate,
+            simulation_time_ms=args.simulation_time_ms,
+            arduino_cli=args.arduino_cli,
+            wokwi_cli=args.wokwi_cli,
+            archived_vcd=None,
+            require_provenance=True,
+            allow_tool_version_mismatch=args.allow_tool_version_mismatch,
+            attempt_index=attempt_index,
+        )
+        attempts.append(attempt)
+        if attempt["result"]["result"] != "IF":
+            break
+    return benchmark_row(task, sketch_path, attempts, args)
+
+
+def measure_repeatability(args: argparse.Namespace) -> dict[str, Any]:
+    if args.runs <= 0:
+        raise ConfigError("--runs must be positive")
+    rows = []
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    with args.output.open("w", encoding="utf-8", newline="\n") as stream:
+        for task in selected_tasks(args):
+            attempts = []
+            for attempt_index in range(1, args.runs + 1):
+                attempts.append(
+                    timed_run_single_task(
+                        task,
+                        case_dir=None,
+                        sketch_override=None,
+                        use_existing_artifacts=False,
+                        regenerate=args.regenerate,
+                        simulation_time_ms=args.simulation_time_ms,
+                        arduino_cli=args.arduino_cli,
+                        wokwi_cli=args.wokwi_cli,
+                        archived_vcd=None,
+                        require_provenance=True,
+                        allow_tool_version_mismatch=args.allow_tool_version_mismatch,
+                        attempt_index=attempt_index,
+                    )
+                )
+            row = repeatability_row(task, attempts, args)
+            rows.append(row)
+            stream.write(json.dumps(row, sort_keys=True) + "\n")
+    return {
+        "output": str(args.output),
+        "tasks": len(rows),
+        "flakes": sum(1 for row in rows if row["flaky"]),
+    }
+
+
+def timed_run_single_task(task, *, attempt_index: int, **kwargs) -> dict[str, Any]:
+    started_at = utc_now()
+    start = time.perf_counter()
+    result = run_single_task(task, **kwargs)
+    duration_s = time.perf_counter() - start
+    return {
+        "attempt": attempt_index,
+        "started_at": started_at,
+        "ended_at": utc_now(),
+        "duration_s": round(duration_s, 6),
+        "result": result,
+    }
+
+
+def benchmark_row(task, sketch_path: Path, attempts: list[dict[str, Any]], args: argparse.Namespace) -> dict[str, Any]:
+    final_result = attempts[-1]["result"]
+    return {
+        "task_id": task.task_id,
+        "platform": task.platform,
+        "level": task.level,
+        "prompt_path": str(task.prompt_path),
+        "prompt_hash": hash_file(task.prompt_path),
+        "sketch_path": str(sketch_path),
+        "sketch_hash": hash_file(sketch_path),
+        "final_result": final_result,
+        "attempt_count": len(attempts),
+        "attempts": attempts,
+        "tool_versions": tool_version_report(arduino_cli=args.arduino_cli, wokwi_cli=args.wokwi_cli),
+    }
+
+
+def repeatability_row(task, attempts: list[dict[str, Any]], args: argparse.Namespace) -> dict[str, Any]:
+    signatures = {
+        json.dumps(attempt["result"], sort_keys=True)
+        for attempt in attempts
+    }
+    non_bc = [attempt for attempt in attempts if attempt["result"]["result"] != "BC"]
+    return {
+        "task_id": task.task_id,
+        "platform": task.platform,
+        "level": task.level,
+        "prompt_path": str(task.prompt_path),
+        "prompt_hash": hash_file(task.prompt_path),
+        "reference_sketch_path": str(case_dir_for_task(task) / "sketch" / task.sketch_name),
+        "reference_sketch_hash": hash_path(case_dir_for_task(task) / "sketch" / task.sketch_name),
+        "runs": len(attempts),
+        "flaky": bool(non_bc or len(signatures) > 1),
+        "attempts": attempts,
+        "tool_versions": tool_version_report(arduino_cli=args.arduino_cli, wokwi_cli=args.wokwi_cli),
+    }
+
+
 def unsupported_task_payload(task) -> dict[str, str]:
     return {
         "task_id": task.task_id,
@@ -366,10 +571,18 @@ def print_many_or_one(results: list[dict[str, Any]]) -> None:
 
 
 def run_doctor() -> dict[str, Any]:
+    version_report = tool_version_report()
     checks = [
         check_python_package("yaml", "PyYAML"),
         check_command("arduino-cli", "version"),
         check_command("wokwi-cli", "--version"),
+        {
+            "name": "pinned tool versions",
+            "ok": version_report["ok"],
+            "expected": version_report["expected"],
+            "actual": version_report["actual"],
+            "mismatches": version_report["mismatches"],
+        },
         check_env("WOKWI_CLI_TOKEN"),
         check_arduino_avr(),
         check_wokwi_help(),

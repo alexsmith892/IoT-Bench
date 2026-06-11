@@ -8,14 +8,69 @@ fixture:
     - type: mpu6050
       id: imu1
       pins: {sda: "20", scl: "21"}
+# Each variant injects a different accel/gyro stimulus mid-run (per-variant
+# control_sequence) and requires the printed raw counts to track it: first a
+# resting baseline line (ax ~ 0 g, az ~ 1 g), then a line reflecting the
+# injected values. Raw count expectations assume the MPU6050 power-on default
+# ranges (accel +/-2 g -> 16384 LSB/g, gyro +/-250 dps -> 131 LSB/dps).
+simulation_variants:
+  - id: half_g
+    scenario:
+      family: control_sequence
+      initial_delay_ms: 200
+      controls:
+        - {part_id: imu1, control: accelX, value: 0.0, duration_ms: 50}
+        - {part_id: imu1, control: accelZ, value: 1.0, duration_ms: 300}
+        - {part_id: imu1, control: accelX, value: 0.5, duration_ms: 50}
+        - {part_id: imu1, control: rotationX, value: 30, duration_ms: 500}
+    validator:
+      checks:
+        - {}
+        - params:
+            observations:
+              - label: resting_baseline
+                patterns: ["Accel.*Gyro"]
+                numeric_ranges: [[-800, 800], [15500, 17300]]
+              - label: injected_half_g
+                patterns: ["Accel.*Gyro"]
+                # ax ~ 0.5 g = 8192 counts, gx ~ 30 dps = 3930 counts
+                numeric_ranges: [[7300, 9100], [3300, 4700]]
+  - id: one_and_half_g
+    scenario:
+      family: control_sequence
+      initial_delay_ms: 200
+      controls:
+        - {part_id: imu1, control: accelX, value: 0.0, duration_ms: 50}
+        - {part_id: imu1, control: accelZ, value: 1.0, duration_ms: 300}
+        - {part_id: imu1, control: accelX, value: 1.5, duration_ms: 50}
+        - {part_id: imu1, control: rotationX, value: 60, duration_ms: 500}
+    validator:
+      checks:
+        - {}
+        - params:
+            observations:
+              - label: resting_baseline
+                patterns: ["Accel.*Gyro"]
+                numeric_ranges: [[-800, 800], [15500, 17300]]
+              - label: injected_one_and_half_g
+                patterns: ["Accel.*Gyro"]
+                # ax ~ 1.5 g = 24576 counts, gx ~ 60 dps = 7860 counts
+                numeric_ranges: [[23300, 25900], [7000, 8700]]
 validator:
   family: composite
   checks:
     - family: static_checks
       params:
-        required_patterns: ["Wire\\.begin\\s*\\(", "Wire\\.requestFrom|Wire\\.read"]
-    - family: serial_regex_sequence
+        # Require the real I2C read path so a hard-coded print stub fails statically.
+        required_patterns: ["Wire\\.begin\\s*\\(", "Wire\\.requestFrom", "Wire\\.read\\s*\\("]
+    - family: serial_observation_sequence
       params:
-        patterns: ["Accel", "Gyro"]
-simulation: {timeout_ms: 1200}
+        observations:
+          - label: resting_baseline
+            patterns: ["Accel.*Gyro"]
+            numeric_ranges: [[-800, 800], [15500, 17300]]
+          - label: injected_half_g
+            patterns: ["Accel.*Gyro"]
+            numeric_ranges: [[7300, 9100], [3300, 4700]]
+simulation: {timeout_ms: 1600, require_distinct_variant_outputs: true}
 case: {id: mpu6050-read-i2c-wokwi-mega, sketch_name: mpu6050_read_i2c}

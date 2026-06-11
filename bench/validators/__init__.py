@@ -18,7 +18,13 @@ from bench.serial import (
     read_serial_log,
 )
 from bench.static import StaticCheckError, validate_forbidden_calls, validate_static_checks
-from bench.lcd1602 import decode_lcd1602_vcd, decode_lcd1602_vcd_frames, frame_contains, frame_metrics
+from bench.lcd1602 import (
+    decode_lcd1602_vcd,
+    decode_lcd1602_vcd_frames,
+    frame_contains,
+    frame_matches_regex,
+    frame_metrics,
+)
 from bench.vcd import (
     VcdEvent,
     VcdParseError,
@@ -289,10 +295,17 @@ def validate_lcd_text(task: TaskConfig, paths: CasePaths) -> ValidationResult:
     frame = decode_lcd1602_vcd(paths.vcd, signals=params.get("signals"))
     metrics = frame_metrics(frame)
     expected = params.get("expected_texts") or params.get("expected_lines") or []
+    expected_regexps = params.get("expected_regexps") or []
     metrics["expected_texts"] = expected
+    metrics["expected_regexps"] = expected_regexps
     for item in expected:
         if not frame_contains(frame, str(item)):
             return ValidationResult(FAIL, f"LCD frame is missing expected text: {item}", metrics)
+    for pattern in expected_regexps:
+        if not frame_matches_regex(frame, str(pattern)):
+            return ValidationResult(
+                FAIL, f"LCD frame does not match expected pattern: {pattern}", metrics
+            )
     return ValidationResult(PASS, "LCD frame contains expected text", metrics)
 
 
@@ -311,6 +324,7 @@ def validate_lcd_text_sequence(task: TaskConfig, paths: CasePaths) -> Validation
     }
     for expected in expected_frames:
         texts = [str(item) for item in expected.get("expected_texts", [])]
+        regexps = [str(item) for item in expected.get("expected_regexps", [])]
         start_s = expected.get("start_s")
         end_s = expected.get("end_s")
         found = None
@@ -320,15 +334,23 @@ def validate_lcd_text_sequence(task: TaskConfig, paths: CasePaths) -> Validation
                 continue
             if end_s is not None and timed.timestamp_s > float(end_s):
                 break
-            if all(frame_contains(timed.frame, text) for text in texts):
+            if all(frame_contains(timed.frame, text) for text in texts) and all(
+                frame_matches_regex(timed.frame, pattern) for pattern in regexps
+            ):
                 found = (index, timed)
                 break
         if found is None:
-            return ValidationResult(FAIL, f"LCD frames are missing expected text sequence item: {texts}", metrics)
+            return ValidationResult(
+                FAIL,
+                "LCD frames are missing expected text sequence item: "
+                f"{texts + regexps}",
+                metrics,
+            )
         cursor = found[0] + 1
         matches.append(
             {
                 "expected_texts": texts,
+                "expected_regexps": regexps,
                 "timestamp_s": rounded_scalar(found[1].timestamp_s),
                 **frame_metrics(found[1].frame),
             }

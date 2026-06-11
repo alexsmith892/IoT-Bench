@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-arduino-mega",
+      "id": "mega",
+      "top": 120,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-ds1307",
+      "id": "rtc1",
+      "top": -80,
+      "left": 225,
+      "attrs": {
+        "initTime": "2026-07-19T08:03:00Z"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "rtc1:VCC",
+      "mega:5V",
+      "red",
+      []
+    ],
+    [
+      "rtc1:GND",
+      "mega:GND.1",
+      "black",
+      []
+    ],
+    [
+      "rtc1:SDA",
+      "mega:20",
+      "green",
+      []
+    ],
+    [
+      "rtc1:SCL",
+      "mega:21",
+      "green",
+      []
+    ]
+  ],
+  "dependencies": {}
+}
