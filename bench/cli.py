@@ -70,6 +70,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     validate.add_argument("--case", type=Path, help="case directory to validate")
     validate.add_argument("--sketch", type=Path, help="submitted sketch directory or .ino file")
     validate.add_argument("--archived-vcd", help="validate archived VCD by filename or 'latest'")
+    validate.add_argument(
+        "--allow-unverified-artifacts",
+        action="store_true",
+        help="skip verification.json provenance checks (deliberate inspection of arbitrary artifacts)",
+    )
 
     return parser.parse_args(argv)
 
@@ -84,6 +89,11 @@ def add_run_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--case", type=Path, help="case directory to run")
     parser.add_argument("--sketch", type=Path, help="submitted sketch directory or .ino file")
     parser.add_argument("--use-existing-artifacts", action="store_true")
+    parser.add_argument(
+        "--allow-unverified-artifacts",
+        action="store_true",
+        help="with --use-existing-artifacts, skip verification.json provenance checks",
+    )
     parser.add_argument("--regenerate", action="store_true")
     parser.add_argument("--simulation-time-ms", type=int)
     parser.add_argument("--arduino-cli", default="arduino-cli")
@@ -146,6 +156,7 @@ def main(argv: list[str] | None = None) -> int:
                 arduino_cli="arduino-cli",
                 wokwi_cli="wokwi-cli",
                 archived_vcd=args.archived_vcd,
+                require_provenance=not args.allow_unverified_artifacts,
             )
             print(json.dumps(result, indent=2))
             return 0
@@ -162,6 +173,7 @@ def main(argv: list[str] | None = None) -> int:
                     arduino_cli=args.arduino_cli,
                     wokwi_cli=args.wokwi_cli,
                     archived_vcd=None,
+                    require_provenance=not args.allow_unverified_artifacts,
                 )
                 for task in tasks
             ]
@@ -273,6 +285,7 @@ def run_single_task(
     arduino_cli: str,
     wokwi_cli: str,
     archived_vcd: str | None,
+    require_provenance: bool = True,
 ) -> dict[str, Any]:
     if not task.is_supported:
         return unsupported_task_result(task)
@@ -293,6 +306,8 @@ def run_single_task(
                 simulation_time_ms=simulation_time_ms,
                 arduino_cli=arduino_cli,
                 wokwi_cli=wokwi_cli,
+                require_provenance=require_provenance,
+                ignore_vcd_provenance=archived_vcd is not None,
             )
             return validate_case(task, paths)
         return run_case(

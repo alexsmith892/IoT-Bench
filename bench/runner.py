@@ -16,7 +16,14 @@ from typing import Any
 
 import yaml
 
-from .config import DEFAULT_FQBN, TaskConfig, load_task, repo_root, to_yaml_text
+from .config import (
+    DEFAULT_FQBN,
+    TaskConfig,
+    load_task,
+    repo_root,
+    sanitize_variant_id,
+    to_yaml_text,
+)
 from .diagrams import generate_diagram, validate_diagram_file, write_diagram
 from .results import (
     COMPILE_FAIL,
@@ -424,9 +431,13 @@ def prepare_artifacts(
     simulation_time_ms: int | None = None,
     arduino_cli: str = "arduino-cli",
     wokwi_cli: str = "wokwi-cli",
+    require_provenance: bool = True,
+    ignore_vcd_provenance: bool = False,
 ) -> None:
     if use_existing_artifacts:
         ensure_existing_variant_outputs(task, paths)
+        if require_provenance:
+            validate_existing_artifact_manifest(task, paths, ignore_vcd=ignore_vcd_provenance)
         return
 
     build_case(task, paths, arduino_cli=arduino_cli)
@@ -477,7 +488,7 @@ def build_case(
             failure_source=SOURCE_HARNESS,
         )
 
-    paths.build_dir.mkdir(parents=True, exist_ok=True)
+    clean_build_dir(paths)
 
     run_checked(
         [
@@ -637,7 +648,9 @@ def ensure_existing_variant_outputs(task: TaskConfig, paths: CasePaths) -> None:
 
 
 def validate_variants(task: TaskConfig, paths: CasePaths) -> dict[str, Any]:
+    from .serial import SerialLogError
     from .validators import validate_task
+    from .vcd import VcdParseError
 
     variant_results: list[dict[str, Any]] = []
     serial_outputs: dict[str, str] = {}
@@ -646,7 +659,16 @@ def validate_variants(task: TaskConfig, paths: CasePaths) -> dict[str, Any]:
         current_id = variant_id(variant)
         variant_paths = paths_for_variant(paths, current_id)
         proxy = task_for_variant(task, variant)
-        result = validate_task(proxy, variant_paths).payload()
+        try:
+            result = validate_task(proxy, variant_paths).payload()
+        except (SerialLogError, VcdParseError) as exc:
+            return result_payload(
+                SIM_OUTPUT_FAIL,
+                f"variant {current_id} failed: {exc}",
+                metrics,
+                failure_stage=STAGE_SIM_OUTPUT,
+                failure_source=SOURCE_ARTIFACT,
+            )
         variant_results.append(
             {
                 "id": current_id,
@@ -662,8 +684,11 @@ def validate_variants(task: TaskConfig, paths: CasePaths) -> dict[str, Any]:
                 variant_paths.serial_log.read_text(encoding="utf-8", errors="replace")
             )
         if result["classification"] != PASS:
+            # Preserve the inner classification so infra/artifact problems in a
+            # variant stay IF (and compile problems stay CF) instead of being
+            # recorded as a behavior failure of the submission.
             return result_payload(
-                FAIL,
+                result["classification"],
                 f"variant {current_id} failed: {result['reason']}",
                 metrics,
                 failure_stage=result.get("failure_stage"),
@@ -678,12 +703,25 @@ def validate_variants(task: TaskConfig, paths: CasePaths) -> dict[str, Any]:
                 "all simulation variants produced identical serial output",
                 {**metrics, "normalized_serial_outputs": serial_outputs},
             )
+        # Cosmetic text differences are not enough: the measured values must
+        # differ across variants, or the firmware is not reading the sensor.
+        from .serial import extract_floats
+
+        numeric_signatures = {
+            current_id: tuple(extract_floats(text)) for current_id, text in serial_outputs.items()
+        }
+        if len(set(numeric_signatures.values())) == 1:
+            return result_payload(
+                FAIL,
+                "all simulation variants produced identical numeric outputs",
+                {**metrics, "numeric_signatures": {k: list(v) for k, v in numeric_signatures.items()}},
+            )
 
     return result_payload(PASS, "all simulation variants passed", metrics)
 
 
 def variant_id(variant: dict[str, Any]) -> str:
-    return safe_filename_part(str(variant.get("id") or "variant"))
+    return sanitize_variant_id(str(variant.get("id") or "variant"))
 
 
 def paths_for_variant(paths: CasePaths, current_id: str) -> CasePaths:
@@ -752,6 +790,26 @@ def normalize_serial_text(text: str) -> str:
     return "\n".join(line.strip() for line in text.splitlines() if line.strip())
 
 
+def clean_build_dir(paths: CasePaths) -> None:
+    """Remove any previous build output so stale firmware can never be reused."""
+
+    build_dir = paths.build_dir.resolve()
+    case_dir = paths.case_dir.resolve()
+    try:
+        build_dir.relative_to(case_dir)
+    except ValueError:
+        # build_dir comes verbatim from case.yaml/case.json; never rmtree a
+        # path that escapes the case directory.
+        raise CaseConfigError(
+            f"build dir must be inside the case dir: {build_dir} (case dir: {case_dir})"
+        )
+    if build_dir == case_dir:
+        raise CaseConfigError(f"build dir must not be the case dir itself: {build_dir}")
+    if build_dir.exists():
+        shutil.rmtree(build_dir)
+    build_dir.mkdir(parents=True, exist_ok=True)
+
+
 def ensure_firmware_outputs(paths: CasePaths) -> None:
     firmware_hex, firmware_elf = expected_firmware_paths(paths)
     missing = [path for path in (firmware_hex, firmware_elf) if not path.exists()]
@@ -782,6 +840,14 @@ def ensure_firmware_outputs(paths: CasePaths) -> None:
 
 
 def normalize_firmware_outputs(paths: CasePaths) -> None:
+    """Relocate freshly compiled firmware into the expected artifact paths.
+
+    Only binaries whose name matches the current sketch stem exactly and that
+    live inside the current build dir are accepted; anything else (wrong-stem
+    leftovers, files outside the build tree) is ignored so it can never be
+    promoted to a validated artifact.
+    """
+
     expected_hex, expected_elf = expected_firmware_paths(paths)
     candidates = [
         paths.build_dir / f"{paths.sketch_name}.ino.hex",
@@ -789,11 +855,6 @@ def normalize_firmware_outputs(paths: CasePaths) -> None:
         *paths.build_dir.rglob(f"{paths.sketch_name}.ino.hex"),
         *paths.build_dir.rglob(f"{paths.sketch_name}.ino.elf"),
     ]
-    if paths.sketch.is_dir():
-        candidates.extend(paths.sketch.rglob(f"{paths.sketch_name}.ino.hex"))
-        candidates.extend(paths.sketch.rglob(f"{paths.sketch_name}.ino.elf"))
-    candidates.extend(paths.build_dir.rglob("*.ino.hex"))
-    candidates.extend(paths.build_dir.rglob("*.ino.elf"))
     for expected in (expected_hex, expected_elf):
         if expected.exists():
             continue
@@ -802,15 +863,9 @@ def normalize_firmware_outputs(paths: CasePaths) -> None:
             for candidate in candidates
             if candidate.name == expected.name and candidate.exists() and candidate != expected
         ]
-        same_suffix = [
-            candidate
-            for candidate in candidates
-            if candidate.suffix == expected.suffix and candidate.exists() and candidate != expected
-        ]
-        copy_from = same_name[0] if same_name else (same_suffix[0] if len(same_suffix) == 1 else None)
-        if copy_from:
+        if same_name:
             expected.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(copy_from, expected)
+            shutil.copy2(same_name[0], expected)
 
 
 def ensure_existing_outputs(task: TaskConfig, paths: CasePaths) -> None:
@@ -928,6 +983,7 @@ def write_verification(
     command: str,
 ) -> Path:
     manifest = {
+        "manifest_version": 2,
         "task_id": task.task_id,
         "case_id": paths.case_id,
         "command": command,
@@ -946,7 +1002,9 @@ def write_verification(
         "firmware_elf": relative_to(paths.firmware_elf, paths.case_dir),
         "firmware_elf_hash": hash_file(paths.firmware_elf),
         "vcd_path": relative_to(paths.vcd, paths.case_dir) if paths.vcd else None,
+        "vcd_hash": hash_file(paths.vcd) if paths.vcd else None,
         "serial_log_path": relative_to(paths.serial_log, paths.case_dir) if paths.serial_log else None,
+        "serial_log_hash": hash_file(paths.serial_log) if paths.serial_log else None,
         "result": result.get("result"),
         "classification": result.get("classification"),
         "failure_stage": result.get("failure_stage"),
@@ -954,10 +1012,141 @@ def write_verification(
         "reason": result.get("reason"),
         "metrics": result.get("metrics", {}),
     }
+    if task.simulation_variants:
+        variant_results = {
+            entry.get("id"): entry
+            for entry in (result.get("metrics", {}).get("variants") or [])
+            if isinstance(entry, dict)
+        }
+        manifest["variants"] = []
+        for variant in task.simulation_variants:
+            sanitized = variant_id(variant)
+            variant_paths = paths_for_variant(paths, sanitized)
+            manifest["variants"].append(
+                {
+                    "id": variant.get("id"),
+                    "sanitized_id": sanitized,
+                    "attrs": variant.get("attrs") or {},
+                    "diagram_path": relative_to(variant_paths.diagram, paths.case_dir),
+                    "diagram_hash": hash_file(variant_paths.diagram),
+                    "vcd_path": relative_to(variant_paths.vcd, paths.case_dir) if variant_paths.vcd else None,
+                    "vcd_hash": hash_file(variant_paths.vcd) if variant_paths.vcd else None,
+                    "serial_log_path": (
+                        relative_to(variant_paths.serial_log, paths.case_dir)
+                        if variant_paths.serial_log
+                        else None
+                    ),
+                    "serial_log_hash": hash_file(variant_paths.serial_log) if variant_paths.serial_log else None,
+                    "result": variant_results.get(sanitized, {}).get("result"),
+                }
+            )
     path = paths.case_dir / "artifacts" / "verification.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     return path
+
+
+def artifact_provenance_error(message: str) -> BuildSimulationError:
+    return BuildSimulationError(
+        message,
+        classification=SIM_OUTPUT_FAIL,
+        failure_stage=STAGE_SIM_OUTPUT,
+        failure_source=SOURCE_ARTIFACT,
+    )
+
+
+def validate_existing_artifact_manifest(
+    task: TaskConfig,
+    paths: CasePaths,
+    *,
+    ignore_vcd: bool = False,
+) -> None:
+    """Require existing artifacts to match the verification manifest.
+
+    Without this check, --use-existing-artifacts would validate whatever
+    artifacts happen to be on disk, even ones produced from a different sketch,
+    diagram, or scenario. Any mismatch is an artifact problem (-> IF), never a
+    behavior judgment about the submission. Pass --allow-unverified-artifacts
+    to skip this (deliberate inspection of arbitrary artifacts).
+    """
+
+    manifest_path = paths.case_dir / "artifacts" / "verification.json"
+    if not manifest_path.exists():
+        raise artifact_provenance_error(
+            f"no verification manifest at {manifest_path}; existing artifacts have unknown provenance "
+            "(rerun the full pipeline or pass --allow-unverified-artifacts)"
+        )
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise artifact_provenance_error(f"verification manifest is unreadable: {exc}")
+    if not isinstance(manifest, dict):
+        raise artifact_provenance_error("verification manifest is not a JSON object")
+
+    if manifest.get("task_id") != task.task_id:
+        raise artifact_provenance_error(
+            f"verification manifest belongs to task {manifest.get('task_id')!r}, not {task.task_id!r}"
+        )
+    if manifest.get("case_id") != paths.case_id:
+        raise artifact_provenance_error(
+            f"verification manifest belongs to case {manifest.get('case_id')!r}, not {paths.case_id!r}"
+        )
+
+    checks: list[tuple[str, str | None, str | None]] = [
+        ("sketch", manifest.get("sketch_hash"), hash_path(paths.sketch)),
+        ("diagram", manifest.get("diagram_hash"), hash_file(paths.diagram)),
+        ("firmware hex", manifest.get("firmware_hex_hash"), hash_file(paths.firmware_hex)),
+        ("firmware elf", manifest.get("firmware_elf_hash"), hash_file(paths.firmware_elf)),
+    ]
+    if paths.scenario:
+        checks.append(("scenario", manifest.get("scenario_hash"), hash_file(paths.scenario)))
+    if task.simulation_variants:
+        manifest_variants = {
+            entry.get("sanitized_id"): entry
+            for entry in manifest.get("variants") or []
+            if isinstance(entry, dict)
+        }
+        for variant in task.simulation_variants:
+            sanitized = variant_id(variant)
+            entry = manifest_variants.get(sanitized)
+            if entry is None:
+                raise artifact_provenance_error(
+                    f"verification manifest has no record for variant {sanitized!r}"
+                )
+            variant_paths = paths_for_variant(paths, sanitized)
+            checks.append(
+                (f"variant {sanitized} diagram", entry.get("diagram_hash"), hash_file(variant_paths.diagram))
+            )
+            if variant_paths.serial_log:
+                checks.append(
+                    (
+                        f"variant {sanitized} serial log",
+                        entry.get("serial_log_hash"),
+                        hash_file(variant_paths.serial_log),
+                    )
+                )
+            if variant_paths.vcd and not ignore_vcd:
+                checks.append(
+                    (f"variant {sanitized} VCD", entry.get("vcd_hash"), hash_file(variant_paths.vcd))
+                )
+    else:
+        if paths.serial_log:
+            checks.append(("serial log", manifest.get("serial_log_hash"), hash_file(paths.serial_log)))
+        # ignore_vcd: --archived-vcd deliberately substitutes an archived VCD,
+        # so its hash will not match the manifest's current-output hash.
+        if paths.vcd and not ignore_vcd:
+            checks.append(("VCD", manifest.get("vcd_hash"), hash_file(paths.vcd)))
+
+    for label, recorded, current in checks:
+        if recorded is None:
+            raise artifact_provenance_error(
+                f"verification manifest has no recorded {label} hash; regenerate artifacts with a full run"
+            )
+        if recorded != current:
+            raise artifact_provenance_error(
+                f"{label} does not match the verification manifest (recorded {recorded[:12]}..., "
+                f"current {(current or 'missing')[:12]}...); artifacts were not produced from these inputs"
+            )
 
 
 def command_version(command: str, *args: str) -> str | None:
@@ -1349,7 +1538,9 @@ void loop() {
   Serial.print(bme.readTemperature(), 1);
   Serial.print(" C Humidity: ");
   Serial.print(bme.readHumidity(), 1);
-  Serial.println(" %");
+  Serial.print(" % Pressure: ");
+  Serial.print(bme.readPressure(), 0);
+  Serial.println(" Pa");
   delay(500);
 }
 """
@@ -1381,7 +1572,9 @@ void loop() {
   Serial.print(bme.readTemperature(), 1);
   Serial.print(" C Humidity: ");
   Serial.print(bme.readHumidity(), 1);
-  Serial.println(" %");
+  Serial.print(" % Pressure: ");
+  Serial.print(bme.readPressure(), 0);
+  Serial.println(" Pa");
   delay(500);
 }
 """

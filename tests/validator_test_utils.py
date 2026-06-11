@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DIAGRAM = ROOT / "diagram.json"
+DIAGRAM = ROOT / "tests" / "fixtures" / "diagram.json"
 
 
 def assert_classification(testcase: unittest.TestCase, args: list[str], expected: str) -> dict:
@@ -33,6 +33,8 @@ def assert_classification(testcase: unittest.TestCase, args: list[str], expected
 
 
 def validate_artifacts_args(task_id: str, case_dir: Path) -> list[str]:
+    # Synthetic test artifacts have no verification.json manifest, so skip the
+    # provenance check; dedicated tests cover the strict default.
     return [
         "-m",
         "bench.cli",
@@ -41,6 +43,7 @@ def validate_artifacts_args(task_id: str, case_dir: Path) -> list[str]:
         task_id,
         "--case",
         str(case_dir),
+        "--allow-unverified-artifacts",
     ]
 
 

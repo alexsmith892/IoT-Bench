@@ -65,6 +65,7 @@ class RunnerOutcomeMatrixTests(unittest.TestCase):
                 "blink_led_1hz",
                 "--case",
                 str(paths.case_dir),
+                "--allow-unverified-artifacts",
             ])
             assert_payload_result(self, payload, RESULT_BC)
 
@@ -77,6 +78,7 @@ class RunnerOutcomeMatrixTests(unittest.TestCase):
                 "blink_led_1hz",
                 "--case",
                 str(paths.case_dir),
+                "--allow-unverified-artifacts",
             ])
             assert_payload_result(self, payload, RESULT_BF)
 

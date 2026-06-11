@@ -1,13 +1,17 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from bench.config import load_task
 from bench.runner import (
+    BuildSimulationError,
     CasePaths,
     archive_current_outputs,
+    ensure_existing_outputs,
     load_case_paths,
     resolve_archived_vcd,
+    simulate_case,
     with_archived_vcd,
 )
 
@@ -52,6 +56,40 @@ class WokwiCaseRunnerTests(unittest.TestCase):
                     r"wokwi\.vcd$"
                 ),
             )
+
+    def test_failed_simulation_cannot_leave_stale_outputs_for_validation(self):
+        # archive_current_outputs runs before wokwi launches, so a failed
+        # simulation must leave no current VCD that a later validation could
+        # mistake for fresh output.
+        with tempfile.TemporaryDirectory() as tmp:
+            case_dir = Path(tmp) / "blink-1hz-wokwi-mega"
+            paths = make_paths(case_dir)
+            assert paths.vcd is not None
+            paths.vcd.parent.mkdir(parents=True)
+            paths.vcd.write_text("stale vcd\n", encoding="utf-8")
+            (case_dir / "diagram.json").write_text("{}", encoding="utf-8")
+            (case_dir / "wokwi.toml").write_text("[wokwi]\nversion = 1\n", encoding="utf-8")
+            paths.firmware_hex.parent.mkdir(parents=True, exist_ok=True)
+            paths.firmware_hex.write_bytes(b"hex")
+            paths.firmware_elf.write_bytes(b"elf")
+            task = load_task("blink_led_1hz")
+
+            sim_error = BuildSimulationError(
+                "wokwi crashed",
+                classification="SIM_INFRA_FAIL",
+                failure_stage="simulate",
+                failure_source="simulator",
+            )
+            with patch("bench.runner.run_checked", side_effect=sim_error):
+                with self.assertRaises(BuildSimulationError):
+                    simulate_case(task, paths)
+
+            self.assertFalse(paths.vcd.exists(), "stale VCD must have been archived away")
+            archived = list((case_dir / "artifacts" / "archive" / "vcd").glob("*.vcd"))
+            self.assertEqual(len(archived), 1)
+            with self.assertRaises(BuildSimulationError) as ctx:
+                ensure_existing_outputs(task, paths)
+            self.assertEqual(ctx.exception.classification, "SIM_OUTPUT_FAIL")
 
     def test_resolve_archived_vcd_accepts_filename_and_latest(self):
         with tempfile.TemporaryDirectory() as tmp:
