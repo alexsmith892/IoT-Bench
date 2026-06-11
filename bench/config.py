@@ -14,8 +14,78 @@ import yaml
 DEFAULT_PLATFORM = "arduino_mega"
 DEFAULT_LEVEL = "level1"
 ALL_LEVELS = ("level1", "level2", "level3")
-DEFAULT_BOARD_TYPE = "wokwi-arduino-mega"
-DEFAULT_FQBN = "arduino:avr:mega"
+
+
+@dataclass(frozen=True)
+class BoardProfile:
+    platform: str
+    board_type: str
+    part_id: str
+    fqbn: str
+    firmware_extension: str
+    voltage: float
+    adc_max: int
+    power_pin: str
+    ground_pin: str
+    default_pins: dict[str, str]
+
+
+BOARD_PROFILES = {
+    "arduino_mega": BoardProfile(
+        platform="arduino_mega",
+        board_type="wokwi-arduino-mega",
+        part_id="mega",
+        fqbn="arduino:avr:mega",
+        firmware_extension=".hex",
+        voltage=5.0,
+        adc_max=1023,
+        power_pin="5V",
+        ground_pin="GND.1",
+        default_pins={
+            "led": "3",
+            "button": "2",
+            "analog": "A0",
+            "i2c_sda": "20",
+            "i2c_scl": "21",
+            "spi_sck": "35",
+            "spi_miso": "37",
+            "spi_mosi": "36",
+            "spi_cs": "21",
+        },
+    ),
+    "esp32": BoardProfile(
+        platform="esp32",
+        board_type="board-esp32-devkit-c-v4",
+        part_id="esp",
+        fqbn="esp32:esp32:esp32",
+        firmware_extension=".bin",
+        voltage=3.3,
+        adc_max=4095,
+        power_pin="3V3",
+        ground_pin="GND.1",
+        default_pins={
+            "led": "2",
+            "button": "4",
+            "analog": "34",
+            "i2c_sda": "21",
+            "i2c_scl": "22",
+            "spi_sck": "18",
+            "spi_miso": "19",
+            "spi_mosi": "23",
+            "spi_cs": "5",
+        },
+    ),
+}
+
+DEFAULT_BOARD_TYPE = BOARD_PROFILES[DEFAULT_PLATFORM].board_type
+DEFAULT_FQBN = BOARD_PROFILES[DEFAULT_PLATFORM].fqbn
+
+
+def board_profile_for_platform(platform: str) -> BoardProfile:
+    try:
+        return BOARD_PROFILES[platform]
+    except KeyError as exc:
+        raise ConfigError(f"unknown platform {platform!r}; known platforms: {', '.join(sorted(BOARD_PROFILES))}") from exc
 
 
 # Known families. These MUST stay in sync with the dispatch tables that
@@ -87,6 +157,10 @@ class TaskConfig:
         return self.data.get("platform", DEFAULT_PLATFORM)
 
     @property
+    def board_profile(self) -> BoardProfile:
+        return board_profile_for_platform(self.platform)
+
+    @property
     def level(self) -> str:
         return self.data.get("level", DEFAULT_LEVEL)
 
@@ -104,8 +178,9 @@ class TaskConfig:
     @property
     def board(self) -> dict[str, Any]:
         board = dict(self.data.get("board") or {})
-        board.setdefault("type", DEFAULT_BOARD_TYPE)
-        board.setdefault("fqbn", DEFAULT_FQBN)
+        profile = self.board_profile
+        board.setdefault("type", profile.board_type)
+        board.setdefault("fqbn", profile.fqbn)
         return board
 
     @property
@@ -251,6 +326,7 @@ def validate_task(task: TaskConfig) -> None:
     for field in ("task_id", "fixture", "validator", "case"):
         if field not in data:
             raise ConfigError(f"{task.path}: missing required field {field}")
+    task.board_profile
 
     if not isinstance(data["fixture"], dict) or "family" not in data["fixture"]:
         raise ConfigError(f"{task.path}: fixture.family is required")
@@ -381,10 +457,11 @@ def validate_families(task: TaskConfig, channels: list[dict[str, Any]]) -> None:
             if len(expected) != len(positions):
                 raise ConfigError(f"{task.path}: expected_celsius must match analog position count")
             tolerance = float(params["tolerance_celsius"])
+            voltage = task.board_profile.voltage
             for wanted, position in zip(expected, positions):
                 if not isinstance(position, dict) or not isinstance(position.get("value"), (int, float)):
                     continue
-                derived = ((float(position.get("value")) * 5.0) - 0.5) * 100.0
+                derived = ((float(position.get("value")) * voltage) - 0.5) * 100.0
                 if abs(float(wanted) - derived) > tolerance:
                     raise ConfigError(
                         f"{task.path}: expected_celsius {wanted!r} does not match analog position {position.get('value')!r}"

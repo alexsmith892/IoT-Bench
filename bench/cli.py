@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .config import ALL_LEVELS, ConfigError, iter_platform_tasks, iter_tasks, load_task
+from .config import ALL_LEVELS, ConfigError, board_profile_for_platform, iter_platform_tasks, iter_tasks, load_task
 from .diagrams import DiagramError, validate_diagram_file
 from .results import (
     FAIL,
@@ -66,7 +66,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     build.add_argument("--arduino-cli", default="arduino-cli")
 
     add_task_selection(subparsers.add_parser("lint", help="locally lint generated diagrams"))
-    subparsers.add_parser("doctor", help="check local benchmark tooling")
+    doctor = subparsers.add_parser("doctor", help="check local benchmark tooling")
+    doctor.add_argument("--platform", default="arduino_mega")
 
     run = subparsers.add_parser("run", help="run simulation and validate task artifacts")
     add_task_selection(run)
@@ -183,7 +184,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"linted": linted, "unsupported": unsupported}, indent=2))
             return 0
         if args.command == "doctor":
-            print(json.dumps(run_doctor(), indent=2))
+            print(json.dumps(run_doctor(platform=args.platform), indent=2))
             return 0
         if args.command == "validate-artifacts":
             task = load_task(args.task, platform=args.platform, level=args.level)
@@ -281,6 +282,7 @@ def with_sketch_override(task, paths: CasePaths, sketch_override: Path | None) -
         wokwi_toml=paths.wokwi_toml,
         build_dir=paths.build_dir,
         fqbn=paths.fqbn,
+        firmware_extension=paths.firmware_extension,
         vcd=paths.vcd,
         scenario=paths.scenario,
         serial_log=paths.serial_log,
@@ -327,6 +329,7 @@ def build_single_task(
                 "task_id": task.task_id,
                 "case_path": str(paths.case_dir),
                 "sketch_path": str(paths.sketch),
+                "firmware_image": str(paths.firmware_image),
                 "firmware_hex": str(firmware_hex),
                 "firmware_elf": str(firmware_elf),
             },
@@ -570,7 +573,8 @@ def print_many_or_one(results: list[dict[str, Any]]) -> None:
         print(json.dumps({"results": results, "summary": summarize(results)}, indent=2))
 
 
-def run_doctor() -> dict[str, Any]:
+def run_doctor(*, platform: str = "arduino_mega") -> dict[str, Any]:
+    profile = board_profile_for_platform(platform)
     version_report = tool_version_report()
     checks = [
         check_python_package("yaml", "PyYAML"),
@@ -584,7 +588,7 @@ def run_doctor() -> dict[str, Any]:
             "mismatches": version_report["mismatches"],
         },
         check_env("WOKWI_CLI_TOKEN"),
-        check_arduino_avr(),
+        check_arduino_core(profile),
         check_wokwi_help(),
         check_writable_artifacts(),
     ]
@@ -636,6 +640,11 @@ def check_env(name: str) -> dict[str, Any]:
 
 
 def check_arduino_avr() -> dict[str, Any]:
+    return check_arduino_core(board_profile_for_platform("arduino_mega"))
+
+
+def check_arduino_core(profile) -> dict[str, Any]:
+    core = ":".join(profile.fqbn.split(":")[:2])
     try:
         completed = subprocess.run(
             ["arduino-cli", "core", "list"],
@@ -646,12 +655,12 @@ def check_arduino_avr() -> dict[str, Any]:
             timeout=30,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return {"name": "Arduino AVR platform", "ok": False, "reason": str(exc)}
+        return {"name": f"Arduino core {core}", "ok": False, "reason": str(exc)}
     output = "\n".join(part for part in (completed.stdout, completed.stderr) if part)
     return {
-        "name": "Arduino AVR platform",
-        "ok": completed.returncode == 0 and "arduino:avr" in output,
-        "reason": None if completed.returncode == 0 and "arduino:avr" in output else output.strip(),
+        "name": f"Arduino core {core}",
+        "ok": completed.returncode == 0 and core in output,
+        "reason": None if completed.returncode == 0 and core in output else output.strip(),
     }
 
 

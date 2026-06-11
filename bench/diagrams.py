@@ -15,8 +15,10 @@ class DiagramError(Exception):
 
 
 NATIVE_WOKWI_PART_TYPES = {
+    "board-esp32-devkit-c-v4",
     "board-bmp180",
     "wokwi-arduino-mega",
+    "wokwi-esp32-devkit-v1",
     "wokwi-buzzer",
     "wokwi-dht22",
     "wokwi-ds1307",
@@ -67,9 +69,45 @@ def connection(a: str, b: str, color: str) -> list[Any]:
 
 def generate_diagram(task: TaskConfig) -> dict[str, Any]:
     try:
-        return FIXTURE_GENERATORS[task.fixture_family](task)
+        diagram = FIXTURE_GENERATORS[task.fixture_family](task)
     except KeyError as exc:
         raise DiagramError(f"unknown fixture family: {task.fixture_family}") from exc
+    return apply_board_profile(diagram, task)
+
+
+def apply_board_profile(diagram: dict[str, Any], task: TaskConfig) -> dict[str, Any]:
+    """Rewrite the canonical Mega board placeholder to the task's board profile."""
+
+    profile = task.board_profile
+    board = task.board
+    canonical_id = "mega"
+    for part_data in diagram.get("parts", []):
+        if not isinstance(part_data, dict) or part_data.get("id") != canonical_id:
+            continue
+        part_data["type"] = str(board.get("type", profile.board_type))
+        part_data["id"] = profile.part_id
+        break
+
+    for item in diagram.get("connections", []):
+        if not isinstance(item, list):
+            continue
+        for index, endpoint in enumerate(item[:2]):
+            if isinstance(endpoint, str):
+                item[index] = profile_board_endpoint(endpoint, task)
+    return diagram
+
+
+def profile_board_endpoint(endpoint: str, task: TaskConfig) -> str:
+    profile = task.board_profile
+    prefix = "mega:"
+    if not endpoint.startswith(prefix):
+        return endpoint
+    pin = endpoint[len(prefix):]
+    if pin == "5V":
+        pin = profile.power_pin
+    elif pin.startswith("GND"):
+        pin = profile.ground_pin
+    return f"{profile.part_id}:{pin}"
 
 
 def base_diagram() -> dict[str, Any]:
@@ -533,7 +571,7 @@ def validate_diagram_file(path: Path, task: TaskConfig) -> None:
         diagram = load_diagram(path)
     except (OSError, json.JSONDecodeError) as exc:
         raise DiagramError(f"could not read diagram {path}: {exc}") from exc
-    validate_diagram_shape(diagram)
+    validate_diagram_shape(diagram, task)
     validate_part_types(diagram, task, path)
     validate_analyzer_wiring(diagram, task)
     validate_scenario_controls(diagram, task)
@@ -652,10 +690,21 @@ def validate_variant_attr_targets(
                     )
 
 
-def validate_diagram_shape(diagram: dict[str, Any]) -> None:
+def validate_diagram_shape(diagram: dict[str, Any], task: TaskConfig) -> None:
+    profile = task.board_profile
     part_ids = [part_data.get("id") for part_data in diagram.get("parts", [])]
-    if "mega" not in part_ids:
-        raise DiagramError("diagram is missing Arduino Mega part id 'mega'")
+    if profile.part_id not in part_ids:
+        raise DiagramError(f"diagram is missing {profile.platform} board part id {profile.part_id!r}")
+    board_part = next(
+        part_data
+        for part_data in diagram.get("parts", [])
+        if isinstance(part_data, dict) and part_data.get("id") == profile.part_id
+    )
+    expected_type = task.board.get("type", profile.board_type)
+    if board_part.get("type") != expected_type:
+        raise DiagramError(
+            f"diagram board {profile.part_id!r} has type {board_part.get('type')!r}; expected {expected_type!r}"
+        )
     if len(part_ids) != len(set(part_ids)):
         raise DiagramError("diagram contains duplicate part ids")
     for item in diagram.get("connections", []):

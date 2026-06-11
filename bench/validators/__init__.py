@@ -914,7 +914,10 @@ def validate_analog_temperature_serial(task: TaskConfig, paths: CasePaths) -> Va
     if task.scenario and task.scenario.get("family") == "analog_position_sequence":
         metrics["scenario_positions"] = [item.get("value") for item in task.scenario.get("positions", [])]
         metrics["scenario_expected_celsius"] = rounded(
-            [position_to_tmp36_celsius(float(item.get("value"))) for item in task.scenario.get("positions", [])],
+            [
+                position_to_tmp36_celsius(float(item.get("value")), voltage=task.board_profile.voltage)
+                for item in task.scenario.get("positions", [])
+            ],
             digits=3,
         )
 
@@ -1033,8 +1036,8 @@ def next_ordered_temperature_match(
     return None
 
 
-def position_to_tmp36_celsius(position: float) -> float:
-    return ((position * 5.0) - 0.5) * 100.0
+def position_to_tmp36_celsius(position: float, *, voltage: float = 5.0) -> float:
+    return ((position * voltage) - 0.5) * 100.0
 
 
 # Top-level validator dispatch. Keys MUST stay in sync with

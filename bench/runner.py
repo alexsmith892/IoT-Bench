@@ -79,13 +79,18 @@ class CasePaths:
     wokwi_toml: Path
     build_dir: Path
     fqbn: str
+    firmware_extension: str = ".hex"
     vcd: Path | None = None
     scenario: Path | None = None
     serial_log: Path | None = None
 
     @property
-    def firmware_hex(self) -> Path:
+    def firmware_image(self) -> Path:
         return expected_firmware_paths(self)[0]
+
+    @property
+    def firmware_hex(self) -> Path:
+        return self.firmware_image
 
     @property
     def firmware_elf(self) -> Path:
@@ -163,6 +168,7 @@ def case_paths_from_task(task: TaskConfig, case_dir: Path) -> CasePaths:
         wokwi_toml=case_dir / "wokwi.toml",
         build_dir=case_dir / "artifacts" / "build",
         fqbn=task.board.get("fqbn", DEFAULT_FQBN),
+        firmware_extension=task.board_profile.firmware_extension,
         vcd=(case_dir / "artifacts" / "logic" / "wokwi.vcd" if task.requires_vcd else None),
         scenario=scenario,
         serial_log=(
@@ -237,7 +243,7 @@ def write_wokwi_toml(task: TaskConfig, paths: CasePaths) -> None:
     lines = [
         "[wokwi]",
         "version = 1",
-        f"firmware = 'artifacts/build/{task.sketch_name}.ino.hex'",
+        f"firmware = 'artifacts/build/{task.sketch_name}.ino{paths.firmware_extension}'",
         f"elf = 'artifacts/build/{task.sketch_name}.ino.elf'",
     ]
     if paths.vcd:
@@ -261,7 +267,7 @@ def expected_firmware_paths(paths: CasePaths) -> tuple[Path, Path]:
         if configured:
             return configured
     return (
-        paths.build_dir / f"{paths.sketch_name}.ino.hex",
+        paths.build_dir / f"{paths.sketch_name}.ino{paths.firmware_extension}",
         paths.build_dir / f"{paths.sketch_name}.ino.elf",
     )
 
@@ -285,7 +291,7 @@ def ensure_sketch_files(task: TaskConfig, sketch_dir: Path) -> None:
     sketch_yaml = sketch_dir / "sketch.yaml"
     if not sketch_yaml.exists():
         sketch_yaml.write_text(
-            "default_fqbn: arduino:avr:mega\n", encoding="utf-8"
+            f"default_fqbn: {task.board_profile.fqbn}\n", encoding="utf-8"
         )
     ino_path = sketch_dir / f"{task.sketch_name}.ino"
     if not ino_path.exists() or task.level in {"level2", "level3"}:
@@ -322,6 +328,7 @@ def load_case_paths(
         wokwi_toml=case_dir / paths.get("wokwi", "wokwi.toml"),
         build_dir=case_dir / paths.get("build", "artifacts/build"),
         fqbn=board.get("fqbn", DEFAULT_FQBN),
+        firmware_extension=task.board_profile.firmware_extension,
         vcd=(case_dir / paths["vcd"] if paths.get("vcd") else None),
         scenario=(case_dir / paths["scenario"] if paths.get("scenario") else None),
         serial_log=(case_dir / paths["serial_log"] if paths.get("serial_log") else None),
@@ -889,14 +896,14 @@ def normalize_firmware_outputs(paths: CasePaths) -> None:
     promoted to a validated artifact.
     """
 
-    expected_hex, expected_elf = expected_firmware_paths(paths)
+    expected_image, expected_elf = expected_firmware_paths(paths)
     candidates = [
-        paths.build_dir / f"{paths.sketch_name}.ino.hex",
+        paths.build_dir / f"{paths.sketch_name}.ino{paths.firmware_extension}",
         paths.build_dir / f"{paths.sketch_name}.ino.elf",
-        *paths.build_dir.rglob(f"{paths.sketch_name}.ino.hex"),
+        *paths.build_dir.rglob(f"{paths.sketch_name}.ino{paths.firmware_extension}"),
         *paths.build_dir.rglob(f"{paths.sketch_name}.ino.elf"),
     ]
-    for expected in (expected_hex, expected_elf):
+    for expected in (expected_image, expected_elf):
         if expected.exists():
             continue
         same_name = [
@@ -1041,6 +1048,8 @@ def write_verification(
         "diagram_hash": hash_file(paths.diagram),
         "scenario_path": relative_to(paths.scenario, paths.case_dir) if paths.scenario else None,
         "scenario_hash": hash_file(paths.scenario) if paths.scenario else None,
+        "firmware_image": relative_to(paths.firmware_image, paths.case_dir),
+        "firmware_image_hash": hash_file(paths.firmware_image),
         "firmware_hex": relative_to(paths.firmware_hex, paths.case_dir),
         "firmware_hex_hash": hash_file(paths.firmware_hex),
         "firmware_elf": relative_to(paths.firmware_elf, paths.case_dir),
@@ -1153,7 +1162,11 @@ def validate_existing_artifact_manifest(
     checks: list[tuple[str, str | None, str | None]] = [
         ("sketch", manifest.get("sketch_hash"), hash_path(paths.sketch)),
         ("diagram", manifest.get("diagram_hash"), hash_file(paths.diagram)),
-        ("firmware hex", manifest.get("firmware_hex_hash"), hash_file(paths.firmware_hex)),
+        (
+            "firmware image",
+            manifest.get("firmware_image_hash", manifest.get("firmware_hex_hash")),
+            hash_file(paths.firmware_image),
+        ),
         ("firmware elf", manifest.get("firmware_elf_hash"), hash_file(paths.firmware_elf)),
     ]
     if paths.scenario:
@@ -1377,15 +1390,19 @@ def example_sketch(task: TaskConfig) -> str:
     if advanced:
         return advanced
     examples = {
+        "blink_led_1hz": blink_1hz_example,
         "blink_two_leds": BLINK_TWO_LEDS,
         "buzzer_doorbell": BUZZER_DOORBELL,
         "button_status_display": BUTTON_STATUS_DISPLAY,
-        "button_status_count": BUTTON_STATUS_COUNT,
+        "button_status_count": button_status_count_example,
         "button_press_debounce": BUTTON_PRESS_DEBOUNCE,
         "sensor_pir_human_motion": SENSOR_PIR_HUMAN_MOTION,
-        "tmp36_read": TMP36_READ,
+        "tmp36_read": tmp36_read_example,
     }
-    return examples.get(task.task_id, "void setup() {}\nvoid loop() {}\n")
+    example = examples.get(task.task_id)
+    if callable(example):
+        return example(task)
+    return example or "void setup() {}\nvoid loop() {}\n"
 
 
 def advanced_example_sketch(task: TaskConfig) -> str | None:
@@ -1395,11 +1412,12 @@ def advanced_example_sketch(task: TaskConfig) -> str | None:
         "mpu6050_read_i2c": mpu6050_serial_example,
         "hcsr04_find_distance": hcsr04_serial_example,
         "step_counter_print": step_counter_example,
-        "bme280_read_i2c": bme280_i2c_example,
         "bme280_read_spi": bme280_spi_example,
     }
     if task.task_id in sensor_serial_examples:
         return sensor_serial_examples[task.task_id]()
+    if task.task_id == "bme280_read_i2c":
+        return bme280_i2c_example(task)
 
     lcd_lines = {
         "lcd1602_display_hello_world": ("  Hello World", ""),
@@ -1440,6 +1458,78 @@ def advanced_example_sketch(task: TaskConfig) -> str | None:
         "joystick_buzzer_pitch": joystick_pitch_example(),
     }
     return outputs.get(task.task_id)
+
+
+def fixture_pin(task: TaskConfig, key: str, default_key: str | None = None) -> str:
+    pins = task.fixture.get("pins", {}) if isinstance(task.fixture, dict) else {}
+    fallback = task.board_profile.default_pins[default_key or key]
+    return str(pins.get(key, fallback))
+
+
+def blink_1hz_example(task: TaskConfig) -> str:
+    pin = fixture_pin(task, "led")
+    return f"""\
+const int LED_PIN = {pin};
+unsigned long lastToggleMs = 0;
+bool ledState = LOW;
+
+void setup() {{
+  pinMode(LED_PIN, OUTPUT);
+}}
+
+void loop() {{
+  unsigned long now = millis();
+  if (now - lastToggleMs >= 500) {{
+    lastToggleMs += 500;
+    ledState = !ledState;
+    digitalWrite(LED_PIN, ledState);
+  }}
+}}
+"""
+
+
+def button_status_count_example(task: TaskConfig) -> str:
+    pin = fixture_pin(task, "button")
+    return f"""\
+const int BUTTON_PIN = {pin};
+bool wasPressed = false;
+int count = 0;
+
+void setup() {{
+  Serial.begin(115200);
+  pinMode(BUTTON_PIN, INPUT);
+}}
+
+void loop() {{
+  bool pressed = digitalRead(BUTTON_PIN) == HIGH;
+  if (pressed && !wasPressed) {{
+    count++;
+    Serial.println(count);
+  }}
+  wasPressed = pressed;
+  delay(5);
+}}
+"""
+
+
+def tmp36_read_example(task: TaskConfig) -> str:
+    pin = fixture_pin(task, "analog")
+    profile = task.board_profile
+    return f"""\
+const int TMP36_PIN = {pin};
+
+void setup() {{
+  Serial.begin(115200);
+}}
+
+void loop() {{
+  int raw = analogRead(TMP36_PIN);
+  float voltage = raw * ({profile.voltage:.6g} / {float(profile.adc_max):.1f});
+  float celsius = (voltage - 0.5) * 100.0;
+  Serial.println(celsius, 1);
+  delay(100);
+}}
+"""
 
 
 def dht22_serial_example() -> str:
@@ -1681,7 +1771,12 @@ void loop() {
 """
 
 
-def bme280_i2c_example() -> str:
+def bme280_i2c_example(task: TaskConfig) -> str:
+    sda = fixture_pin(task, "sda", "i2c_sda")
+    scl = fixture_pin(task, "scl", "i2c_scl")
+    wire_begin = "Wire.begin();"
+    if task.platform == "esp32":
+        wire_begin = f"Wire.begin({sda}, {scl});"
     return """\
 #include <Adafruit_BME280.h>
 #include <Wire.h>
@@ -1690,7 +1785,7 @@ Adafruit_BME280 bme;
 
 void setup() {
   Serial.begin(115200);
-  Wire.begin();
+  WIRE_BEGIN
   if (!bme.begin(0x76)) {
     Serial.println("BME280 not found");
     while (true) {
@@ -1709,7 +1804,7 @@ void loop() {
   Serial.println(" Pa");
   delay(500);
 }
-"""
+""".replace("WIRE_BEGIN", wire_begin)
 
 
 def bme280_spi_example() -> str:
