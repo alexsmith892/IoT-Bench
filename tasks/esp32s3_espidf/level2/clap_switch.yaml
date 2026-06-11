@@ -1,0 +1,87 @@
+task_id: clap_switch
+name: Toggle relay on digital sound sensor clap events
+platform: esp32s3_espidf
+level: level2
+fixture:
+  family: composite
+  analyzer:
+    channels:
+    - signal: D0
+      pin: '21'
+  components:
+  - type: sound_sensor
+    id: sound1
+    pin: '14'
+  - type: analog_source
+    id: pot1
+    pin: A0
+  - type: relay
+    id: relay1
+    pin: '21'
+scenario:
+  family: timeline
+  steps:
+  - delay_ms: 200
+  - set_control:
+      part_id: sound1
+      control: pressed
+      value: 1
+  - delay_ms: 120
+  - set_control:
+      part_id: sound1
+      control: pressed
+      value: 0
+  - delay_ms: 350
+  - set_control:
+      part_id: sound1
+      control: pressed
+      value: 1
+  - delay_ms: 120
+  - set_control:
+      part_id: sound1
+      control: pressed
+      value: 0
+  - delay_ms: 300
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+      required_patterns:
+      - gpio_get_level\s*\(
+      - gpio_set_level\s*\(
+  - family: stimulus_to_output
+    params:
+      channel: D0
+      active_windows_s:
+      - - 0.38
+        - 0.55
+      inactive_windows_s:
+      - - 0.85
+        - 1.0
+simulation:
+  timeout_ms: 1300
+case:
+  id: clap-switch-wokwi-esp32s3-espidf
+  sketch_name: clap_switch
+board:
+  type: board-esp32-s3-devkitc-1

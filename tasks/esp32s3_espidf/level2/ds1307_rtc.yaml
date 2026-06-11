@@ -1,0 +1,76 @@
+task_id: ds1307_rtc
+name: Read and print DS1307 RTC date/time over I2C
+platform: esp32s3_espidf
+level: level2
+fixture:
+  family: composite
+  components:
+  - type: ds1307
+    id: rtc1
+    pins:
+      sda: '38'
+      scl: '39'
+    attrs:
+      initTime: '2026-02-02T15:37:00Z'
+simulation_variants:
+- id: feb_afternoon
+  attrs:
+    rtc1:
+      initTime: '2026-02-02T15:37:00Z'
+  validator:
+    checks:
+    - {}
+    - params:
+        patterns:
+        - 2026[/:-]02[/:-]02
+        - 15[:.]37
+- id: jul_morning
+  attrs:
+    rtc1:
+      initTime: '2026-07-19T08:03:00Z'
+  validator:
+    checks:
+    - {}
+    - params:
+        patterns:
+        - 2026[/:-]07[/:-]19
+        - 0?8[:.]03
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      required_patterns:
+      - i2c_
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+  - family: serial_regex_sequence
+    params:
+      patterns:
+      - 2026[/:-]02[/:-]02
+      - 15[:.]37
+simulation:
+  timeout_ms: 1200
+  require_distinct_variant_outputs: true
+case:
+  id: ds1307-rtc-wokwi-esp32s3-espidf
+  sketch_name: ds1307_rtc
+board:
+  type: board-esp32-s3-devkitc-1

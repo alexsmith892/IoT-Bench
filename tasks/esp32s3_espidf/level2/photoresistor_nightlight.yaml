@@ -1,0 +1,72 @@
+task_id: photoresistor_nightlight
+name: Turn on LED when photoresistor light level falls below threshold
+platform: esp32s3_espidf
+level: level2
+fixture:
+  family: composite
+  analyzer:
+    channels:
+    - signal: D0
+      pin: '10'
+  components:
+  - type: photoresistor
+    id: photo1
+    pin: '9'
+  - type: led
+    id: led1
+    pin: '10'
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+  - part_id: photo1
+    control: lux
+    value: 1000
+    duration_ms: 400
+  - part_id: photo1
+    control: lux
+    value: 0.1
+    duration_ms: 400
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+      required_patterns:
+      - adc_oneshot_read\s*\(
+      - gpio_set_level\s*\(
+  - family: stimulus_to_output
+    params:
+      channel: D0
+      active_windows_s:
+      - - 0.7
+        - 0.95
+      inactive_windows_s:
+      - - 0.3
+        - 0.55
+simulation:
+  timeout_ms: 1200
+case:
+  id: photoresistor-nightlight-wokwi-esp32s3-espidf
+  sketch_name: photoresistor_nightlight
+board:
+  type: board-esp32-s3-devkitc-1

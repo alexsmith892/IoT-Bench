@@ -187,6 +187,10 @@ def ensure_custom_chip_artifacts(task: TaskConfig, paths: CasePaths, root: Path)
                 matches = sorted((root / "cases").glob(f"*/chips/{relative.name}"))
                 if matches:
                     source = matches[0]
+            if not source.exists() and root != repo_root():
+                matches = sorted((repo_root() / "cases").glob(f"*/chips/{relative.name}"))
+                if matches:
+                    source = matches[0]
             if source.exists():
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source, destination)
@@ -401,12 +405,10 @@ def ensure_zephyr_project_files(task: TaskConfig, project_dir: Path) -> None:
     project_dir.mkdir(parents=True, exist_ok=True)
     src_dir = project_dir / "src"
     src_dir.mkdir(parents=True, exist_ok=True)
-    cmake = project_dir / "CMakeLists.txt"
-    if not cmake.exists():
-        cmake.write_text(zephyr_root_cmake(task), encoding="utf-8")
-    prj_conf = project_dir / "prj.conf"
-    if not prj_conf.exists():
-        prj_conf.write_text(zephyr_prj_conf(), encoding="utf-8")
+    # CMakeLists.txt and prj.conf are harness-owned: always rewritten so a
+    # stale or tampered copy can never shape a benchmark run.
+    (project_dir / "CMakeLists.txt").write_text(zephyr_root_cmake(task), encoding="utf-8")
+    (project_dir / "prj.conf").write_text(zephyr_prj_conf(), encoding="utf-8")
     main_source = src_dir / "main.c"
     if not main_source.exists() or task.level in {"level2", "level3"}:
         main_source.write_text(example_sketch(task), encoding="utf-8")
@@ -423,8 +425,11 @@ target_sources(app PRIVATE src/main.c)
 
 
 def zephyr_prj_conf() -> str:
+    # The boot banner contains version integers that would pollute numeric
+    # serial oracles (extract_ints over the whole serial log), so it is off.
     return """\
 CONFIG_GPIO=y
+CONFIG_BOOT_BANNER=n
 """
 
 
@@ -615,17 +620,19 @@ def normalize_zephyr_submission(task: TaskConfig, source: Path, destination: Pat
         shutil.copy2(source, destination / "src" / "main.c")
         return destination
 
-    cmake = source / "CMakeLists.txt"
-    prj_conf = source / "prj.conf"
     sources = sorted((source / "src").glob("*.c"))
-    if not cmake.exists() or not prj_conf.exists() or not sources:
+    if not sources:
         raise BuildSimulationError(
-            f"submitted Zephyr project must contain CMakeLists.txt, prj.conf, and src/*.c: {source}",
+            f"submitted Zephyr project must contain src/*.c: {source}",
             classification=COMPILE_FAIL,
             failure_stage=STAGE_COMPILE,
             failure_source=SOURCE_USER_CODE,
         )
     shutil.copytree(source, destination)
+    # The build configuration is part of the benchmark fixture, not the
+    # submission: always use the harness CMakeLists.txt and prj.conf.
+    (destination / "CMakeLists.txt").write_text(zephyr_root_cmake(task), encoding="utf-8")
+    (destination / "prj.conf").write_text(zephyr_prj_conf(), encoding="utf-8")
     return destination
 
 
@@ -1756,9 +1763,10 @@ def validate_existing_artifact_manifest(
 
 
 def command_version(command: str, *args: str) -> str | None:
+    resolved = shutil.which(command) or command
     try:
         completed = subprocess.run(
-            [command, *args],
+            command_with_windows_batch_wrapper(resolved, list(args)),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
@@ -2076,19 +2084,31 @@ def zephyr_gpio_parts(pin_spec: str) -> tuple[str, int]:
 def zephyr_example_source(task: TaskConfig) -> str:
     examples = {
         "blink_led_1hz": zephyr_blink_1hz,
+        "blink_led_no_delay": zephyr_blink_no_delay,
+        "button_status_count": zephyr_button_status_count,
+        "button_press_debounce": zephyr_button_press_debounce,
+        "sensor_pir_human_motion": zephyr_pir_serial,
     }
     factory = examples.get(task.task_id)
     return factory(task) if factory else "int main(void) { return 0; }\n"
 
 
-def zephyr_blink_1hz(task: TaskConfig) -> str:
-    pin = fixture_pin(task, "led")
-    port, index = zephyr_gpio_parts(pin)
-    return f"""\
+ZEPHYR_COMMON_INCLUDES = """\
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
+#include <zephyr/sys/printk.h>
 
-static const struct device *const led_port = DEVICE_DT_GET(DT_NODELABEL({port}));
+"""
+
+
+def zephyr_port_decl(name: str, port: str) -> str:
+    return f"static const struct device *const {name} = DEVICE_DT_GET(DT_NODELABEL({port}));"
+
+
+def zephyr_blink_1hz(task: TaskConfig) -> str:
+    port, index = zephyr_gpio_parts(fixture_pin(task, "led"))
+    return ZEPHYR_COMMON_INCLUDES + f"""\
+{zephyr_port_decl("led_port", port)}
 
 int main(void)
 {{
@@ -2096,6 +2116,119 @@ int main(void)
 \twhile (1) {{
 \t\tgpio_pin_toggle(led_port, {index});
 \t\tk_msleep(500);
+\t}}
+\treturn 0;
+}}
+"""
+
+
+def zephyr_blink_no_delay(task: TaskConfig) -> str:
+    port, index = zephyr_gpio_parts(fixture_pin(task, "led"))
+    return ZEPHYR_COMMON_INCLUDES + f"""\
+{zephyr_port_decl("led_port", port)}
+
+int main(void)
+{{
+\tint level = 0;
+\tint64_t last_toggle_ms;
+
+\tgpio_pin_configure(led_port, {index}, GPIO_OUTPUT_LOW);
+\tlast_toggle_ms = k_uptime_get();
+\twhile (1) {{
+\t\tint64_t now = k_uptime_get();
+
+\t\tif (now - last_toggle_ms >= 500) {{
+\t\t\tlast_toggle_ms += 500;
+\t\t\tlevel = !level;
+\t\t\tgpio_pin_set(led_port, {index}, level);
+\t\t}}
+\t\tk_yield();
+\t}}
+\treturn 0;
+}}
+"""
+
+
+def zephyr_button_status_count(task: TaskConfig) -> str:
+    port, index = zephyr_gpio_parts(fixture_pin(task, "button"))
+    return ZEPHYR_COMMON_INCLUDES + f"""\
+{zephyr_port_decl("button_port", port)}
+
+int main(void)
+{{
+\tint was_pressed = 0;
+\tint count = 0;
+
+\tgpio_pin_configure(button_port, {index}, GPIO_INPUT);
+\twhile (1) {{
+\t\tint pressed = gpio_pin_get(button_port, {index});
+
+\t\tif (pressed && !was_pressed) {{
+\t\t\t++count;
+\t\t\tprintk("%d\\n", count);
+\t\t}}
+\t\twas_pressed = pressed;
+\t\tk_msleep(5);
+\t}}
+\treturn 0;
+}}
+"""
+
+
+def zephyr_button_press_debounce(task: TaskConfig) -> str:
+    port, index = zephyr_gpio_parts(fixture_pin(task, "button"))
+    return ZEPHYR_COMMON_INCLUDES + f"""\
+{zephyr_port_decl("button_port", port)}
+
+#define DEBOUNCE_MS 30
+
+int main(void)
+{{
+\tint stable = 0;
+\tint last_reading = 0;
+\tint64_t changed_at_ms;
+
+\tgpio_pin_configure(button_port, {index}, GPIO_INPUT);
+\tchanged_at_ms = k_uptime_get();
+\twhile (1) {{
+\t\tint reading = gpio_pin_get(button_port, {index});
+\t\tint64_t now = k_uptime_get();
+
+\t\tif (reading != last_reading) {{
+\t\t\tlast_reading = reading;
+\t\t\tchanged_at_ms = now;
+\t\t}}
+\t\tif (now - changed_at_ms >= DEBOUNCE_MS && stable != reading) {{
+\t\t\tstable = reading;
+\t\t\tif (stable) {{
+\t\t\t\tprintk("Button Pressed!\\n");
+\t\t\t}}
+\t\t}}
+\t\tk_msleep(1);
+\t}}
+\treturn 0;
+}}
+"""
+
+
+def zephyr_pir_serial(task: TaskConfig) -> str:
+    port, index = zephyr_gpio_parts(fixture_pin(task, "pir"))
+    return ZEPHYR_COMMON_INCLUDES + f"""\
+{zephyr_port_decl("pir_port", port)}
+
+int main(void)
+{{
+\tint last_state = -1;
+
+\tgpio_pin_configure(pir_port, {index}, GPIO_INPUT);
+\twhile (1) {{
+\t\tint state = gpio_pin_get(pir_port, {index});
+
+\t\tif (state != last_state) {{
+\t\t\tprintk("%s\\n", state ? "Motion Detected!" : "No Motion Detected!");
+\t\t\tlast_state = state;
+\t\t}}
+\t\tk_msleep(10);
 \t}}
 \treturn 0;
 }}

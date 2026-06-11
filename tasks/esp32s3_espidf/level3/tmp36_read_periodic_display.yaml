@@ -1,0 +1,124 @@
+task_id: tmp36_read_periodic_display
+name: Log TMP36 reading to LCD every second and reset on button
+platform: esp32s3_espidf
+level: level3
+fixture:
+  family: composite
+  analyzer:
+    channels:
+    - signal: D0
+      pin: '38'
+    - signal: D1
+      pin: '39'
+    - signal: D2
+      pin: '40'
+    - signal: D3
+      pin: '41'
+    - signal: D4
+      pin: '42'
+    - signal: D5
+      pin: '21'
+  components:
+  - type: button
+    id: btn1
+    pin: '38'
+  - type: tmp36_surrogate
+    id: pot1
+    pin: '9'
+    initial_value: 614
+  - type: lcd1602
+    id: lcd1
+    pins:
+      rs: '38'
+      e: '39'
+      d4: '40'
+      d5: '41'
+      d6: '42'
+      d7: '21'
+scenario:
+  family: analog_position_sequence
+  part_id: pot1
+  initial_delay_ms: 200
+  positions:
+  - value: 0.15
+    duration_ms: 1100
+  - value: 0.5
+    duration_ms: 1200
+simulation_variants:
+- id: low_to_mid
+- id: high_to_low
+  attrs:
+    pot1:
+      value: '2867'
+  scenario:
+    family: analog_position_sequence
+    part_id: pot1
+    initial_delay_ms: 200
+    positions:
+    - value: 0.7
+      duration_ms: 1100
+    - value: 0.3
+      duration_ms: 1200
+  validator:
+    checks:
+    - {}
+    - params:
+        frames:
+        - expected_texts:
+          - 'Temp #1:'
+          expected_regexps:
+          - \b286[0-9](\.\d)?\s*F
+        - expected_texts:
+          - 'Temp #2:'
+        - expected_regexps:
+          - 'Temp #[23]:'
+          - \b122[0-9](\.\d)?\s*F
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      required_patterns:
+      - adc_oneshot_read\s*\(
+      - esp_timer_get_time\s*\(
+      required_any_patterns:
+      - - attachInterrupt
+        - digitalPinToInterrupt
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+  - family: lcd_text_sequence
+    params:
+      frames:
+      - expected_texts:
+        - 'Temp #1:'
+        expected_regexps:
+        - \b61[0-9](\.\d)?\s*F
+      - expected_texts:
+        - 'Temp #2:'
+      - expected_regexps:
+        - 'Temp #[23]:'
+        - \b204[0-9](\.\d)?\s*F
+simulation:
+  timeout_ms: 3100
+case:
+  id: tmp36-read-periodic-display-wokwi-esp32s3-espidf
+  sketch_name: tmp36_read_periodic_display
+board:
+  type: board-esp32-s3-devkitc-1

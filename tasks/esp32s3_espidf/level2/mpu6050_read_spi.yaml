@@ -1,0 +1,79 @@
+task_id: mpu6050_read_spi
+name: Read MPU6050 raw accelerometer and gyroscope values over SPI
+platform: esp32s3_espidf
+level: level2
+fixture:
+  family: composite
+  components:
+  - type: bme280_spi
+    id: imu1
+    pins:
+      sck: '35'
+      miso: '37'
+      mosi: '36'
+      cs: '14'
+    attrs:
+      temperatureC: '24.5'
+      humidityRH: '55.0'
+      pressurePa: '101325'
+  analyzer:
+    channels:
+    - signal: D0
+      pin: '35'
+    - signal: D1
+      pin: '37'
+    - signal: D2
+      pin: '36'
+    - signal: D3
+      pin: '14'
+simulation_variants:
+- id: spi_activity
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+      required_patterns:
+      - spi_
+  - family: bus_activity
+    params:
+      bus: spi
+      pins:
+      - D0
+      - D1
+      - D2
+      - D3
+      min_transitions: 2
+  - family: serial_regex_sequence
+    params:
+      patterns:
+      - Accel.*Gyro
+simulation:
+  timeout_ms: 1600
+case:
+  id: mpu6050-read-spi-wokwi-esp32s3-espidf
+  sketch_name: mpu6050_read_spi
+board:
+  type: board-esp32-s3-devkitc-1
+custom_chips:
+- name: bme280
+  binary: chips/bme280.chip.wasm

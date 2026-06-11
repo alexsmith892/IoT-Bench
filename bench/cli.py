@@ -32,6 +32,7 @@ from .runner import (
     CaseConfigError,
     CasePaths,
     build_case,
+    command_with_windows_batch_wrapper,
     case_dir_for_task,
     ensure_tool_versions_compatible,
     expected_firmware_paths,
@@ -731,7 +732,7 @@ def check_command(command: str, *args: str) -> dict[str, Any]:
         return {"name": command, "ok": False, "reason": "not found on PATH"}
     try:
         completed = subprocess.run(
-            [command, *args],
+            command_with_windows_batch_wrapper(path, list(args)),
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

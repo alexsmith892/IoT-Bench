@@ -583,7 +583,9 @@ def validate_no_delay_static_plus_waveform(task: TaskConfig, paths: CasePaths) -
         "forbidden_calls", ["delay", "delayMicroseconds"]
     )
     try:
-        validate_forbidden_calls(paths.sketch, list(forbidden))
+        validate_forbidden_calls(
+            paths.sketch, list(forbidden), build_kind=task.board_profile.build_kind
+        )
     except StaticCheckError as exc:
         return ValidationResult(FAIL, str(exc), metrics)
     metrics["static_check_passed"] = True

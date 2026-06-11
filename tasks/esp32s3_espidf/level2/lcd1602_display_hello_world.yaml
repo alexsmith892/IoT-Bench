@@ -1,0 +1,67 @@
+task_id: lcd1602_display_hello_world
+name: Display Hello World centered on LCD1602
+platform: esp32s3_espidf
+level: level2
+fixture:
+  family: composite
+  analyzer:
+    channels:
+    - signal: D0
+      pin: '38'
+    - signal: D1
+      pin: '39'
+    - signal: D2
+      pin: '40'
+    - signal: D3
+      pin: '41'
+    - signal: D4
+      pin: '42'
+    - signal: D5
+      pin: '21'
+  components:
+  - type: lcd1602
+    id: lcd1
+    pins:
+      rs: '38'
+      e: '39'
+      d4: '40'
+      d5: '41'
+      d6: '42'
+      d7: '21'
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+      required_patterns:
+      - gpio_set_level\s*\(
+  - family: lcd_text
+    params:
+      expected_texts:
+      - Hello World
+simulation:
+  timeout_ms: 1600
+case:
+  id: lcd1602-display-hello-world-wokwi-esp32s3-espidf
+  sketch_name: lcd1602_display_hello_world
+board:
+  type: board-esp32-s3-devkitc-1

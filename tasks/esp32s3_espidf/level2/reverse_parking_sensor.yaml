@@ -1,0 +1,67 @@
+task_id: reverse_parking_sensor
+name: Pulse passive buzzer faster as object approaches
+platform: esp32s3_espidf
+level: level2
+fixture:
+  family: composite
+  analyzer:
+    channels:
+    - signal: D0
+      pin: '11'
+  components:
+  - type: hcsr04
+    id: sonar1
+    pins:
+      trig: '40'
+      echo: '41'
+    attrs:
+      distance: '40'
+  - type: passive_buzzer
+    id: buzzer1
+    pin: '11'
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+      required_patterns:
+      - esp_timer_get_time\s*\(
+      - ledc_
+  - family: frequency_windows
+    params:
+      channel: D0
+      windows:
+      - start_s: 0.2
+        end_s: 1.2
+        half_period_range_s:
+        - 0.00025
+        - 0.00045
+        full_period_range_s:
+        - 0.0005
+        - 0.0009
+simulation:
+  timeout_ms: 1400
+case:
+  id: reverse-parking-sensor-wokwi-esp32s3-espidf
+  sketch_name: reverse_parking_sensor
+board:
+  type: board-esp32-s3-devkitc-1

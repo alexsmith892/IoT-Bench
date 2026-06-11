@@ -1,0 +1,81 @@
+task_id: parking_sensor
+name: Scale LED brightness and buzzer pitch as object approaches
+platform: esp32s3_espidf
+level: level2
+fixture:
+  family: composite
+  analyzer:
+    channels:
+    - signal: D0
+      pin: '41'
+    - signal: D1
+      pin: '11'
+  components:
+  - type: led
+    id: led1
+    pin: '41'
+  - type: hcsr04
+    id: sonar1
+    pins:
+      trig: '40'
+      echo: '41'
+    attrs:
+      distance: '35'
+  - type: passive_buzzer
+    id: buzzer1
+    pin: '11'
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+      required_patterns:
+      - esp_timer_get_time\s*\(
+      - ledc_
+  - family: window_ratios
+    params:
+      channel: D0
+      windows:
+      - start_s: 0.2
+        end_s: 1.2
+        ratio_range:
+        - 0.7
+        - 1.0
+  - family: frequency_windows
+    params:
+      channel: D1
+      windows:
+      - start_s: 0.2
+        end_s: 1.2
+        half_period_range_s:
+        - 0.0002
+        - 0.00035
+        full_period_range_s:
+        - 0.0004
+        - 0.0007
+simulation:
+  timeout_ms: 1400
+case:
+  id: parking-sensor-wokwi-esp32s3-espidf
+  sketch_name: parking_sensor
+board:
+  type: board-esp32-s3-devkitc-1

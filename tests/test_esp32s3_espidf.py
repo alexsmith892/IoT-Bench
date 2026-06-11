@@ -25,6 +25,59 @@ ESP32S3_LEVEL1_TASKS = {
     "tmp36_read",
 }
 
+ESP32S3_LEVEL2_TASKS = {
+    "rotary_encoder",
+    "16key_keypad",
+    "lcd1602_display_hello_world",
+    "dht11_read",
+    "ds1307_rtc",
+    "mpu6050_read_i2c",
+    "mpu6050_read_spi",
+    "bme280_read_i2c",
+    "bme280_read_spi",
+    "tilt_detection_alarm",
+    "photoresistor_nightlight",
+    "ds18b20_heat_alarm",
+    "clap_switch",
+    "hcsr501_motion_alarm",
+    "hcsr04_find_distance",
+    "parking_sensor",
+    "reverse_parking_sensor",
+}
+
+ESP32S3_LEVEL3_TASKS = {
+    "dht11_read_button_display",
+    "mpu6050_read_button_display",
+    "mpu6050_read_periodic_display",
+    "safebox",
+    "safebox_display",
+    "lcd1602_auto_brightness_control",
+    "buzzer_toggle_led_freq",
+    "tmp36_read_button_display",
+    "tmp36_read_periodic_display",
+    "reaction_timer_display",
+    "sensor_water_level_display",
+    "buzzer_laser_tripwire",
+    "joystick_buzzer_pitch",
+    "step_counter_print",
+}
+
+ESP32S3_FORBIDDEN_ARDUINO_CALLS = {
+    "pinMode",
+    "digitalRead",
+    "digitalWrite",
+    "analogRead",
+    "delay",
+    "tone",
+    "Serial.begin",
+    "Serial.print",
+    "Serial.println",
+    "Wire.begin",
+    "SPI.begin",
+    "LiquidCrystal",
+    "Keypad",
+}
+
 
 class Esp32S3EspIdfProfileTests(unittest.TestCase):
     def test_profile_uses_espidf_board_and_firmware_contract(self):
@@ -54,26 +107,69 @@ class Esp32S3EspIdfTaskTests(unittest.TestCase):
                 self.assertTrue(task.prompt_text.strip())
                 self.assertTrue(task.prompt_text.endswith("\n"))
 
+    def test_all_upstream_level2_and_level3_tasks_load_and_have_prompts(self):
+        expected = {
+            "level2": ESP32S3_LEVEL2_TASKS,
+            "level3": ESP32S3_LEVEL3_TASKS,
+        }
+        for level, task_ids in expected.items():
+            tasks = list(iter_tasks(platform="esp32s3_espidf", level=level))
+            self.assertEqual({task.task_id for task in tasks}, task_ids)
+            for task in tasks:
+                with self.subTest(level=level, task=task.task_id):
+                    self.assertTrue(task.prompt_path.exists())
+                    self.assertTrue(task.prompt_text.strip())
+                    self.assertTrue(task.prompt_text.endswith("\n"))
+
     def test_generated_cases_use_espidf_layout_and_esp32s3_diagrams(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            for task in iter_tasks(platform="esp32s3_espidf", level="level1"):
-                with self.subTest(task=task.task_id):
-                    paths = generate_case(task, root=root)
-                    diagram = paths.diagram.read_text(encoding="utf-8")
-                    wokwi = paths.wokwi_toml.read_text(encoding="utf-8")
+            for level in ("level1", "level2", "level3"):
+                for task in iter_tasks(platform="esp32s3_espidf", level=level):
+                    with self.subTest(level=level, task=task.task_id):
+                        paths = generate_case(task, root=root)
+                        diagram = paths.diagram.read_text(encoding="utf-8")
+                        wokwi = paths.wokwi_toml.read_text(encoding="utf-8")
 
-                    self.assertTrue((paths.sketch / "CMakeLists.txt").exists())
-                    self.assertTrue((paths.sketch / "main" / "CMakeLists.txt").exists())
-                    self.assertTrue((paths.sketch / "main" / "main.c").exists())
-                    self.assertTrue((paths.sketch / "sdkconfig.defaults").exists())
-                    self.assertFalse(list(paths.sketch.rglob("*.ino")))
-                    self.assertIn("board-esp32-s3-devkitc-1", diagram)
-                    self.assertIn('"id": "esp"', diagram)
-                    self.assertIn("esp:", diagram)
-                    self.assertNotIn("mega:", diagram)
-                    self.assertIn("firmware = 'artifacts/build/flasher_args.json'", wokwi)
-                    self.assertIn(f"elf = 'artifacts/build/{task.sketch_name}.elf'", wokwi)
+                        self.assertTrue((paths.sketch / "CMakeLists.txt").exists())
+                        self.assertTrue((paths.sketch / "main" / "CMakeLists.txt").exists())
+                        self.assertTrue((paths.sketch / "main" / "main.c").exists())
+                        self.assertTrue((paths.sketch / "sdkconfig.defaults").exists())
+                        self.assertFalse(list(paths.sketch.rglob("*.ino")))
+                        self.assertIn("board-esp32-s3-devkitc-1", diagram)
+                        self.assertIn('"id": "esp"', diagram)
+                        self.assertIn("esp:", diagram)
+                        self.assertNotIn("mega:", diagram)
+                        self.assertIn("firmware = 'artifacts/build/flasher_args.json'", wokwi)
+                        self.assertIn(f"elf = 'artifacts/build/{task.sketch_name}.elf'", wokwi)
+
+    def test_level2_and_level3_static_checks_reject_arduino_apis(self):
+        for level in ("level2", "level3"):
+            for task in iter_tasks(platform="esp32s3_espidf", level=level):
+                with self.subTest(level=level, task=task.task_id):
+                    checks = task.validator.get("checks", [])
+                    static_params = [
+                        check.get("params", {})
+                        for check in checks
+                        if check.get("family") == "static_checks"
+                    ]
+                    self.assertTrue(static_params)
+                    forbidden = set(static_params[0].get("forbidden_calls", []))
+                    self.assertTrue(ESP32S3_FORBIDDEN_ARDUINO_CALLS.issubset(forbidden))
+                    self.assertTrue(static_params[0].get("required_patterns"))
+
+    def test_level2_and_level3_reference_source_is_espidf_not_arduino(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for level in ("level2", "level3"):
+                for task in iter_tasks(platform="esp32s3_espidf", level=level):
+                    with self.subTest(level=level, task=task.task_id):
+                        paths = generate_case(task, root=root)
+                        source = (paths.sketch / "main" / "main.c").read_text(encoding="utf-8")
+
+                        self.assertIn("void app_main(void)", source)
+                        for arduino_api in ("pinMode", "digitalRead", "digitalWrite", "analogRead", "Serial."):
+                            self.assertNotIn(arduino_api, source)
 
     def test_tmp36_config_uses_3v3_adc_semantics(self):
         task = load_task("tmp36_read", platform="esp32s3_espidf")

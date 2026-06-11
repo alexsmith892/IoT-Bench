@@ -37,6 +37,9 @@ def read_sources(sketch_path: Path, *, build_kind: str = "arduino") -> str:
             raise StaticCheckError(f"no ESP-IDF C/C++ source file found in {sketch_path}")
         if sketch_path.is_dir() and not (sketch_path / "CMakeLists.txt").exists():
             raise StaticCheckError(f"no ESP-IDF CMakeLists.txt found in {sketch_path}")
+    if build_kind == "zephyr":
+        if not any(path.suffix.lower() in {".c", ".cpp"} for path in source_files):
+            raise StaticCheckError(f"no Zephyr C source file found in {sketch_path}")
     return "\n".join(
         path.read_text(encoding="utf-8", errors="replace") for path in source_files
     )

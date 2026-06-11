@@ -1,0 +1,272 @@
+task_id: safebox_display
+name: Unlock relay and display password/status on LCD
+platform: esp32s3_espidf
+level: level3
+fixture:
+  family: composite
+  analyzer:
+    channels:
+    - signal: D0
+      pin: '38'
+    - signal: D1
+      pin: '38'
+    - signal: D2
+      pin: '39'
+    - signal: D3
+      pin: '40'
+    - signal: D4
+      pin: '41'
+    - signal: D5
+      pin: '42'
+    - signal: D6
+      pin: '21'
+  components:
+  - type: matrix_key
+    id: k1
+    pins:
+      row: '9'
+      col: '14'
+  - type: matrix_key
+    id: k2
+    pins:
+      row: '9'
+      col: '38'
+  - type: matrix_key
+    id: k3
+    pins:
+      row: '9'
+      col: '43'
+  - type: matrix_key
+    id: k4
+    pins:
+      row: '10'
+      col: '14'
+  - type: matrix_key
+    id: k5
+    pins:
+      row: '10'
+      col: '38'
+  - type: relay
+    id: relay1
+    pin: '38'
+  - type: lcd1602
+    id: lcd1
+    pins:
+      rs: '38'
+      e: '39'
+      d4: '40'
+      d5: '41'
+      d6: '42'
+      d7: '21'
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+  - part_id: k1
+    control: pressed
+    value: 1
+    duration_ms: 120
+  - part_id: k1
+    control: pressed
+    value: 0
+    duration_ms: 80
+  - part_id: k2
+    control: pressed
+    value: 1
+    duration_ms: 120
+  - part_id: k2
+    control: pressed
+    value: 0
+    duration_ms: 80
+  - part_id: k3
+    control: pressed
+    value: 1
+    duration_ms: 120
+  - part_id: k3
+    control: pressed
+    value: 0
+    duration_ms: 80
+  - part_id: k5
+    control: pressed
+    value: 1
+    duration_ms: 120
+  - part_id: k5
+    control: pressed
+    value: 0
+    duration_ms: 80
+  - part_id: k1
+    control: pressed
+    value: 1
+    duration_ms: 120
+  - part_id: k1
+    control: pressed
+    value: 0
+    duration_ms: 80
+  - part_id: k2
+    control: pressed
+    value: 1
+    duration_ms: 120
+  - part_id: k2
+    control: pressed
+    value: 0
+    duration_ms: 80
+  - part_id: k3
+    control: pressed
+    value: 1
+    duration_ms: 120
+  - part_id: k3
+    control: pressed
+    value: 0
+    duration_ms: 80
+  - part_id: k4
+    control: pressed
+    value: 1
+    duration_ms: 120
+  - part_id: k4
+    control: pressed
+    value: 0
+    duration_ms: 80
+simulation_variants:
+- id: wrong_1235
+- id: wrong_1325
+  scenario:
+    family: control_sequence
+    initial_delay_ms: 200
+    controls:
+    - part_id: k1
+      control: pressed
+      value: 1
+      duration_ms: 120
+    - part_id: k1
+      control: pressed
+      value: 0
+      duration_ms: 80
+    - part_id: k3
+      control: pressed
+      value: 1
+      duration_ms: 120
+    - part_id: k3
+      control: pressed
+      value: 0
+      duration_ms: 80
+    - part_id: k2
+      control: pressed
+      value: 1
+      duration_ms: 120
+    - part_id: k2
+      control: pressed
+      value: 0
+      duration_ms: 80
+    - part_id: k5
+      control: pressed
+      value: 1
+      duration_ms: 120
+    - part_id: k5
+      control: pressed
+      value: 0
+      duration_ms: 80
+    - part_id: k1
+      control: pressed
+      value: 1
+      duration_ms: 120
+    - part_id: k1
+      control: pressed
+      value: 0
+      duration_ms: 80
+    - part_id: k2
+      control: pressed
+      value: 1
+      duration_ms: 120
+    - part_id: k2
+      control: pressed
+      value: 0
+      duration_ms: 80
+    - part_id: k3
+      control: pressed
+      value: 1
+      duration_ms: 120
+    - part_id: k3
+      control: pressed
+      value: 0
+      duration_ms: 80
+    - part_id: k4
+      control: pressed
+      value: 1
+      duration_ms: 120
+    - part_id: k4
+      control: pressed
+      value: 0
+      duration_ms: 80
+  validator:
+    checks:
+    - {}
+    - params:
+        frames:
+        - expected_texts:
+          - 'Input: 1325'
+        - expected_texts:
+          - 'Input: 1234'
+          - 'Status: Success'
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      required_patterns:
+      - gpio_set_level\s*\(
+      - gpio_get_level\s*\(
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+  - family: lcd_text_sequence
+    params:
+      signals:
+        rs: D1
+        e: D2
+        d4: D3
+        d5: D4
+        d6: D5
+        d7: D6
+      frames:
+      - expected_texts:
+        - 'Input: 1235'
+      - expected_texts:
+        - 'Input: 1234'
+        - 'Status: Success'
+  - family: window_ratios
+    params:
+      channel: D0
+      windows:
+      - start_s: 0.3
+        end_s: 1.45
+        ratio_range:
+        - 0.0
+        - 0.15
+      - start_s: 1.95
+        end_s: 2.45
+        ratio_range:
+        - 0.85
+        - 1.0
+simulation:
+  timeout_ms: 2600
+case:
+  id: safebox-display-wokwi-esp32s3-espidf
+  sketch_name: safebox_display
+board:
+  type: board-esp32-s3-devkitc-1

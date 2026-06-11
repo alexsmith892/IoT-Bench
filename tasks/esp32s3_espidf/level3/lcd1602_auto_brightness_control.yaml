@@ -1,0 +1,84 @@
+task_id: lcd1602_auto_brightness_control
+name: Map photoresistor reading to LCD1602 backlight PWM
+platform: esp32s3_espidf
+level: level3
+fixture:
+  family: composite
+  analyzer:
+    channels:
+    - signal: D0
+      pin: '14'
+  components:
+  - type: photoresistor
+    id: photo1
+    pin: '9'
+  - type: lcd1602
+    id: lcd1
+    pins:
+      rs: '38'
+      e: '39'
+      d4: '40'
+      d5: '41'
+      d6: '42'
+      d7: '21'
+      a: '14'
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+  - part_id: photo1
+    control: lux
+    value: 1000
+    duration_ms: 350
+  - part_id: photo1
+    control: lux
+    value: 0.1
+    duration_ms: 350
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+      required_patterns:
+      - adc_oneshot_read\s*\(
+      - ledc_
+  - family: window_ratios
+    params:
+      channel: D0
+      windows:
+      - start_s: 0.3
+        end_s: 0.5
+        ratio_range:
+        - 0.02
+        - 0.25
+      - start_s: 0.7
+        end_s: 0.9
+        ratio_range:
+        - 0.7
+        - 1.0
+simulation:
+  timeout_ms: 1200
+case:
+  id: lcd1602-auto-brightness-control-wokwi-esp32s3-espidf
+  sketch_name: lcd1602_auto_brightness_control
+board:
+  type: board-esp32-s3-devkitc-1

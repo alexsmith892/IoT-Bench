@@ -1,0 +1,102 @@
+task_id: tmp36_read_button_display
+name: Sample TMP36 on button interrupt and display Fahrenheit on LCD
+platform: esp32s3_espidf
+level: level3
+fixture:
+  family: composite
+  analyzer:
+    channels:
+    - signal: D0
+      pin: '38'
+    - signal: D1
+      pin: '39'
+    - signal: D2
+      pin: '40'
+    - signal: D3
+      pin: '41'
+    - signal: D4
+      pin: '42'
+    - signal: D5
+      pin: '21'
+  components:
+  - type: button
+    id: btn1
+    pin: '38'
+  - type: tmp36_surrogate
+    id: pot1
+    pin: '9'
+    initial_value: 614
+  - type: lcd1602
+    id: lcd1
+    pins:
+      rs: '38'
+      e: '39'
+      d4: '40'
+      d5: '41'
+      d6: '42'
+      d7: '21'
+scenario:
+  family: button_press_sequence
+  part_id: btn1
+  initial_delay_ms: 200
+  presses:
+  - duration_ms: 150
+    after_ms: 800
+simulation_variants:
+- id: warm
+  attrs:
+    pot1:
+      value: '153'
+- id: hot
+  attrs:
+    pot1:
+      value: '184'
+  validator:
+    checks:
+    - {}
+    - params:
+        expected_regexps:
+        - Temp:\s*10[3-5](\.\d)?\s*F
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      required_patterns:
+      - adc_oneshot_read\s*\(
+      - gpio_get_level\s*\(
+      required_any_patterns:
+      - - attachInterrupt
+        - digitalPinToInterrupt
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+  - family: lcd_text
+    params:
+      expected_texts:
+      - 'Temp:'
+      expected_regexps:
+      - Temp:\s*61[0-9]\s*F
+simulation:
+  timeout_ms: 1800
+case:
+  id: tmp36-read-button-display-wokwi-esp32s3-espidf
+  sketch_name: tmp36_read_button_display
+board:
+  type: board-esp32-s3-devkitc-1

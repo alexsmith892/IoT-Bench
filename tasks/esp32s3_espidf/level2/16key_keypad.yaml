@@ -1,0 +1,184 @@
+task_id: 16key_keypad
+name: Scan 16 key keypad and print detected key
+platform: esp32s3_espidf
+level: level2
+fixture:
+  family: composite
+  components:
+  - type: matrix_key
+    id: k1
+    pins:
+      row: '38'
+      col: '10'
+  - type: matrix_key
+    id: k2
+    pins:
+      row: '38'
+      col: '38'
+  - type: matrix_key
+    id: k3
+    pins:
+      row: '38'
+      col: '41'
+  - type: matrix_key
+    id: kA
+    pins:
+      row: '38'
+      col: '40'
+  - type: matrix_key
+    id: k4
+    pins:
+      row: '39'
+      col: '10'
+  - type: matrix_key
+    id: k5
+    pins:
+      row: '39'
+      col: '38'
+  - type: matrix_key
+    id: k6
+    pins:
+      row: '39'
+      col: '41'
+  - type: matrix_key
+    id: kB
+    pins:
+      row: '39'
+      col: '40'
+  - type: matrix_key
+    id: k7
+    pins:
+      row: '21'
+      col: '10'
+  - type: matrix_key
+    id: k8
+    pins:
+      row: '21'
+      col: '38'
+  - type: matrix_key
+    id: k9
+    pins:
+      row: '21'
+      col: '41'
+  - type: matrix_key
+    id: kC
+    pins:
+      row: '21'
+      col: '40'
+  - type: matrix_key
+    id: kStar
+    pins:
+      row: '14'
+      col: '10'
+  - type: matrix_key
+    id: k0
+    pins:
+      row: '14'
+      col: '38'
+  - type: matrix_key
+    id: kHash
+    pins:
+      row: '14'
+      col: '41'
+  - type: matrix_key
+    id: kD
+    pins:
+      row: '14'
+      col: '40'
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+  - part_id: k1
+    control: pressed
+    value: 1
+    duration_ms: 120
+  - part_id: k1
+    control: pressed
+    value: 0
+    duration_ms: 80
+  - part_id: k2
+    control: pressed
+    value: 1
+    duration_ms: 120
+  - part_id: k2
+    control: pressed
+    value: 0
+    duration_ms: 80
+  - part_id: k3
+    control: pressed
+    value: 1
+    duration_ms: 120
+  - part_id: k3
+    control: pressed
+    value: 0
+    duration_ms: 80
+  - part_id: k4
+    control: pressed
+    value: 1
+    duration_ms: 120
+  - part_id: k4
+    control: pressed
+    value: 0
+    duration_ms: 80
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      required_patterns:
+      - gpio_set_level\s*\(
+      - gpio_get_level\s*\(
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+  - family: serial_observation_sequence
+    params:
+      observations:
+      - label: key1
+        patterns:
+        - Key
+        numeric_ranges:
+        - - 1
+          - 1
+      - label: key2
+        patterns:
+        - Key
+        numeric_ranges:
+        - - 2
+          - 2
+      - label: key3
+        patterns:
+        - Key
+        numeric_ranges:
+        - - 3
+          - 3
+      - label: key4
+        patterns:
+        - Key
+        numeric_ranges:
+        - - 4
+          - 4
+simulation:
+  timeout_ms: 1500
+case:
+  id: 16key-keypad-wokwi-esp32s3-espidf
+  sketch_name: 16key_keypad
+board:
+  type: board-esp32-s3-devkitc-1

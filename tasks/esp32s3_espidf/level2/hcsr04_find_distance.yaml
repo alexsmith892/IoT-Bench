@@ -1,0 +1,92 @@
+task_id: hcsr04_find_distance
+name: Measure HC-SR04 distance and print centimeters
+platform: esp32s3_espidf
+level: level2
+fixture:
+  family: composite
+  components:
+  - type: hcsr04
+    id: sonar1
+    pins:
+      trig: '43'
+      echo: '44'
+    attrs:
+      distance: '100'
+simulation_variants:
+- id: far
+  attrs:
+    sonar1:
+      distance: '100'
+  validator:
+    checks:
+    - {}
+    - params:
+        observations:
+        - label: configured_distance
+          patterns:
+          - Distance.*100
+          numeric_ranges:
+          - - 95
+            - 105
+- id: near
+  attrs:
+    sonar1:
+      distance: '40'
+  validator:
+    checks:
+    - {}
+    - params:
+        observations:
+        - label: configured_distance
+          patterns:
+          - Distance.*40
+          numeric_ranges:
+          - - 35
+            - 45
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      required_patterns:
+      - esp_timer_get_time\s*\(
+      - gpio_get_level\s*\(
+      required_any_patterns:
+      - - digitalWrite\s*\(\s*9
+        - digitalWrite\s*\(\s*TRIG_PIN
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+  - family: serial_observation_sequence
+    params:
+      observations:
+      - label: configured_distance
+        patterns:
+        - Distance.*100
+        numeric_ranges:
+        - - 95
+          - 105
+simulation:
+  timeout_ms: 1200
+  require_distinct_variant_outputs: true
+case:
+  id: hcsr04-find-distance-wokwi-esp32s3-espidf
+  sketch_name: hcsr04_find_distance
+board:
+  type: board-esp32-s3-devkitc-1

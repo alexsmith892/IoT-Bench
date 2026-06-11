@@ -1,0 +1,170 @@
+task_id: rotary_encoder
+name: Track rotary encoder position and direction on serial
+platform: esp32s3_espidf
+level: level2
+fixture:
+  family: composite
+  components:
+  - type: digital_pullup
+    id: enc_clk
+    pins:
+      signal: '43'
+  - type: digital_pullup
+    id: enc_dt
+    pins:
+      signal: '44'
+  - type: digital_pullup
+    id: enc_sw
+    pins:
+      signal: '4'
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+  - part_id: enc_clk
+    control: pressed
+    value: 1
+    duration_ms: 20
+  - part_id: enc_dt
+    control: pressed
+    value: 1
+    duration_ms: 20
+  - part_id: enc_clk
+    control: pressed
+    value: 0
+    duration_ms: 20
+  - part_id: enc_dt
+    control: pressed
+    value: 0
+    duration_ms: 20
+  - part_id: enc_clk
+    control: pressed
+    value: 1
+    duration_ms: 20
+  - part_id: enc_dt
+    control: pressed
+    value: 1
+    duration_ms: 20
+  - part_id: enc_clk
+    control: pressed
+    value: 0
+    duration_ms: 20
+  - part_id: enc_dt
+    control: pressed
+    value: 0
+    duration_ms: 20
+  - part_id: enc_clk
+    control: pressed
+    value: 1
+    duration_ms: 20
+  - part_id: enc_dt
+    control: pressed
+    value: 1
+    duration_ms: 20
+  - part_id: enc_clk
+    control: pressed
+    value: 0
+    duration_ms: 20
+  - part_id: enc_dt
+    control: pressed
+    value: 0
+    duration_ms: 40
+  - part_id: enc_dt
+    control: pressed
+    value: 1
+    duration_ms: 20
+  - part_id: enc_clk
+    control: pressed
+    value: 1
+    duration_ms: 20
+  - part_id: enc_dt
+    control: pressed
+    value: 0
+    duration_ms: 20
+  - part_id: enc_clk
+    control: pressed
+    value: 0
+    duration_ms: 20
+  - part_id: enc_dt
+    control: pressed
+    value: 1
+    duration_ms: 20
+  - part_id: enc_clk
+    control: pressed
+    value: 1
+    duration_ms: 20
+  - part_id: enc_dt
+    control: pressed
+    value: 0
+    duration_ms: 20
+  - part_id: enc_clk
+    control: pressed
+    value: 0
+    duration_ms: 40
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      required_patterns:
+      - gpio_get_level\s*\(
+      - printf\s*\(
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+  - family: serial_observation_sequence
+    params:
+      observations:
+      - label: cw1
+        patterns:
+        - 'Direction: CW'
+        numeric_ranges:
+        - - 1
+          - 1
+      - label: cw2
+        patterns:
+        - 'Direction: CW'
+        numeric_ranges:
+        - - 2
+          - 2
+      - label: cw3
+        patterns:
+        - 'Direction: CW'
+        numeric_ranges:
+        - - 3
+          - 3
+      - label: ccw1
+        patterns:
+        - 'Direction: CCW'
+        numeric_ranges:
+        - - 2
+          - 2
+      - label: ccw2
+        patterns:
+        - 'Direction: CCW'
+        numeric_ranges:
+        - - 1
+          - 1
+simulation:
+  timeout_ms: 1200
+case:
+  id: rotary-encoder-wokwi-esp32s3-espidf
+  sketch_name: rotary_encoder
+board:
+  type: board-esp32-s3-devkitc-1

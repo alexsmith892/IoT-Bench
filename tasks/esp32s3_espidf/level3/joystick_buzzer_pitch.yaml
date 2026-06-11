@@ -1,0 +1,84 @@
+task_id: joystick_buzzer_pitch
+name: Map joystick Y-axis analog input to passive buzzer pitch
+platform: esp32s3_espidf
+level: level3
+fixture:
+  family: composite
+  analyzer:
+    channels:
+    - signal: D0
+      pin: '11'
+  components:
+  - type: joystick
+    id: joy1
+    pins:
+      vert: '9'
+  - type: passive_buzzer
+    id: buzzer1
+    pin: '11'
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+  - part_id: joy1
+    control: y
+    value: -1
+    duration_ms: 350
+  - part_id: joy1
+    control: y
+    value: 1
+    duration_ms: 350
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+      required_patterns:
+      - adc_oneshot_read\s*\(
+      - ledc_
+  - family: frequency_windows
+    params:
+      channel: D0
+      windows:
+      - start_s: 0.3
+        end_s: 0.5
+        half_period_range_s:
+        - 0.0012
+        - 0.0035
+        full_period_range_s:
+        - 0.0024
+        - 0.007
+      - start_s: 0.7
+        end_s: 0.9
+        half_period_range_s:
+        - 0.00025
+        - 0.0005
+        full_period_range_s:
+        - 0.0005
+        - 0.001
+simulation:
+  timeout_ms: 1200
+case:
+  id: joystick-buzzer-pitch-wokwi-esp32s3-espidf
+  sketch_name: joystick_buzzer_pitch
+board:
+  type: board-esp32-s3-devkitc-1

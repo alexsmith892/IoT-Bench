@@ -1,0 +1,74 @@
+task_id: bme280_read_i2c
+name: Read BME280 humidity, temperature, and pressure over I2C
+platform: esp32s3_espidf
+level: level2
+support:
+  status: supported
+custom_chips:
+- name: bme280
+  binary: chips/bme280.chip.wasm
+fixture:
+  family: composite
+  analyzer:
+    channels:
+    - signal: D0
+      pin: '38'
+    - signal: D1
+      pin: '39'
+  components:
+  - type: bme280_i2c
+    id: bme1
+    pins:
+      sda: '38'
+      scl: '39'
+    attrs:
+      temperatureC: '24.5'
+      humidityRH: '55.0'
+      pressurePa: '101325'
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+      required_patterns:
+      - i2c_
+  - family: bme280_environment
+    params:
+      expected_temperature_c: 24.5
+      expected_humidity_rh: 55.0
+      expected_pressure_pa: 101325
+      temperature_tolerance_c: 0.5
+      humidity_tolerance_rh: 2.0
+      pressure_tolerance_pa: 100
+      bus_activity:
+        bus: i2c
+        pins:
+        - D0
+        - D1
+        min_transitions: 2
+simulation:
+  timeout_ms: 3000
+case:
+  id: bme280-read-i2c-wokwi-esp32s3-espidf
+  sketch_name: bme280_read_i2c
+board:
+  type: board-esp32-s3-devkitc-1

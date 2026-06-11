@@ -1,0 +1,18 @@
+{
+  "id": "sensor-pir-human-motion-renode-nano33",
+  "task": "sensor_pir_human_motion",
+  "name": "Report PIR human motion and no-motion states (Zephyr / Nano 33 BLE)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/sensor_pir_human_motion",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "scenario": "scenario.yaml",
+    "serial_log": "artifacts/serial/serial.log",
+    "resc": "case.resc"
+  }
+}

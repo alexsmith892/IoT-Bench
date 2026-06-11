@@ -1,0 +1,12 @@
+task_id: sensor_pir_human_motion
+case_id: sensor-pir-human-motion-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/sensor_pir_human_motion
+  diagram: case.repl
+  build: artifacts/build
+  scenario: scenario.yaml
+  serial_log: artifacts/serial/serial.log
+  resc: case.resc

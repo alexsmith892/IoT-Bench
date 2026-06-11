@@ -1,0 +1,90 @@
+task_id: step_counter_print
+name: Count movement spikes from GY-521/MPU6050 and print steps
+platform: esp32s3_espidf
+level: level3
+fixture:
+  family: composite
+  components:
+  - type: mpu6050
+    id: imu1
+    pins:
+      sda: '38'
+      scl: '39'
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+  - part_id: imu1
+    control: accelX
+    value: 0.0
+    duration_ms: 50
+  - part_id: imu1
+    control: accelY
+    value: 0.0
+    duration_ms: 50
+  - part_id: imu1
+    control: accelZ
+    value: 1.0
+    duration_ms: 300
+  - part_id: imu1
+    control: accelZ
+    value: 1.9
+    duration_ms: 200
+  - part_id: imu1
+    control: accelZ
+    value: 1.0
+    duration_ms: 250
+  - part_id: imu1
+    control: accelZ
+    value: 1.9
+    duration_ms: 200
+  - part_id: imu1
+    control: accelZ
+    value: 1.0
+    duration_ms: 250
+  - part_id: imu1
+    control: accelZ
+    value: 1.9
+    duration_ms: 200
+  - part_id: imu1
+    control: accelZ
+    value: 1.0
+    duration_ms: 300
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      required_patterns:
+      - i2c_
+      - esp_timer_get_time\s*\(
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+  - family: serial_count_sequence
+    params:
+      expected_count: 3
+      match_mode: exact_sequence
+simulation:
+  timeout_ms: 2500
+case:
+  id: step-counter-print-wokwi-esp32s3-espidf
+  sketch_name: step_counter_print
+board:
+  type: board-esp32-s3-devkitc-1

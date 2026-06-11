@@ -1,0 +1,184 @@
+task_id: dht11_read_button_display
+name: Read DHT data on button interrupt and display temperature/RH on LCD
+platform: esp32s3_espidf
+level: level3
+fixture:
+  family: composite
+  analyzer:
+    channels:
+    - signal: D0
+      pin: '38'
+    - signal: D1
+      pin: '39'
+    - signal: D2
+      pin: '40'
+    - signal: D3
+      pin: '41'
+    - signal: D4
+      pin: '42'
+    - signal: D5
+      pin: '21'
+  components:
+  - type: button
+    id: btn1
+    pin: '38'
+  - type: dht11
+    id: dht1
+    pin: '14'
+    temperature: '24'
+    humidity: '40'
+  - type: lcd1602
+    id: lcd1
+    pins:
+      rs: '38'
+      e: '39'
+      d4: '40'
+      d5: '41'
+      d6: '42'
+      d7: '21'
+scenario:
+  family: timeline
+  steps:
+  - delay_ms: 200
+  - set_control:
+      part_id: btn1
+      control: pressed
+      value: 1
+  - delay_ms: 100
+  - set_control:
+      part_id: btn1
+      control: pressed
+      value: 0
+  - delay_ms: 700
+  - set_control:
+      part_id: dht1
+      control: temperature
+      value: 31
+  - set_control:
+      part_id: dht1
+      control: humidity
+      value: 62
+  - delay_ms: 250
+  - set_control:
+      part_id: btn1
+      control: pressed
+      value: 1
+  - delay_ms: 100
+  - set_control:
+      part_id: btn1
+      control: pressed
+      value: 0
+  - delay_ms: 700
+simulation_variants:
+- id: warm_to_hot
+  attrs:
+    dht1:
+      temperature: '24'
+      humidity: '40'
+- id: cool_to_mild
+  attrs:
+    dht1:
+      temperature: '18'
+      humidity: '55'
+  scenario:
+    family: timeline
+    steps:
+    - delay_ms: 200
+    - set_control:
+        part_id: btn1
+        control: pressed
+        value: 1
+    - delay_ms: 100
+    - set_control:
+        part_id: btn1
+        control: pressed
+        value: 0
+    - delay_ms: 700
+    - set_control:
+        part_id: dht1
+        control: temperature
+        value: 27
+    - set_control:
+        part_id: dht1
+        control: humidity
+        value: 33
+    - delay_ms: 250
+    - set_control:
+        part_id: btn1
+        control: pressed
+        value: 1
+    - delay_ms: 100
+    - set_control:
+        part_id: btn1
+        control: pressed
+        value: 0
+    - delay_ms: 700
+  validator:
+    checks:
+    - {}
+    - params:
+        frames:
+        - expected_texts:
+          - 'Temp:'
+          - 'RH:'
+          expected_regexps:
+          - Temp:\s*18(\.0)?\s*C
+          - RH:\s*55(\.0)?\s*%
+        - expected_texts:
+          - 'Temp:'
+          - 'RH:'
+          expected_regexps:
+          - Temp:\s*27(\.0)?\s*C
+          - RH:\s*33(\.0)?\s*%
+validator:
+  family: composite
+  checks:
+  - family: static_checks
+    params:
+      required_any_patterns:
+      - - attachInterrupt
+        - digitalPinToInterrupt
+      forbidden_calls:
+      - pinMode
+      - digitalRead
+      - digitalWrite
+      - analogRead
+      - delay
+      - delayMicroseconds
+      - tone
+      - noTone
+      - pulseIn
+      - Serial.begin
+      - Serial.print
+      - Serial.println
+      - Wire.begin
+      - Wire.requestFrom
+      - Wire.read
+      - SPI.begin
+      - LiquidCrystal
+      - Keypad
+      required_patterns:
+      - gpio_isr_handler_add|gpio_install_isr_service|gpio_get_level\s*\(
+      - gpio_set_level\s*\(
+  - family: lcd_text_sequence
+    params:
+      frames:
+      - expected_texts:
+        - 'Temp:'
+        - 'RH:'
+        expected_regexps:
+        - Temp:\s*24(\.0)?\s*C
+        - RH:\s*40(\.0)?\s*%
+      - expected_texts:
+        - 'Temp:'
+        - 'RH:'
+        expected_regexps:
+        - Temp:\s*31(\.0)?\s*C
+        - RH:\s*62(\.0)?\s*%
+simulation:
+  timeout_ms: 2700
+case:
+  id: dht11-read-button-display-wokwi-esp32s3-espidf
+  sketch_name: dht11_read_button_display
+board:
+  type: board-esp32-s3-devkitc-1
