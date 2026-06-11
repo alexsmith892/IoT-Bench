@@ -1,5 +1,0 @@
-[wokwi]
-version = 1
-firmware = 'cases/blink-1hz-wokwi-mega/artifacts/build/blink_1hz_wokwi_mega.ino.hex'
-elf = 'cases/blink-1hz-wokwi-mega/artifacts/build/blink_1hz_wokwi_mega.ino.elf'
-vcdFile = 'cases/blink-1hz-wokwi-mega/artifacts/logic/wokwi.vcd'
