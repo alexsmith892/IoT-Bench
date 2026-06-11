@@ -47,6 +47,8 @@ from .runner import (
 )
 from .scenarios import ScenarioError
 from .serial import SerialLogError
+from .renode import RenodeConfigError
+from . import renode as renode_module
 from .validators import StaticCheckError, VcdParseError, validate_task
 
 
@@ -65,6 +67,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     build.add_argument("--regenerate", action="store_true")
     build.add_argument("--arduino-cli", default="arduino-cli")
     build.add_argument("--idf-py", default="idf.py")
+    build.add_argument("--west", default="west")
 
     add_task_selection(subparsers.add_parser("lint", help="locally lint generated diagrams"))
     doctor = subparsers.add_parser("doctor", help="check local benchmark tooling")
@@ -84,6 +87,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     evaluate.add_argument("--arduino-cli", default="arduino-cli")
     evaluate.add_argument("--idf-py", default="idf.py")
     evaluate.add_argument("--wokwi-cli", default="wokwi-cli")
+    evaluate.add_argument("--west", default="west")
+    evaluate.add_argument("--renode", default="renode")
     evaluate.add_argument("--allow-tool-version-mismatch", action="store_true")
 
     repeatability = subparsers.add_parser("repeatability", help="run reference sketches repeatedly and emit a flake census JSONL")
@@ -95,6 +100,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     repeatability.add_argument("--arduino-cli", default="arduino-cli")
     repeatability.add_argument("--idf-py", default="idf.py")
     repeatability.add_argument("--wokwi-cli", default="wokwi-cli")
+    repeatability.add_argument("--west", default="west")
+    repeatability.add_argument("--renode", default="renode")
     repeatability.add_argument("--allow-tool-version-mismatch", action="store_true")
 
     validate = subparsers.add_parser(
@@ -139,6 +146,8 @@ def add_run_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--arduino-cli", default="arduino-cli")
     parser.add_argument("--idf-py", default="idf.py")
     parser.add_argument("--wokwi-cli", default="wokwi-cli")
+    parser.add_argument("--west", default="west")
+    parser.add_argument("--renode", default="renode")
     parser.add_argument("--allow-tool-version-mismatch", action="store_true")
 
 
@@ -170,6 +179,7 @@ def main(argv: list[str] | None = None) -> int:
                     regenerate=args.regenerate,
                     arduino_cli=args.arduino_cli,
                     idf_py=args.idf_py,
+                    west=args.west,
                 )
                 for task in tasks
             ]
@@ -184,7 +194,7 @@ def main(argv: list[str] | None = None) -> int:
                     unsupported.append(unsupported_task_payload(task))
                     continue
                 paths = ensure_case(task)
-                validate_diagram_file(paths.diagram, task)
+                lint_case_platform_file(task, paths)
                 linted.append(str(paths.diagram))
             print(json.dumps({"linted": linted, "unsupported": unsupported}, indent=2))
             return 0
@@ -203,6 +213,8 @@ def main(argv: list[str] | None = None) -> int:
                 arduino_cli="arduino-cli",
                 idf_py="idf.py",
                 wokwi_cli="wokwi-cli",
+                west="west",
+                renode_cli="renode",
                 archived_vcd=args.archived_vcd,
                 require_provenance=not args.allow_unverified_artifacts,
                 allow_tool_version_mismatch=args.allow_tool_version_mismatch,
@@ -222,6 +234,8 @@ def main(argv: list[str] | None = None) -> int:
                     arduino_cli=args.arduino_cli,
                     idf_py=args.idf_py,
                     wokwi_cli=args.wokwi_cli,
+                    west=args.west,
+                    renode_cli=args.renode,
                     archived_vcd=None,
                     require_provenance=not args.allow_unverified_artifacts,
                     allow_tool_version_mismatch=args.allow_tool_version_mismatch,
@@ -238,7 +252,7 @@ def main(argv: list[str] | None = None) -> int:
             payload = measure_repeatability(args)
             print(json.dumps(payload, indent=2))
             return 0
-    except (ConfigError, CaseConfigError, DiagramError, ScenarioError) as exc:
+    except (ConfigError, CaseConfigError, DiagramError, ScenarioError, RenodeConfigError) as exc:
         return emit_result(SIM_INFRA_FAIL, str(exc), failure_source=SOURCE_HARNESS)
 
     return emit_result(FAIL, f"unsupported command: {args.command}", failure_source=SOURCE_HARNESS)
@@ -311,6 +325,15 @@ def resolve_case(
     return with_sketch_override(task, paths, sketch_override)
 
 
+def lint_case_platform_file(task, paths: CasePaths) -> None:
+    if task.board_profile.backend == "renode":
+        from .renode import validate_renode_case
+
+        validate_renode_case(task, paths.diagram, paths.resc)
+        return
+    validate_diagram_file(paths.diagram, task)
+
+
 def build_single_task(
     task,
     *,
@@ -319,6 +342,7 @@ def build_single_task(
     regenerate: bool,
     arduino_cli: str,
     idf_py: str = "idf.py",
+    west: str = "west",
 ) -> dict[str, Any]:
     if not task.is_supported:
         return unsupported_task_result(task)
@@ -329,7 +353,7 @@ def build_single_task(
             sketch_override=sketch_override,
             regenerate=regenerate,
         )
-        build_case(task, paths, arduino_cli=arduino_cli, idf_py=idf_py)
+        build_case(task, paths, arduino_cli=arduino_cli, idf_py=idf_py, west=west)
         firmware_hex, firmware_elf = expected_firmware_paths(paths)
         return result_payload(
             PASS,
@@ -350,7 +374,7 @@ def build_single_task(
             failure_stage=exc.failure_stage,
             failure_source=exc.failure_source,
         )
-    except (ConfigError, CaseConfigError, DiagramError, ScenarioError) as exc:
+    except (ConfigError, CaseConfigError, DiagramError, ScenarioError, RenodeConfigError) as exc:
         return result_payload(SIM_INFRA_FAIL, str(exc), failure_source=SOURCE_HARNESS)
 
 
@@ -365,6 +389,8 @@ def run_single_task(
     arduino_cli: str,
     wokwi_cli: str,
     idf_py: str = "idf.py",
+    west: str = "west",
+    renode_cli: str = "renode",
     archived_vcd: str | None,
     require_provenance: bool = True,
     allow_tool_version_mismatch: bool = False,
@@ -384,9 +410,11 @@ def run_single_task(
                 arduino_cli=arduino_cli,
                 idf_py=idf_py,
                 wokwi_cli=wokwi_cli,
+                west=west,
+                renode_cli=renode_cli,
                 build_kind=task.board_profile.build_kind,
             )
-        validate_diagram_file(paths.diagram, task)
+        lint_case_platform_file(task, paths)
         if use_existing_artifacts:
             prepare_artifacts(
                 task,
@@ -396,6 +424,8 @@ def run_single_task(
                 arduino_cli=arduino_cli,
                 idf_py=idf_py,
                 wokwi_cli=wokwi_cli,
+                west=west,
+                renode_cli=renode_cli,
                 require_provenance=require_provenance,
                 ignore_vcd_provenance=archived_vcd is not None,
                 enforce_tool_versions=not allow_tool_version_mismatch,
@@ -408,6 +438,8 @@ def run_single_task(
             arduino_cli=arduino_cli,
             idf_py=idf_py,
             wokwi_cli=wokwi_cli,
+            west=west,
+            renode_cli=renode_cli,
             command="run",
         )
     except BuildSimulationError as exc:
@@ -417,7 +449,7 @@ def run_single_task(
             failure_stage=exc.failure_stage,
             failure_source=exc.failure_source,
         )
-    except (ConfigError, CaseConfigError, DiagramError, ScenarioError) as exc:
+    except (ConfigError, CaseConfigError, DiagramError, ScenarioError, RenodeConfigError) as exc:
         return result_payload(SIM_INFRA_FAIL, str(exc), failure_source=SOURCE_HARNESS)
     except (VcdParseError, SerialLogError, OSError, ValueError, json.JSONDecodeError) as exc:
         return result_payload(SIM_OUTPUT_FAIL, str(exc), failure_source=SOURCE_ARTIFACT)
@@ -469,6 +501,8 @@ def evaluate_one_submission(task, args: argparse.Namespace) -> dict[str, Any]:
             arduino_cli=args.arduino_cli,
             idf_py=args.idf_py,
             wokwi_cli=args.wokwi_cli,
+            west=args.west,
+            renode_cli=args.renode,
             archived_vcd=None,
             require_provenance=True,
             allow_tool_version_mismatch=args.allow_tool_version_mismatch,
@@ -500,6 +534,8 @@ def measure_repeatability(args: argparse.Namespace) -> dict[str, Any]:
                         arduino_cli=args.arduino_cli,
                         idf_py=args.idf_py,
                         wokwi_cli=args.wokwi_cli,
+                        west=args.west,
+                        renode_cli=args.renode,
                         archived_vcd=None,
                         require_provenance=True,
                         allow_tool_version_mismatch=args.allow_tool_version_mismatch,
@@ -547,6 +583,8 @@ def benchmark_row(task, sketch_path: Path, attempts: list[dict[str, Any]], args:
             arduino_cli=args.arduino_cli,
             idf_py=args.idf_py,
             wokwi_cli=args.wokwi_cli,
+            west=args.west,
+            renode_cli=args.renode,
             build_kind=task.board_profile.build_kind,
         ),
     }
@@ -573,13 +611,15 @@ def repeatability_row(task, attempts: list[dict[str, Any]], args: argparse.Names
             arduino_cli=args.arduino_cli,
             idf_py=args.idf_py,
             wokwi_cli=args.wokwi_cli,
+            west=args.west,
+            renode_cli=args.renode,
             build_kind=task.board_profile.build_kind,
         ),
     }
 
 
 def submission_path_for_task(task, sketch_dir: Path) -> Path:
-    if task.board_profile.build_kind == "espidf":
+    if task.board_profile.build_kind in {"espidf", "zephyr"}:
         project = sketch_dir / task.task_id
         if project.exists():
             return project
@@ -614,6 +654,24 @@ def print_many_or_one(results: list[dict[str, Any]]) -> None:
 def run_doctor(*, platform: str = "arduino_mega") -> dict[str, Any]:
     profile = board_profile_for_platform(platform)
     version_report = tool_version_report(build_kind=profile.build_kind)
+    version_check = {
+        "name": "pinned tool versions",
+        "ok": version_report["ok"],
+        "expected": version_report["expected"],
+        "actual": version_report["actual"],
+        "mismatches": version_report["mismatches"],
+    }
+    if profile.build_kind == "zephyr":
+        checks = [
+            check_python_package("yaml", "PyYAML"),
+            check_command(renode_module.renode_executable(), "--version"),
+            check_command(renode_module.west_executable(), "--version"),
+            check_zephyr_workspace(),
+            check_zephyr_build_tools(),
+            version_check,
+            check_writable_artifacts(),
+        ]
+        return {"ok": all(check["ok"] for check in checks), "checks": checks}
     build_tool_check = (
         check_command("idf.py", "--version")
         if profile.build_kind == "espidf"
@@ -623,13 +681,7 @@ def run_doctor(*, platform: str = "arduino_mega") -> dict[str, Any]:
         check_python_package("yaml", "PyYAML"),
         build_tool_check,
         check_command("wokwi-cli", "--version"),
-        {
-            "name": "pinned tool versions",
-            "ok": version_report["ok"],
-            "expected": version_report["expected"],
-            "actual": version_report["actual"],
-            "mismatches": version_report["mismatches"],
-        },
+        version_check,
         check_env("WOKWI_CLI_TOKEN"),
         check_wokwi_help(),
         check_writable_artifacts(),
@@ -639,6 +691,42 @@ def run_doctor(*, platform: str = "arduino_mega") -> dict[str, Any]:
     return {
         "ok": all(check["ok"] for check in checks),
         "checks": checks,
+    }
+
+
+def check_zephyr_workspace() -> dict[str, Any]:
+    workspace = renode_module.zephyr_workspace()
+    zephyr_dir = workspace / "zephyr"
+    revision = renode_module.zephyr_revision(workspace)
+    ok = zephyr_dir.exists() and revision is not None
+    return {
+        "name": "Zephyr workspace",
+        "ok": ok,
+        "path": str(workspace),
+        "zephyr_revision": revision,
+        "reason": None if ok else f"no west workspace with a zephyr checkout at {workspace} (set ZEPHYR_WORKSPACE)",
+    }
+
+
+def check_zephyr_build_tools() -> dict[str, Any]:
+    env = renode_module.zephyr_build_env()
+    missing = []
+    for tool in ("cmake", "ninja"):
+        if not shutil.which(tool, path=env.get("PATH")):
+            missing.append(tool)
+    stage_root = renode_module.zephyr_build_root()
+    reason = None
+    ok = not missing
+    if missing:
+        reason = f"not found on PATH or known install locations: {', '.join(missing)}"
+    elif " " in str(stage_root):
+        ok = False
+        reason = f"Zephyr staging dir contains spaces: {stage_root} (set IOTBENCH_ZEPHYR_BUILD_ROOT)"
+    return {
+        "name": "Zephyr build tools (cmake, ninja)",
+        "ok": ok,
+        "staging_dir": str(stage_root),
+        "reason": reason,
     }
 
 

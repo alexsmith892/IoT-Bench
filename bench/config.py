@@ -31,6 +31,8 @@ class BoardProfile:
     build_kind: str = "arduino"
     idf_target: str | None = None
     firmware_kind: str = "arduino_image"
+    backend: str = "wokwi"
+    zephyr_board: str | None = None
 
 
 BOARD_PROFILES = {
@@ -104,6 +106,37 @@ BOARD_PROFILES = {
             "spi_miso": "13",
             "spi_mosi": "11",
             "spi_cs": "10",
+        },
+    ),
+    "zephyr_nano33ble": BoardProfile(
+        platform="zephyr_nano33ble",
+        board_type="renode-arduino-nano-33-ble",
+        part_id="nano33",
+        fqbn="",
+        firmware_extension="",
+        voltage=3.3,
+        adc_max=4095,
+        power_pin="3V3",
+        ground_pin="GND.1",
+        build_kind="zephyr",
+        firmware_kind="zephyr_image",
+        backend="renode",
+        zephyr_board="arduino_nano_33_ble",
+        default_pins={
+            # nRF52840 GPIO as "P<port>.<pin>". P0.24 is the board's red LED
+            # (devicetree alias led0); the rest are free Arduino-header pins.
+            "led": "P0.24",
+            "led2": "P0.16",
+            "button": "P1.11",
+            "buzzer": "P1.12",
+            "pir": "P1.15",
+            "analog": "P0.04",
+            "i2c_sda": "P0.31",
+            "i2c_scl": "P0.02",
+            "spi_sck": "P0.13",
+            "spi_miso": "P1.08",
+            "spi_mosi": "P1.01",
+            "spi_cs": "P1.02",
         },
     ),
 }

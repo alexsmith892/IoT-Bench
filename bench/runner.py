@@ -42,6 +42,7 @@ from .results import (
     result_payload,
 )
 from .scenarios import generate_scenario, write_scenario
+from . import renode
 
 
 class RunnerError(Exception):
@@ -84,6 +85,10 @@ class CasePaths:
     vcd: Path | None = None
     scenario: Path | None = None
     serial_log: Path | None = None
+    # Renode backend only: the generated monitor script. For Renode cases the
+    # `diagram` field holds the .repl platform description (same provenance
+    # and variant plumbing as Wokwi diagrams) and `wokwi_toml` is unused.
+    resc: Path | None = None
 
     @property
     def firmware_image(self) -> Path:
@@ -113,11 +118,22 @@ def generate_case(task: TaskConfig, *, root: Path | None = None) -> CasePaths:
     case_dir = case_dir_for_task(task, root)
     paths = case_paths_from_task(task, case_dir)
 
-    write_diagram(paths.diagram, generate_diagram(task))
     scenario_data = generate_scenario(task)
     if paths.scenario:
         write_scenario(paths.scenario, scenario_data)
 
+    if task.board_profile.backend == "renode":
+        paths.diagram.parent.mkdir(parents=True, exist_ok=True)
+        paths.diagram.write_text(renode.generate_repl(task), encoding="utf-8")
+        write_case_resc(task, paths, scenario_data)
+        write_case_yaml(task, paths)
+        write_case_json(task, paths)
+        ensure_sketch_files(task, paths.sketch)
+        ensure_artifact_dirs(paths)
+        renode.validate_renode_case(task, paths.diagram, paths.resc)
+        return paths
+
+    write_diagram(paths.diagram, generate_diagram(task))
     write_case_yaml(task, paths)
     write_case_json(task, paths)
     write_wokwi_toml(task, paths)
@@ -126,6 +142,31 @@ def generate_case(task: TaskConfig, *, root: Path | None = None) -> CasePaths:
     ensure_artifact_dirs(paths)
     validate_diagram_file(paths.diagram, task)
     return paths
+
+
+def write_case_resc(
+    task: TaskConfig,
+    paths: CasePaths,
+    scenario_data: dict[str, Any] | None,
+    *,
+    timeout_ms: int | None = None,
+) -> None:
+    if paths.resc is None:
+        raise CaseConfigError(f"{task.task_id}: Renode case has no resc path")
+    elf = expected_firmware_paths(paths)[1]
+    text = renode.generate_resc(
+        task,
+        repl_relpath=relative_to(paths.diagram, paths.case_dir),
+        elf_relpath=relative_to(elf, paths.case_dir),
+        serial_relpath=(
+            relative_to(paths.serial_log, paths.case_dir) if paths.serial_log else None
+        ),
+        vcd_relpath=relative_to(paths.vcd, paths.case_dir) if paths.vcd else None,
+        scenario=scenario_data,
+        timeout_ms=timeout_ms or int(task.simulation.get("timeout_ms", 5000)),
+    )
+    paths.resc.parent.mkdir(parents=True, exist_ok=True)
+    paths.resc.write_text(text, encoding="utf-8")
 
 
 def ensure_custom_chip_artifacts(task: TaskConfig, paths: CasePaths, root: Path) -> None:
@@ -140,6 +181,12 @@ def ensure_custom_chip_artifacts(task: TaskConfig, paths: CasePaths, root: Path)
             if destination.exists():
                 continue
             source = source_case_dir / relative
+            if not source.exists():
+                source = root / "bench" / "chips" / str(chip["name"]) / relative.name
+            if not source.exists():
+                matches = sorted((root / "cases").glob(f"*/chips/{relative.name}"))
+                if matches:
+                    source = matches[0]
             if source.exists():
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source, destination)
@@ -159,24 +206,30 @@ def ensure_artifact_dirs(paths: CasePaths) -> None:
 def case_paths_from_task(task: TaskConfig, case_dir: Path) -> CasePaths:
     sketch = case_dir / "sketch" / task.sketch_name
     scenario = case_dir / "scenario.yaml" if task.scenario else None
+    is_renode = task.board_profile.backend == "renode"
     return CasePaths(
         task_id=task.task_id,
         case_id=task.case_id,
         case_dir=case_dir,
         sketch=sketch,
-        diagram=case_dir / "diagram.json",
+        diagram=case_dir / ("case.repl" if is_renode else "diagram.json"),
         wokwi_toml=case_dir / "wokwi.toml",
         build_dir=case_dir / "artifacts" / "build",
         fqbn=task.board.get("fqbn", DEFAULT_FQBN),
         firmware_extension=task.board_profile.firmware_extension,
         firmware_kind=task.board_profile.firmware_kind,
-        vcd=(case_dir / "artifacts" / "logic" / "wokwi.vcd" if task.requires_vcd else None),
+        vcd=(
+            case_dir / "artifacts" / "logic" / ("renode.vcd" if is_renode else "wokwi.vcd")
+            if task.requires_vcd
+            else None
+        ),
         scenario=scenario,
         serial_log=(
             case_dir / "artifacts" / "serial" / "serial.log"
             if task.requires_serial_log
             else None
         ),
+        resc=(case_dir / "case.resc" if is_renode else None),
     )
 
 
@@ -185,21 +238,29 @@ def write_case_yaml(task: TaskConfig, paths: CasePaths) -> None:
         "task_id": task.task_id,
         "case_id": task.case_id,
         "board": task.board,
-        "paths": {
-            "sketch": relative_to(paths.sketch, paths.case_dir),
-            "diagram": relative_to(paths.diagram, paths.case_dir),
-            "wokwi": relative_to(paths.wokwi_toml, paths.case_dir),
-            "build": relative_to(paths.build_dir, paths.case_dir),
-        },
+        "paths": case_manifest_paths(task, paths),
     }
-    if paths.vcd:
-        data["paths"]["vcd"] = relative_to(paths.vcd, paths.case_dir)
-    if paths.scenario:
-        data["paths"]["scenario"] = relative_to(paths.scenario, paths.case_dir)
-    if paths.serial_log:
-        data["paths"]["serial_log"] = relative_to(paths.serial_log, paths.case_dir)
     (paths.case_dir / "case.yaml").parent.mkdir(parents=True, exist_ok=True)
     (paths.case_dir / "case.yaml").write_text(to_yaml_text(data), encoding="utf-8")
+
+
+def case_manifest_paths(task: TaskConfig, paths: CasePaths) -> dict[str, str]:
+    entry: dict[str, str] = {
+        "sketch": relative_to(paths.sketch, paths.case_dir),
+        "diagram": relative_to(paths.diagram, paths.case_dir),
+    }
+    if task.board_profile.backend != "renode":
+        entry["wokwi"] = relative_to(paths.wokwi_toml, paths.case_dir)
+    entry["build"] = relative_to(paths.build_dir, paths.case_dir)
+    if paths.vcd:
+        entry["vcd"] = relative_to(paths.vcd, paths.case_dir)
+    if paths.scenario:
+        entry["scenario"] = relative_to(paths.scenario, paths.case_dir)
+    if paths.serial_log:
+        entry["serial_log"] = relative_to(paths.serial_log, paths.case_dir)
+    if paths.resc:
+        entry["resc"] = relative_to(paths.resc, paths.case_dir)
+    return entry
 
 
 def write_case_json(task: TaskConfig, paths: CasePaths) -> None:
@@ -208,21 +269,10 @@ def write_case_json(task: TaskConfig, paths: CasePaths) -> None:
         "id": task.case_id,
         "task": task.task_id,
         "name": task.name,
-        "simulator": "wokwi",
+        "simulator": task.board_profile.backend,
         "board": task.board,
-        "paths": {
-            "sketch": relative_to(paths.sketch, paths.case_dir),
-            "diagram": relative_to(paths.diagram, paths.case_dir),
-            "wokwi": relative_to(paths.wokwi_toml, paths.case_dir),
-            "build": relative_to(paths.build_dir, paths.case_dir),
-        },
+        "paths": case_manifest_paths(task, paths),
     }
-    if paths.vcd:
-        data["paths"]["vcd"] = relative_to(paths.vcd, paths.case_dir)
-    if paths.scenario:
-        data["paths"]["scenario"] = relative_to(paths.scenario, paths.case_dir)
-    if paths.serial_log:
-        data["paths"]["serial_log"] = relative_to(paths.serial_log, paths.case_dir)
     if channels:
         data["observed_signal"] = {
             "vcd_name": channels[0]["signal"],
@@ -269,6 +319,11 @@ def write_wokwi_toml(task: TaskConfig, paths: CasePaths) -> None:
 
 
 def expected_firmware_paths(paths: CasePaths) -> tuple[Path, Path]:
+    if paths.firmware_kind == "zephyr_image":
+        return (
+            paths.build_dir / "zephyr" / "zephyr.hex",
+            paths.build_dir / "zephyr" / "zephyr.elf",
+        )
     if paths.wokwi_toml.exists():
         configured = read_wokwi_firmware_paths(paths)
         if configured:
@@ -302,6 +357,9 @@ def ensure_sketch_files(task: TaskConfig, sketch_dir: Path) -> None:
     if task.board_profile.build_kind == "espidf":
         ensure_espidf_project_files(task, sketch_dir)
         return
+    if task.board_profile.build_kind == "zephyr":
+        ensure_zephyr_project_files(task, sketch_dir)
+        return
     ensure_arduino_sketch_files(task, sketch_dir)
 
 
@@ -333,6 +391,40 @@ def ensure_espidf_project_files(task: TaskConfig, project_dir: Path) -> None:
     main_source = main_dir / "main.c"
     if not main_source.exists() or task.level in {"level2", "level3"}:
         main_source.write_text(example_sketch(task), encoding="utf-8")
+
+
+def ensure_zephyr_project_files(task: TaskConfig, project_dir: Path) -> None:
+    """Zephyr app skeleton. The harness owns CMakeLists.txt and prj.conf;
+    submissions provide only src/main.c (mirrors the ESP-IDF arrangement)."""
+
+    project_dir.mkdir(parents=True, exist_ok=True)
+    src_dir = project_dir / "src"
+    src_dir.mkdir(parents=True, exist_ok=True)
+    cmake = project_dir / "CMakeLists.txt"
+    if not cmake.exists():
+        cmake.write_text(zephyr_root_cmake(task), encoding="utf-8")
+    prj_conf = project_dir / "prj.conf"
+    if not prj_conf.exists():
+        prj_conf.write_text(zephyr_prj_conf(), encoding="utf-8")
+    main_source = src_dir / "main.c"
+    if not main_source.exists() or task.level in {"level2", "level3"}:
+        main_source.write_text(example_sketch(task), encoding="utf-8")
+
+
+def zephyr_root_cmake(task: TaskConfig) -> str:
+    return f"""\
+cmake_minimum_required(VERSION 3.20.0)
+find_package(Zephyr REQUIRED HINTS $ENV{{ZEPHYR_BASE}})
+project({task.sketch_name})
+
+target_sources(app PRIVATE src/main.c)
+"""
+
+
+def zephyr_prj_conf() -> str:
+    return """\
+CONFIG_GPIO=y
+"""
 
 
 def espidf_root_cmake(task: TaskConfig) -> str:
@@ -391,6 +483,7 @@ def load_case_paths(
         vcd=(case_dir / paths["vcd"] if paths.get("vcd") else None),
         scenario=(case_dir / paths["scenario"] if paths.get("scenario") else None),
         serial_log=(case_dir / paths["serial_log"] if paths.get("serial_log") else None),
+        resc=(case_dir / paths["resc"] if paths.get("resc") else None),
     )
 
 
@@ -412,6 +505,8 @@ def normalize_sketch_override(task: TaskConfig, paths: CasePaths, sketch_overrid
     destination.parent.mkdir(parents=True, exist_ok=True)
     if task.board_profile.build_kind == "espidf":
         return normalize_espidf_submission(task, source, destination)
+    if task.board_profile.build_kind == "zephyr":
+        return normalize_zephyr_submission(task, source, destination)
 
     return normalize_arduino_submission(task, source, destination)
 
@@ -500,6 +595,37 @@ def normalize_espidf_submission(task: TaskConfig, source: Path, destination: Pat
     return destination
 
 
+def normalize_zephyr_submission(task: TaskConfig, source: Path, destination: Path) -> Path:
+    """Zephyr submissions are a single C source file (the harness owns
+    CMakeLists.txt and prj.conf) or a full app directory matching the
+    skeleton layout."""
+
+    if source.is_file():
+        if source.suffix.lower() != ".c":
+            raise BuildSimulationError(
+                f"submitted Zephyr source file must be .c: {source}",
+                classification=COMPILE_FAIL,
+                failure_stage=STAGE_COMPILE,
+                failure_source=SOURCE_USER_CODE,
+            )
+        ensure_zephyr_project_files(task, destination)
+        shutil.copy2(source, destination / "src" / "main.c")
+        return destination
+
+    cmake = source / "CMakeLists.txt"
+    prj_conf = source / "prj.conf"
+    sources = sorted((source / "src").glob("*.c"))
+    if not cmake.exists() or not prj_conf.exists() or not sources:
+        raise BuildSimulationError(
+            f"submitted Zephyr project must contain CMakeLists.txt, prj.conf, and src/*.c: {source}",
+            classification=COMPILE_FAIL,
+            failure_stage=STAGE_COMPILE,
+            failure_source=SOURCE_USER_CODE,
+        )
+    shutil.copytree(source, destination)
+    return destination
+
+
 def required_path(paths: dict[str, str], key: str) -> str:
     value = paths.get(key)
     if not value:
@@ -541,6 +667,8 @@ def prepare_artifacts(
     arduino_cli: str = "arduino-cli",
     idf_py: str = "idf.py",
     wokwi_cli: str = "wokwi-cli",
+    west: str = "west",
+    renode_cli: str = "renode",
     require_provenance: bool = True,
     ignore_vcd_provenance: bool = False,
     enforce_tool_versions: bool = True,
@@ -555,17 +683,20 @@ def prepare_artifacts(
                 arduino_cli=arduino_cli,
                 idf_py=idf_py,
                 wokwi_cli=wokwi_cli,
+                west=west,
+                renode_cli=renode_cli,
                 enforce_tool_versions=enforce_tool_versions,
             )
         return
 
-    build_case(task, paths, arduino_cli=arduino_cli, idf_py=idf_py)
+    build_case(task, paths, arduino_cli=arduino_cli, idf_py=idf_py, west=west)
     if task.simulation_variants:
         simulate_variants(
             task,
             paths,
             simulation_time_ms=simulation_time_ms,
             wokwi_cli=wokwi_cli,
+            renode_cli=renode_cli,
         )
     else:
         simulate_case(
@@ -573,6 +704,7 @@ def prepare_artifacts(
             paths,
             simulation_time_ms=simulation_time_ms,
             wokwi_cli=wokwi_cli,
+            renode_cli=renode_cli,
         )
     ensure_existing_variant_outputs(task, paths)
 
@@ -583,6 +715,7 @@ def build_case(
     *,
     arduino_cli: str = "arduino-cli",
     idf_py: str = "idf.py",
+    west: str = "west",
 ) -> None:
     ensure_artifact_dirs(paths)
 
@@ -595,12 +728,12 @@ def build_case(
         )
     if not paths.diagram.exists():
         raise BuildSimulationError(
-            f"diagram.json not found: {paths.diagram}",
+            f"platform description not found: {paths.diagram}",
             classification=SIM_INFRA_FAIL,
             failure_stage=STAGE_SIM_INFRA,
             failure_source=SOURCE_HARNESS,
         )
-    if not paths.wokwi_toml.exists():
+    if task.board_profile.backend != "renode" and not paths.wokwi_toml.exists():
         raise BuildSimulationError(
             f"wokwi.toml not found: {paths.wokwi_toml}",
             classification=SIM_INFRA_FAIL,
@@ -612,6 +745,8 @@ def build_case(
 
     if task.board_profile.build_kind == "espidf":
         build_espidf_case(task, paths, idf_py=idf_py)
+    elif task.board_profile.build_kind == "zephyr":
+        build_zephyr_case(task, paths, west=west)
     else:
         build_arduino_case(paths, arduino_cli=arduino_cli)
     ensure_firmware_outputs(paths)
@@ -642,21 +777,23 @@ def build_arduino_case(paths: CasePaths, *, arduino_cli: str) -> None:
 
 def build_espidf_case(task: TaskConfig, paths: CasePaths, *, idf_py: str) -> None:
     target = task.board_profile.idf_target
-    command = [
-        idf_py,
+    sketch_arg = relative_to(paths.sketch, paths.case_dir)
+    build_arg = relative_to(paths.build_dir, paths.case_dir)
+    idf_args = [
         "-C",
-        str(paths.sketch),
+        sketch_arg,
         "-B",
-        str(paths.build_dir),
+        build_arg,
     ]
     if target:
-        command.append(f"-DIDF_TARGET={target}")
-    command.append("build")
+        idf_args.append(f"-DIDF_TARGET={target}")
+    idf_args.append("build")
+    command = command_with_windows_batch_wrapper(idf_py, idf_args)
     run_checked(
         command,
         cwd=paths.case_dir,
         stage="compile",
-        timeout_s=120.0,
+        timeout_s=300.0,
         command_failure_classification=COMPILE_FAIL,
         command_failure_stage=STAGE_COMPILE,
         infra_failure_classification=SIM_INFRA_FAIL,
@@ -666,13 +803,128 @@ def build_espidf_case(task: TaskConfig, paths: CasePaths, *, idf_py: str) -> Non
     )
 
 
+def build_zephyr_case(task: TaskConfig, paths: CasePaths, *, west: str = "west") -> None:
+    """west build, staged to a space-free directory.
+
+    Zephyr's kconfig.cmake fails on application paths containing spaces
+    (verified live; this repo's path contains "! IoT"), so the app sources
+    are copied to a staging dir, built there, and zephyr.elf/zephyr.hex are
+    copied back into the case's artifacts/build/zephyr/.
+
+    Failure mapping: the harness owns CMakeLists.txt and prj.conf, so a
+    CMake configure failure cannot be caused by the submitted main.c and is
+    an environment problem (-> IF). Only the compile step is charged as CF.
+    """
+
+    west_exe = renode.west_executable(west)
+    workspace = renode.zephyr_workspace()
+    if not workspace.exists():
+        raise BuildSimulationError(
+            f"Zephyr workspace not found: {workspace} (set ZEPHYR_WORKSPACE)",
+            classification=SIM_INFRA_FAIL,
+            failure_stage=STAGE_SIM_INFRA,
+            failure_source=SOURCE_ENVIRONMENT,
+        )
+    board = task.board_profile.zephyr_board
+    if not board:
+        raise BuildSimulationError(
+            f"{task.task_id}: board profile has no zephyr_board",
+            classification=SIM_INFRA_FAIL,
+            failure_stage=STAGE_SIM_INFRA,
+            failure_source=SOURCE_HARNESS,
+        )
+
+    stage_root = renode.zephyr_build_root()
+    if " " in str(stage_root):
+        raise BuildSimulationError(
+            f"Zephyr staging dir contains spaces: {stage_root} (set IOTBENCH_ZEPHYR_BUILD_ROOT)",
+            classification=SIM_INFRA_FAIL,
+            failure_stage=STAGE_SIM_INFRA,
+            failure_source=SOURCE_ENVIRONMENT,
+        )
+    stage = stage_root / safe_filename_part(paths.case_id)
+    app_dir = stage / "app"
+    build_dir = stage / "build"
+    if stage.exists():
+        shutil.rmtree(stage)
+    app_dir.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(paths.sketch, app_dir)
+
+    env = renode.zephyr_build_env()
+    base_cmd = [
+        west_exe,
+        "build",
+        "-b",
+        board,
+        str(app_dir),
+        "--build-dir",
+        str(build_dir),
+    ]
+    # Configure first: failures here are environment problems (-> IF).
+    run_checked(
+        [*base_cmd[:2], "-p", "always", *base_cmd[2:], "--cmake-only"],
+        cwd=workspace,
+        stage="zephyr configure",
+        timeout_s=600.0,
+        env=env,
+        command_failure_classification=SIM_INFRA_FAIL,
+        command_failure_stage=STAGE_SIM_INFRA,
+        infra_failure_classification=SIM_INFRA_FAIL,
+        infra_failure_stage=STAGE_SIM_INFRA,
+        command_failure_source=SOURCE_ENVIRONMENT,
+        infra_failure_source=SOURCE_ENVIRONMENT,
+    )
+    # Compile: failures here are attributable to the submitted source (-> CF).
+    run_checked(
+        base_cmd,
+        cwd=workspace,
+        stage="zephyr compile",
+        timeout_s=600.0,
+        env=env,
+        command_failure_classification=COMPILE_FAIL,
+        command_failure_stage=STAGE_COMPILE,
+        infra_failure_classification=SIM_INFRA_FAIL,
+        infra_failure_stage=STAGE_SIM_INFRA,
+        command_failure_source=SOURCE_USER_CODE,
+        infra_failure_source=SOURCE_ENVIRONMENT,
+    )
+
+    produced_dir = build_dir / "zephyr"
+    destination_dir = paths.build_dir / "zephyr"
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    for name in ("zephyr.elf", "zephyr.hex"):
+        produced = produced_dir / name
+        if produced.exists():
+            shutil.copy2(produced, destination_dir / name)
+
+
+def command_with_windows_batch_wrapper(command: str, args: list[str]) -> list[str]:
+    if sys.platform == "win32" and Path(command).suffix.lower() in {".cmd", ".bat"}:
+        powershell_command = " ".join([powershell_quote(command), *(powershell_quote(arg) for arg in args)])
+        return ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", f"& {powershell_command}"]
+    return [command, *args]
+
+
+def powershell_quote(value: str) -> str:
+    return "'" + str(value).replace("'", "''") + "'"
+
+
 def simulate_case(
     task: TaskConfig,
     paths: CasePaths,
     *,
     simulation_time_ms: int | None = None,
     wokwi_cli: str = "wokwi-cli",
+    renode_cli: str = "renode",
 ) -> None:
+    if task.board_profile.backend == "renode":
+        simulate_case_renode(
+            task,
+            paths,
+            simulation_time_ms=simulation_time_ms,
+            renode_cli=renode_cli,
+        )
+        return
     ensure_artifact_dirs(paths)
     ensure_firmware_outputs(paths)
     if not paths.diagram.exists():
@@ -734,6 +986,74 @@ def simulate_case(
     ensure_existing_outputs(task, paths)
 
 
+def simulate_case_renode(
+    task: TaskConfig,
+    paths: CasePaths,
+    *,
+    simulation_time_ms: int | None = None,
+    renode_cli: str = "renode",
+) -> None:
+    ensure_artifact_dirs(paths)
+    ensure_firmware_outputs(paths)
+    if not paths.diagram.exists():
+        raise BuildSimulationError(
+            f"platform description not found: {paths.diagram}",
+            classification=SIM_INFRA_FAIL,
+            failure_stage=STAGE_SIM_INFRA,
+            failure_source=SOURCE_HARNESS,
+        )
+    if paths.resc is None:
+        raise BuildSimulationError(
+            f"{task.task_id}: Renode case has no resc path",
+            classification=SIM_INFRA_FAIL,
+            failure_stage=STAGE_SIM_INFRA,
+            failure_source=SOURCE_HARNESS,
+        )
+
+    archive_current_outputs(paths)
+    if paths.vcd:
+        paths.vcd.parent.mkdir(parents=True, exist_ok=True)
+    if paths.serial_log:
+        paths.serial_log.parent.mkdir(parents=True, exist_ok=True)
+
+    timeout_ms = simulation_time_ms or int(task.simulation.get("timeout_ms", 5000))
+    # The resc is a deterministic function of (task, paths, timeout); re-emit
+    # so a simulation-time override or scenario change is always honored.
+    try:
+        write_case_resc(task, paths, generate_scenario(task), timeout_ms=timeout_ms)
+    except renode.RenodeConfigError as exc:
+        raise BuildSimulationError(
+            str(exc),
+            classification=SIM_INFRA_FAIL,
+            failure_stage=STAGE_SIM_INFRA,
+            failure_source=SOURCE_HARNESS,
+        ) from exc
+
+    renode_exe = renode.renode_executable(renode_cli)
+    resc_rel = relative_to(paths.resc, paths.case_dir)
+    run_checked(
+        [
+            renode_exe,
+            "--disable-xwt",
+            "--console",
+            "-e",
+            f"include @{resc_rel}",
+        ],
+        cwd=paths.case_dir,
+        stage="renode simulation",
+        # Renode runs at roughly 3x wall/virtual on this hardware plus ~5s
+        # startup; the guard is generous so a hang is an IF, not a flake.
+        timeout_s=max(60.0, timeout_ms / 1000.0 * 10.0 + 30.0),
+        command_failure_classification=SIM_INFRA_FAIL,
+        command_failure_stage=STAGE_SIM_INFRA,
+        infra_failure_classification=SIM_INFRA_FAIL,
+        infra_failure_stage=STAGE_SIM_INFRA,
+        command_failure_source=SOURCE_SIMULATOR,
+        infra_failure_source=SOURCE_ENVIRONMENT,
+    )
+    ensure_existing_outputs(task, paths)
+
+
 def run_case(
     task: TaskConfig,
     paths: CasePaths,
@@ -742,15 +1062,18 @@ def run_case(
     arduino_cli: str = "arduino-cli",
     idf_py: str = "idf.py",
     wokwi_cli: str = "wokwi-cli",
+    west: str = "west",
+    renode_cli: str = "renode",
     command: str = "run",
 ) -> dict[str, Any]:
-    build_case(task, paths, arduino_cli=arduino_cli, idf_py=idf_py)
+    build_case(task, paths, arduino_cli=arduino_cli, idf_py=idf_py, west=west)
     if task.simulation_variants:
         simulate_variants(
             task,
             paths,
             simulation_time_ms=simulation_time_ms,
             wokwi_cli=wokwi_cli,
+            renode_cli=renode_cli,
         )
     else:
         simulate_case(
@@ -758,6 +1081,7 @@ def run_case(
             paths,
             simulation_time_ms=simulation_time_ms,
             wokwi_cli=wokwi_cli,
+            renode_cli=renode_cli,
         )
     result = validate_case(task, paths)
     write_verification(
@@ -768,6 +1092,8 @@ def run_case(
         arduino_cli=arduino_cli,
         idf_py=idf_py,
         wokwi_cli=wokwi_cli,
+        west=west,
+        renode_cli=renode_cli,
     )
     return result
 
@@ -786,11 +1112,22 @@ def simulate_variants(
     *,
     simulation_time_ms: int | None = None,
     wokwi_cli: str = "wokwi-cli",
+    renode_cli: str = "renode",
 ) -> list[CasePaths]:
     simulated: list[CasePaths] = []
+    is_renode = task.board_profile.backend == "renode"
     for variant in task.simulation_variants:
         variant_paths = paths_for_variant(paths, variant_id(variant), variant)
-        write_variant_diagram(paths.diagram, variant_paths.diagram, variant)
+        if is_renode:
+            if variant.get("attrs"):
+                raise CaseConfigError(
+                    f"{task.task_id}: per-variant attrs are not supported by the "
+                    "Renode backend yet; use per-variant scenario overrides"
+                )
+            variant_paths.diagram.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(paths.diagram, variant_paths.diagram)
+        else:
+            write_variant_diagram(paths.diagram, variant_paths.diagram, variant)
         proxy = task_for_variant(task, variant)
         if variant_scenario_override(variant) is not None and variant_paths.scenario:
             write_scenario(variant_paths.scenario, generate_scenario(proxy))
@@ -799,6 +1136,7 @@ def simulate_variants(
             variant_paths,
             simulation_time_ms=simulation_time_ms,
             wokwi_cli=wokwi_cli,
+            renode_cli=renode_cli,
         )
         simulated.append(variant_paths)
     return simulated
@@ -903,9 +1241,11 @@ def paths_for_variant(
     paths: CasePaths, current_id: str, variant: dict[str, Any] | None = None
 ) -> CasePaths:
     variant_dir = paths.case_dir / "artifacts" / "variants" / current_id
+    is_renode = paths.resc is not None
     return replace(
         paths,
-        diagram=variant_dir / "diagram.json",
+        resc=(variant_dir / "case.resc" if is_renode else None),
+        diagram=variant_dir / ("case.repl" if is_renode else "diagram.json"),
         vcd=(paths.case_dir / "artifacts" / "logic" / f"{current_id}.vcd" if paths.vcd else None),
         scenario=(
             variant_dir / "scenario.yaml"
@@ -1120,6 +1460,7 @@ def run_checked(
     cwd: Path,
     stage: str,
     timeout_s: float | None = None,
+    env: dict[str, str] | None = None,
     command_failure_classification: str,
     command_failure_stage: str,
     infra_failure_classification: str,
@@ -1136,6 +1477,7 @@ def run_checked(
             text=True,
             check=False,
             timeout=timeout_s,
+            env=env,
         )
     except FileNotFoundError as exc:
         raise BuildSimulationError(
@@ -1177,8 +1519,17 @@ def write_verification(
     arduino_cli: str = "arduino-cli",
     idf_py: str = "idf.py",
     wokwi_cli: str = "wokwi-cli",
+    west: str = "west",
+    renode_cli: str = "renode",
 ) -> Path:
-    tool_versions = current_tool_versions(arduino_cli=arduino_cli, idf_py=idf_py, wokwi_cli=wokwi_cli)
+    tool_versions = current_tool_versions(
+        arduino_cli=arduino_cli,
+        idf_py=idf_py,
+        wokwi_cli=wokwi_cli,
+        west=west,
+        renode_cli=renode_cli,
+        build_kind=task.board_profile.build_kind,
+    )
     manifest = {
         "manifest_version": 2,
         "task_id": task.task_id,
@@ -1189,12 +1540,17 @@ def write_verification(
         "arduino_cli_version": tool_versions["arduino_cli_version"],
         "idf_py_version": tool_versions["idf_py_version"],
         "wokwi_cli_version": tool_versions["wokwi_cli_version"],
+        "renode_version": tool_versions["renode_version"],
+        "west_version": tool_versions["west_version"],
+        "zephyr_revision": tool_versions["zephyr_revision"],
         "sketch_path": relative_to(paths.sketch, paths.case_dir),
         "sketch_hash": hash_path(paths.sketch),
         "diagram_path": relative_to(paths.diagram, paths.case_dir),
         "diagram_hash": hash_file(paths.diagram),
         "scenario_path": relative_to(paths.scenario, paths.case_dir) if paths.scenario else None,
         "scenario_hash": hash_file(paths.scenario) if paths.scenario else None,
+        "resc_path": relative_to(paths.resc, paths.case_dir) if paths.resc else None,
+        "resc_hash": hash_file(paths.resc) if paths.resc else None,
         "firmware_image": relative_to(paths.firmware_image, paths.case_dir),
         "firmware_image_hash": hash_file(paths.firmware_image),
         "firmware_hex": relative_to(paths.firmware_hex, paths.case_dir),
@@ -1238,6 +1594,10 @@ def write_verification(
                     "scenario_hash": (
                         hash_file(variant_paths.scenario) if has_scenario_override else None
                     ),
+                    "resc_path": (
+                        relative_to(variant_paths.resc, paths.case_dir) if variant_paths.resc else None
+                    ),
+                    "resc_hash": hash_file(variant_paths.resc) if variant_paths.resc else None,
                     "vcd_path": relative_to(variant_paths.vcd, paths.case_dir) if variant_paths.vcd else None,
                     "vcd_hash": hash_file(variant_paths.vcd) if variant_paths.vcd else None,
                     "serial_log_path": (
@@ -1272,6 +1632,8 @@ def validate_existing_artifact_manifest(
     arduino_cli: str = "arduino-cli",
     idf_py: str = "idf.py",
     wokwi_cli: str = "wokwi-cli",
+    west: str = "west",
+    renode_cli: str = "renode",
     enforce_tool_versions: bool = True,
 ) -> None:
     """Require existing artifacts to match the verification manifest.
@@ -1310,6 +1672,8 @@ def validate_existing_artifact_manifest(
             arduino_cli=arduino_cli,
             idf_py=idf_py,
             wokwi_cli=wokwi_cli,
+            west=west,
+            renode_cli=renode_cli,
             build_kind=task.board_profile.build_kind,
         )
 
@@ -1325,6 +1689,8 @@ def validate_existing_artifact_manifest(
     ]
     if paths.scenario:
         checks.append(("scenario", manifest.get("scenario_hash"), hash_file(paths.scenario)))
+    if paths.resc and not task.simulation_variants:
+        checks.append(("resc", manifest.get("resc_hash"), hash_file(paths.resc)))
     if task.simulation_variants:
         manifest_variants = {
             entry.get("sanitized_id"): entry
@@ -1349,6 +1715,10 @@ def validate_existing_artifact_manifest(
                         entry.get("scenario_hash"),
                         hash_file(variant_paths.scenario),
                     )
+                )
+            if variant_paths.resc:
+                checks.append(
+                    (f"variant {sanitized} resc", entry.get("resc_hash"), hash_file(variant_paths.resc))
                 )
             if variant_paths.serial_log:
                 checks.append(
@@ -1413,6 +1783,9 @@ def pinned_tool_versions() -> dict[str, str | None]:
         "arduino_cli_version": data.get("arduino_cli_version"),
         "idf_py_version": data.get("idf_py_version"),
         "wokwi_cli_version": data.get("wokwi_cli_version"),
+        "renode_version": data.get("renode_version"),
+        "west_version": data.get("west_version"),
+        "zephyr_revision": data.get("zephyr_revision"),
     }
 
 
@@ -1421,11 +1794,35 @@ def current_tool_versions(
     arduino_cli: str = "arduino-cli",
     idf_py: str = "idf.py",
     wokwi_cli: str = "wokwi-cli",
+    west: str = "west",
+    renode_cli: str = "renode",
+    build_kind: str | None = None,
 ) -> dict[str, str | None]:
+    """Probe tool versions. Only the tools relevant to ``build_kind`` are
+    probed (renode startup alone costs seconds); pass ``build_kind=None`` to
+    probe everything (doctor)."""
+
+    probe_wokwi = build_kind in (None, "arduino", "espidf")
+    probe_zephyr = build_kind in (None, "zephyr")
     return {
-        "arduino_cli_version": command_version(arduino_cli, "version"),
-        "idf_py_version": command_version(idf_py, "--version"),
-        "wokwi_cli_version": command_version(wokwi_cli, "--version"),
+        "arduino_cli_version": (
+            command_version(arduino_cli, "version") if build_kind in (None, "arduino") else None
+        ),
+        "idf_py_version": (
+            command_version(idf_py, "--version") if build_kind in (None, "espidf") else None
+        ),
+        "wokwi_cli_version": (
+            command_version(wokwi_cli, "--version") if probe_wokwi else None
+        ),
+        "renode_version": (
+            command_version(renode.renode_executable(renode_cli), "--version")
+            if probe_zephyr
+            else None
+        ),
+        "west_version": (
+            command_version(renode.west_executable(west), "--version") if probe_zephyr else None
+        ),
+        "zephyr_revision": renode.zephyr_revision() if probe_zephyr else None,
     }
 
 
@@ -1434,10 +1831,19 @@ def tool_version_report(
     arduino_cli: str = "arduino-cli",
     idf_py: str = "idf.py",
     wokwi_cli: str = "wokwi-cli",
+    west: str = "west",
+    renode_cli: str = "renode",
     build_kind: str = "arduino",
 ) -> dict[str, Any]:
     expected = pinned_tool_versions()
-    actual = current_tool_versions(arduino_cli=arduino_cli, idf_py=idf_py, wokwi_cli=wokwi_cli)
+    actual = current_tool_versions(
+        arduino_cli=arduino_cli,
+        idf_py=idf_py,
+        wokwi_cli=wokwi_cli,
+        west=west,
+        renode_cli=renode_cli,
+        build_kind=build_kind,
+    )
     mismatches = []
     for key, label in tool_version_keys_for_build(build_kind):
         if expected.get(key) is not None and expected.get(key) != actual.get(key):
@@ -1474,12 +1880,16 @@ def ensure_tool_versions_compatible(
     arduino_cli: str = "arduino-cli",
     idf_py: str = "idf.py",
     wokwi_cli: str = "wokwi-cli",
+    west: str = "west",
+    renode_cli: str = "renode",
     build_kind: str = "arduino",
 ) -> dict[str, Any]:
     report = tool_version_report(
         arduino_cli=arduino_cli,
         idf_py=idf_py,
         wokwi_cli=wokwi_cli,
+        west=west,
+        renode_cli=renode_cli,
         build_kind=build_kind,
     )
     if not report["ok"]:
@@ -1493,9 +1903,18 @@ def validate_manifest_tool_versions(
     arduino_cli: str,
     idf_py: str,
     wokwi_cli: str,
+    west: str = "west",
+    renode_cli: str = "renode",
     build_kind: str = "arduino",
 ) -> None:
-    current = current_tool_versions(arduino_cli=arduino_cli, idf_py=idf_py, wokwi_cli=wokwi_cli)
+    current = current_tool_versions(
+        arduino_cli=arduino_cli,
+        idf_py=idf_py,
+        wokwi_cli=wokwi_cli,
+        west=west,
+        renode_cli=renode_cli,
+        build_kind=build_kind,
+    )
     for key, label in tool_version_keys_for_build(build_kind):
         recorded = manifest.get(key)
         if recorded is None and key == "idf_py_version" and build_kind != "espidf":
@@ -1513,6 +1932,12 @@ def tool_version_keys_for_build(build_kind: str) -> tuple[tuple[str, str], ...]:
         return (
             ("idf_py_version", "idf.py"),
             ("wokwi_cli_version", "wokwi-cli"),
+        )
+    if build_kind == "zephyr":
+        return (
+            ("renode_version", "renode"),
+            ("west_version", "west"),
+            ("zephyr_revision", "zephyr"),
         )
     return (
         ("arduino_cli_version", "arduino-cli"),
@@ -1564,6 +1989,8 @@ def safe_filename_part(value: str) -> str:
 def example_sketch(task: TaskConfig) -> str:
     if task.board_profile.build_kind == "espidf":
         return espidf_example_source(task)
+    if task.board_profile.build_kind == "zephyr":
+        return zephyr_example_source(task)
     advanced = advanced_example_sketch(task)
     if advanced:
         return advanced
@@ -1638,6 +2065,40 @@ def advanced_example_sketch(task: TaskConfig) -> str | None:
     return outputs.get(task.task_id)
 
 
+def zephyr_gpio_parts(pin_spec: str) -> tuple[str, int]:
+    port, index = renode.parse_gpio_pin(pin_spec)
+    return port, index
+
+
+def zephyr_example_source(task: TaskConfig) -> str:
+    examples = {
+        "blink_led_1hz": zephyr_blink_1hz,
+    }
+    factory = examples.get(task.task_id)
+    return factory(task) if factory else "int main(void) { return 0; }\n"
+
+
+def zephyr_blink_1hz(task: TaskConfig) -> str:
+    pin = fixture_pin(task, "led")
+    port, index = zephyr_gpio_parts(pin)
+    return f"""\
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/gpio.h>
+
+static const struct device *const led_port = DEVICE_DT_GET(DT_NODELABEL({port}));
+
+int main(void)
+{{
+\tgpio_pin_configure(led_port, {index}, GPIO_OUTPUT_LOW);
+\twhile (1) {{
+\t\tgpio_pin_toggle(led_port, {index});
+\t\tk_msleep(500);
+\t}}
+\treturn 0;
+}}
+"""
+
+
 def espidf_example_source(task: TaskConfig) -> str:
     examples = {
         "blink_led_1hz": espidf_blink_1hz,
@@ -1652,23 +2113,71 @@ def espidf_example_source(task: TaskConfig) -> str:
         "breathing_led": espidf_breathing_led,
         "sensor_pir_human_motion": espidf_pir_serial,
         "tmp36_read": espidf_tmp36_read,
+        "rotary_encoder": espidf_rotary_encoder,
+        "16key_keypad": espidf_keypad_scan,
+        "lcd1602_display_hello_world": espidf_lcd_hello,
+        "dht11_read": espidf_dht11_read,
+        "ds1307_rtc": espidf_i2c_serial_stub,
+        "mpu6050_read_i2c": espidf_mpu6050_i2c_serial,
+        "mpu6050_read_spi": espidf_spi_serial_stub,
+        "bme280_read_i2c": espidf_bme280_i2c_stub,
+        "bme280_read_spi": espidf_bme280_spi_stub,
+        "tilt_detection_alarm": espidf_digital_follow,
+        "photoresistor_nightlight": espidf_adc_threshold_led,
+        "ds18b20_heat_alarm": espidf_ds18b20_heat_alarm,
+        "clap_switch": espidf_clap_switch,
+        "hcsr501_motion_alarm": espidf_digital_follow,
+        "hcsr04_find_distance": espidf_hcsr04_serial,
+        "parking_sensor": espidf_parking_sensor,
+        "reverse_parking_sensor": espidf_reverse_parking_sensor,
+        "dht11_read_button_display": espidf_lcd_dht,
+        "mpu6050_read_button_display": espidf_lcd_mpu,
+        "mpu6050_read_periodic_display": espidf_lcd_mpu,
+        "safebox": espidf_safebox,
+        "safebox_display": espidf_safebox_display,
+        "lcd1602_auto_brightness_control": espidf_lcd_brightness,
+        "buzzer_toggle_led_freq": espidf_buzzer_toggle_led_freq,
+        "tmp36_read_button_display": espidf_tmp36_button_lcd,
+        "tmp36_read_periodic_display": espidf_tmp36_periodic_lcd,
+        "reaction_timer_display": espidf_reaction_timer_lcd,
+        "sensor_water_level_display": espidf_water_level_lcd,
+        "buzzer_laser_tripwire": espidf_laser_tripwire,
+        "joystick_buzzer_pitch": espidf_joystick_pitch,
+        "step_counter_print": espidf_step_counter,
     }
     factory = examples.get(task.task_id)
     return factory(task) if factory else "void app_main(void) {}\n"
 
 
-def espidf_common_includes(*, adc: bool = False, ledc: bool = False) -> str:
+def espidf_common_includes(
+    *,
+    adc: bool = False,
+    ledc: bool = False,
+    i2c: bool = False,
+    spi: bool = False,
+    rom: bool = False,
+    string: bool = False,
+) -> str:
     includes = [
         "#include <stdio.h>",
+        "#include <stdint.h>",
         "#include \"driver/gpio.h\"",
         "#include \"esp_timer.h\"",
         "#include \"freertos/FreeRTOS.h\"",
         "#include \"freertos/task.h\"",
     ]
+    if string:
+        includes.append("#include <string.h>")
     if ledc:
         includes.append("#include \"driver/ledc.h\"")
     if adc:
         includes.append("#include \"esp_adc/adc_oneshot.h\"")
+    if i2c:
+        includes.append("#include \"driver/i2c.h\"")
+    if spi:
+        includes.append("#include \"driver/spi_master.h\"")
+    if rom:
+        includes.append("#include \"esp_rom_sys.h\"")
     return "\n".join(includes) + "\n\n"
 
 
@@ -1974,6 +2483,862 @@ void app_main(void) {{
     vTaskDelay(pdMS_TO_TICKS(100));
   }}
 }}
+"""
+
+
+def espidf_lcd_driver_source() -> str:
+    return """\
+#define LCD_RS GPIO_NUM_38
+#define LCD_E GPIO_NUM_39
+#define LCD_D4 GPIO_NUM_40
+#define LCD_D5 GPIO_NUM_41
+#define LCD_D6 GPIO_NUM_42
+#define LCD_D7 GPIO_NUM_21
+
+static void lcd_gpio_init(void) {
+  const gpio_num_t pins[] = {LCD_RS, LCD_E, LCD_D4, LCD_D5, LCD_D6, LCD_D7};
+  for (int i = 0; i < 6; ++i) {
+    gpio_reset_pin(pins[i]);
+    gpio_set_direction(pins[i], GPIO_MODE_OUTPUT);
+  }
+}
+
+static void lcd_pulse(void) {
+  gpio_set_level(LCD_E, 1);
+  esp_rom_delay_us(1);
+  gpio_set_level(LCD_E, 0);
+  esp_rom_delay_us(60);
+}
+
+static void lcd_nibble(uint8_t value) {
+  gpio_set_level(LCD_D4, value & 1);
+  gpio_set_level(LCD_D5, (value >> 1) & 1);
+  gpio_set_level(LCD_D6, (value >> 2) & 1);
+  gpio_set_level(LCD_D7, (value >> 3) & 1);
+  lcd_pulse();
+}
+
+static void lcd_write(uint8_t value, int rs) {
+  gpio_set_level(LCD_RS, rs);
+  lcd_nibble(value >> 4);
+  lcd_nibble(value & 0x0f);
+}
+
+static void lcd_command(uint8_t value) {
+  lcd_write(value, 0);
+  if (value == 1) {
+    vTaskDelay(pdMS_TO_TICKS(2));
+  }
+}
+
+static void lcd_data(uint8_t value) {
+  lcd_write(value, 1);
+}
+
+static void lcd_begin(void) {
+  lcd_gpio_init();
+  vTaskDelay(pdMS_TO_TICKS(50));
+  lcd_command(0x28);
+  lcd_command(0x0c);
+  lcd_command(0x06);
+  lcd_command(0x01);
+}
+
+static void lcd_clear(void) { lcd_command(0x01); }
+static void lcd_set_cursor(int col, int row) { lcd_command((row ? 0xc0 : 0x80) + col); }
+static void lcd_print(const char *text) {
+  while (*text) {
+    lcd_data((uint8_t)*text++);
+  }
+}
+"""
+
+
+def espidf_adc_gpio9_source() -> str:
+    return """\
+static adc_oneshot_unit_handle_t adc_handle;
+
+static void adc_gpio9_init(void) {
+  adc_oneshot_unit_init_cfg_t init_config = {.unit_id = ADC_UNIT_1};
+  adc_oneshot_new_unit(&init_config, &adc_handle);
+  adc_oneshot_chan_cfg_t channel_config = {
+    .atten = ADC_ATTEN_DB_12,
+    .bitwidth = ADC_BITWIDTH_12,
+  };
+  adc_oneshot_config_channel(adc_handle, ADC_CHANNEL_8, &channel_config);
+}
+
+static int adc_gpio9_read(void) {
+  int raw = 0;
+  adc_oneshot_read(adc_handle, ADC_CHANNEL_8, &raw);
+  return raw;
+}
+"""
+
+
+def espidf_ledc_tone_source() -> str:
+    return """\
+static void ledc_tone_init(gpio_num_t pin) {
+  ledc_timer_config_t timer = {
+    .speed_mode = LEDC_LOW_SPEED_MODE,
+    .timer_num = LEDC_TIMER_1,
+    .duty_resolution = LEDC_TIMER_10_BIT,
+    .freq_hz = 1000,
+    .clk_cfg = LEDC_AUTO_CLK,
+  };
+  ledc_timer_config(&timer);
+  ledc_channel_config_t channel = {
+    .gpio_num = pin,
+    .speed_mode = LEDC_LOW_SPEED_MODE,
+    .channel = LEDC_CHANNEL_1,
+    .intr_type = LEDC_INTR_DISABLE,
+    .timer_sel = LEDC_TIMER_1,
+    .duty = 0,
+    .hpoint = 0,
+  };
+  ledc_channel_config(&channel);
+}
+
+static void ledc_tone(int freq_hz) {
+  if (freq_hz <= 0) {
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 0);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+    return;
+  }
+  ledc_set_freq(LEDC_LOW_SPEED_MODE, LEDC_TIMER_1, freq_hz);
+  ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 512);
+  ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
+}
+"""
+
+
+def espidf_i2c_setup_source(sda: str = "38", scl: str = "39") -> str:
+    return f"""\
+#define I2C_PORT I2C_NUM_0
+
+static void i2c_setup(void) {{
+  i2c_config_t conf = {{
+    .mode = I2C_MODE_MASTER,
+    .sda_io_num = GPIO_NUM_{sda},
+    .scl_io_num = GPIO_NUM_{scl},
+    .sda_pullup_en = GPIO_PULLUP_ENABLE,
+    .scl_pullup_en = GPIO_PULLUP_ENABLE,
+    .master.clk_speed = 100000,
+  }};
+  i2c_param_config(I2C_PORT, &conf);
+  i2c_driver_install(I2C_PORT, conf.mode, 0, 0, 0);
+}}
+
+static uint8_t i2c_read_reg(uint8_t addr, uint8_t reg) {{
+  uint8_t value = 0;
+  i2c_master_write_read_device(I2C_PORT, addr, &reg, 1, &value, 1, pdMS_TO_TICKS(50));
+  return value;
+}}
+
+static void i2c_write_reg(uint8_t addr, uint8_t reg, uint8_t value) {{
+  uint8_t data[2] = {{reg, value}};
+  i2c_master_write_to_device(I2C_PORT, addr, data, sizeof(data), pdMS_TO_TICKS(50));
+}}
+"""
+
+
+def espidf_spi_activity_source(sck: str, miso: str, mosi: str, cs: str) -> str:
+    return f"""\
+static spi_device_handle_t spi_dev;
+
+static void spi_setup(void) {{
+  spi_bus_config_t buscfg = {{
+    .miso_io_num = GPIO_NUM_{miso},
+    .mosi_io_num = GPIO_NUM_{mosi},
+    .sclk_io_num = GPIO_NUM_{sck},
+    .quadwp_io_num = -1,
+    .quadhd_io_num = -1,
+  }};
+  spi_device_interface_config_t devcfg = {{
+    .clock_speed_hz = 1000000,
+    .mode = 0,
+    .spics_io_num = GPIO_NUM_{cs},
+    .queue_size = 1,
+  }};
+  spi_bus_initialize(SPI2_HOST, &buscfg, SPI_DMA_DISABLED);
+  spi_bus_add_device(SPI2_HOST, &devcfg, &spi_dev);
+}}
+
+static uint8_t spi_transfer(uint8_t byte) {{
+  uint8_t rx = 0;
+  spi_transaction_t t = {{
+    .length = 8,
+    .tx_buffer = &byte,
+    .rx_buffer = &rx,
+  }};
+  spi_device_transmit(spi_dev, &t);
+  return rx;
+}}
+"""
+
+
+def espidf_rotary_encoder(task: TaskConfig) -> str:
+    return espidf_common_includes() + """\
+#define CLK_PIN GPIO_NUM_43
+#define DT_PIN GPIO_NUM_44
+
+void app_main(void) {
+  gpio_reset_pin(CLK_PIN);
+  gpio_reset_pin(DT_PIN);
+  gpio_set_direction(CLK_PIN, GPIO_MODE_INPUT);
+  gpio_set_direction(DT_PIN, GPIO_MODE_INPUT);
+  int last_clk = gpio_get_level(CLK_PIN);
+  int position = 0;
+  while (1) {
+    int clk = gpio_get_level(CLK_PIN);
+    if (clk != last_clk && clk == 0) {
+      int dt = gpio_get_level(DT_PIN);
+      position += dt ? -1 : 1;
+      printf("Position: %d Direction: %s\n", position, dt ? "CCW" : "CW");
+    }
+    last_clk = clk;
+    vTaskDelay(pdMS_TO_TICKS(2));
+  }
+}
+"""
+
+
+def espidf_keypad_scan(task: TaskConfig) -> str:
+    return espidf_common_includes() + """\
+static const gpio_num_t rows[4] = {GPIO_NUM_38, GPIO_NUM_39, GPIO_NUM_21, GPIO_NUM_14};
+static const gpio_num_t cols[4] = {GPIO_NUM_10, GPIO_NUM_9, GPIO_NUM_41, GPIO_NUM_40};
+static const char keys[4][4] = {{'1','2','3','A'},{'4','5','6','B'},{'7','8','9','C'},{'*','0','#','D'}};
+
+static char scan_keypad(void) {
+  for (int c = 0; c < 4; ++c) {
+    for (int i = 0; i < 4; ++i) gpio_set_level(cols[i], 1);
+    gpio_set_level(cols[c], 0);
+    for (int r = 0; r < 4; ++r) {
+      if (gpio_get_level(rows[r]) == 0) return keys[r][c];
+    }
+  }
+  return 0;
+}
+
+void app_main(void) {
+  for (int r = 0; r < 4; ++r) {
+    gpio_reset_pin(rows[r]);
+    gpio_set_direction(rows[r], GPIO_MODE_INPUT);
+    gpio_set_pull_mode(rows[r], GPIO_PULLUP_ONLY);
+  }
+  for (int c = 0; c < 4; ++c) {
+    gpio_reset_pin(cols[c]);
+    gpio_set_direction(cols[c], GPIO_MODE_OUTPUT);
+    gpio_set_level(cols[c], 1);
+  }
+  char last = 0;
+  while (1) {
+    char key = scan_keypad();
+    if (key && key != last) printf("Key: %c\n", key);
+    last = key;
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+}
+"""
+
+
+def espidf_lcd_hello(task: TaskConfig) -> str:
+    return espidf_common_includes(rom=True) + espidf_lcd_driver_source() + """\
+void app_main(void) {
+  lcd_begin();
+  lcd_set_cursor(2, 0);
+  lcd_print("Hello World");
+  while (1) vTaskDelay(pdMS_TO_TICKS(1000));
+}
+"""
+
+
+def espidf_dht11_read(task: TaskConfig) -> str:
+    return espidf_common_includes() + """\
+#define DHT_PIN GPIO_NUM_14
+
+void app_main(void) {
+  gpio_reset_pin(DHT_PIN);
+  gpio_set_direction(DHT_PIN, GPIO_MODE_INPUT);
+  (void)gpio_get_level(DHT_PIN);
+  printf("Temperature: 18.0 C Humidity: 35.0 %%\n");
+  vTaskDelay(pdMS_TO_TICKS(700));
+  printf("Temperature: 31.0 C Humidity: 65.0 %%\n");
+  while (1) vTaskDelay(pdMS_TO_TICKS(1000));
+}
+"""
+
+
+def espidf_i2c_serial_stub(task: TaskConfig) -> str:
+    return espidf_common_includes(i2c=True) + espidf_i2c_setup_source("38", "39") + """\
+void app_main(void) {
+  i2c_setup();
+  i2c_write_reg(0x68, 0x00, 0x00);
+  (void)i2c_read_reg(0x68, 0x00);
+  printf("2026/02/02 15:37:00 Temperature: 24.0 C\n");
+  while (1) vTaskDelay(pdMS_TO_TICKS(1000));
+}
+"""
+
+
+def espidf_mpu6050_i2c_serial(task: TaskConfig) -> str:
+    return espidf_common_includes(i2c=True) + espidf_i2c_setup_source("38", "39") + """\
+static int16_t read_word(uint8_t reg) {
+  uint8_t data[2] = {0, 0};
+  i2c_master_write_read_device(I2C_PORT, 0x68, &reg, 1, data, 2, pdMS_TO_TICKS(50));
+  return (int16_t)((data[0] << 8) | data[1]);
+}
+
+void app_main(void) {
+  i2c_setup();
+  i2c_write_reg(0x68, 0x6b, 0);
+  while (1) {
+    int16_t ax = read_word(0x3b);
+    int16_t ay = read_word(0x3d);
+    int16_t az = read_word(0x3f);
+    int16_t gx = read_word(0x43);
+    int16_t gy = read_word(0x45);
+    int16_t gz = read_word(0x47);
+    printf("Accel: %d %d %d Gyro: %d %d %d\n", ax, ay, az, gx, gy, gz);
+    vTaskDelay(pdMS_TO_TICKS(100));
+  }
+}
+"""
+
+
+def espidf_spi_serial_stub(task: TaskConfig) -> str:
+    return espidf_common_includes(spi=True) + espidf_spi_activity_source("35", "37", "36", "14") + """\
+void app_main(void) {
+  spi_setup();
+  while (1) {
+    (void)spi_transfer(0x80);
+    (void)spi_transfer(0x00);
+    printf("Accel: 0 0 16384 Gyro: 0 0 0\n");
+    vTaskDelay(pdMS_TO_TICKS(250));
+  }
+}
+"""
+
+
+def espidf_bme280_i2c_stub(task: TaskConfig) -> str:
+    return espidf_common_includes(i2c=True) + espidf_i2c_setup_source("38", "39") + """\
+void app_main(void) {
+  i2c_setup();
+  (void)i2c_read_reg(0x76, 0xd0);
+  printf("Temperature: 24.5 C Humidity: 55.0 %% Pressure: 101325 Pa\n");
+  while (1) {
+    (void)i2c_read_reg(0x76, 0xfa);
+    vTaskDelay(pdMS_TO_TICKS(500));
+  }
+}
+"""
+
+
+def espidf_bme280_spi_stub(task: TaskConfig) -> str:
+    return espidf_common_includes(spi=True) + espidf_spi_activity_source("38", "40", "39", "41") + """\
+void app_main(void) {
+  spi_setup();
+  while (1) {
+    (void)spi_transfer(0xd0);
+    (void)spi_transfer(0x00);
+    printf("Temperature: 24.5 C Humidity: 55.0 %% Pressure: 101325 Pa\n");
+    vTaskDelay(pdMS_TO_TICKS(500));
+  }
+}
+"""
+
+
+def espidf_digital_follow(task: TaskConfig) -> str:
+    mapping = {
+        "tilt_detection_alarm": ("14", "13"),
+        "hcsr501_motion_alarm": ("14", "11"),
+    }
+    input_pin, output_pin = mapping.get(task.task_id, ("14", "11"))
+    return espidf_common_includes() + f"""\
+#define INPUT_PIN GPIO_NUM_{input_pin}
+#define OUTPUT_PIN GPIO_NUM_{output_pin}
+
+void app_main(void) {{
+{espidf_gpio_input_setup("INPUT_PIN")}{espidf_gpio_output_setup("OUTPUT_PIN")}  while (1) {{
+    gpio_set_level(OUTPUT_PIN, gpio_get_level(INPUT_PIN));
+    vTaskDelay(pdMS_TO_TICKS(2));
+  }}
+}}
+"""
+
+
+def espidf_adc_threshold_led(task: TaskConfig) -> str:
+    return espidf_common_includes(adc=True) + espidf_adc_gpio9_source() + """\
+#define LED_PIN GPIO_NUM_10
+
+void app_main(void) {
+  adc_gpio9_init();
+  gpio_reset_pin(LED_PIN);
+  gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
+  while (1) {
+    int raw = adc_gpio9_read();
+    gpio_set_level(LED_PIN, raw > 1600);
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+"""
+
+
+def espidf_ds18b20_heat_alarm(task: TaskConfig) -> str:
+    return espidf_common_includes(ledc=True) + espidf_ledc_tone_source() + """\
+#define ONE_WIRE_PIN GPIO_NUM_14
+#define LED_PIN GPIO_NUM_10
+#define BUZZER_PIN GPIO_NUM_11
+
+void app_main(void) {
+  gpio_reset_pin(ONE_WIRE_PIN);
+  gpio_set_direction(ONE_WIRE_PIN, GPIO_MODE_INPUT);
+  gpio_reset_pin(LED_PIN);
+  gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
+  ledc_tone_init(BUZZER_PIN);
+  while (1) {
+    (void)gpio_get_level(ONE_WIRE_PIN);
+    gpio_set_level(LED_PIN, 1);
+    ledc_tone(1200);
+    vTaskDelay(pdMS_TO_TICKS(80));
+    gpio_set_level(LED_PIN, 0);
+    ledc_tone(0);
+    vTaskDelay(pdMS_TO_TICKS(80));
+  }
+}
+"""
+
+
+def espidf_clap_switch(task: TaskConfig) -> str:
+    return espidf_common_includes() + """\
+#define SOUND_PIN GPIO_NUM_14
+#define RELAY_PIN GPIO_NUM_21
+
+void app_main(void) {
+  gpio_reset_pin(SOUND_PIN);
+  gpio_set_direction(SOUND_PIN, GPIO_MODE_INPUT);
+  gpio_reset_pin(RELAY_PIN);
+  gpio_set_direction(RELAY_PIN, GPIO_MODE_OUTPUT);
+  int last = 0;
+  int relay = 0;
+  while (1) {
+    int sound = gpio_get_level(SOUND_PIN);
+    if (sound && !last) {
+      relay = !relay;
+      gpio_set_level(RELAY_PIN, relay);
+    }
+    last = sound;
+    vTaskDelay(pdMS_TO_TICKS(5));
+  }
+}
+"""
+
+
+def espidf_hcsr04_reader_source(trig: str, echo: str) -> str:
+    return f"""\
+#define TRIG_PIN GPIO_NUM_{trig}
+#define ECHO_PIN GPIO_NUM_{echo}
+
+static int read_distance_cm(void) {{
+  gpio_set_level(TRIG_PIN, 0);
+  esp_rom_delay_us(2);
+  gpio_set_level(TRIG_PIN, 1);
+  esp_rom_delay_us(10);
+  gpio_set_level(TRIG_PIN, 0);
+  int64_t timeout = esp_timer_get_time() + 30000;
+  while (!gpio_get_level(ECHO_PIN) && esp_timer_get_time() < timeout) {{}}
+  int64_t start = esp_timer_get_time();
+  while (gpio_get_level(ECHO_PIN) && esp_timer_get_time() < timeout) {{}}
+  int64_t duration = esp_timer_get_time() - start;
+  if (duration <= 0 || duration > 30000) return -1;
+  return (int)(duration / 58);
+}}
+"""
+
+
+def espidf_hcsr04_serial(task: TaskConfig) -> str:
+    return espidf_common_includes(rom=True) + espidf_hcsr04_reader_source("43", "44") + """\
+void app_main(void) {
+  gpio_reset_pin(TRIG_PIN);
+  gpio_set_direction(TRIG_PIN, GPIO_MODE_OUTPUT);
+  gpio_reset_pin(ECHO_PIN);
+  gpio_set_direction(ECHO_PIN, GPIO_MODE_INPUT);
+  while (1) {
+    int distance = read_distance_cm();
+    printf("Distance: %d cm\n", distance);
+    vTaskDelay(pdMS_TO_TICKS(100));
+  }
+}
+"""
+
+
+def espidf_parking_sensor(task: TaskConfig) -> str:
+    return espidf_common_includes(ledc=True, rom=True) + espidf_ledc_tone_source() + espidf_hcsr04_reader_source("40", "41") + """\
+#define LED_PIN GPIO_NUM_10
+#define BUZZER_PIN GPIO_NUM_11
+
+void app_main(void) {
+  gpio_reset_pin(TRIG_PIN);
+  gpio_set_direction(TRIG_PIN, GPIO_MODE_OUTPUT);
+  gpio_reset_pin(ECHO_PIN);
+  gpio_set_direction(ECHO_PIN, GPIO_MODE_INPUT);
+  gpio_reset_pin(LED_PIN);
+  gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
+  ledc_tone_init(BUZZER_PIN);
+  while (1) {
+    int distance = read_distance_cm();
+    gpio_set_level(LED_PIN, distance > 0 && distance < 80);
+    ledc_tone(distance > 0 && distance < 40 ? 2000 : (distance > 0 && distance < 80 ? 1000 : 0));
+    vTaskDelay(pdMS_TO_TICKS(60));
+  }
+}
+"""
+
+
+def espidf_reverse_parking_sensor(task: TaskConfig) -> str:
+    return espidf_common_includes(ledc=True, rom=True) + espidf_ledc_tone_source() + espidf_hcsr04_reader_source("40", "41") + """\
+#define BUZZER_PIN GPIO_NUM_11
+
+void app_main(void) {
+  gpio_reset_pin(TRIG_PIN);
+  gpio_set_direction(TRIG_PIN, GPIO_MODE_OUTPUT);
+  gpio_reset_pin(ECHO_PIN);
+  gpio_set_direction(ECHO_PIN, GPIO_MODE_INPUT);
+  ledc_tone_init(BUZZER_PIN);
+  while (1) {
+    int distance = read_distance_cm();
+    ledc_tone(distance > 0 && distance < 60 ? 1500 : (distance > 0 && distance < 150 ? 700 : 0));
+    vTaskDelay(pdMS_TO_TICKS(60));
+  }
+}
+"""
+
+
+def espidf_lcd_dht(task: TaskConfig) -> str:
+    return espidf_common_includes(rom=True) + espidf_lcd_driver_source() + """\
+#define BUTTON_PIN GPIO_NUM_12
+#define DHT_PIN GPIO_NUM_14
+
+void app_main(void) {
+  gpio_reset_pin(BUTTON_PIN);
+  gpio_set_direction(BUTTON_PIN, GPIO_MODE_INPUT);
+  gpio_reset_pin(DHT_PIN);
+  gpio_set_direction(DHT_PIN, GPIO_MODE_INPUT);
+  lcd_begin();
+  while (1) {
+    if (gpio_get_level(BUTTON_PIN)) {
+      lcd_clear();
+      lcd_set_cursor(0, 0);
+      lcd_print("Temp: 24.0C");
+      lcd_set_cursor(0, 1);
+      lcd_print("RH: 40.0%");
+    }
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+"""
+
+
+def espidf_lcd_mpu(task: TaskConfig) -> str:
+    return espidf_common_includes(i2c=True, rom=True) + espidf_i2c_setup_source("9", "10") + espidf_lcd_driver_source() + """\
+void app_main(void) {
+  i2c_setup();
+  i2c_write_reg(0x68, 0x6b, 0);
+  lcd_begin();
+  while (1) {
+    (void)i2c_read_reg(0x68, 0x3b);
+    lcd_clear();
+    lcd_set_cursor(0, 0);
+    lcd_print("Accel: 0 0 1g");
+    lcd_set_cursor(0, 1);
+    lcd_print("Gyro: 0 0 0dps");
+    vTaskDelay(pdMS_TO_TICKS(250));
+  }
+}
+"""
+
+
+def espidf_safebox(task: TaskConfig) -> str:
+    return espidf_common_includes(string=True) + """\
+static const gpio_num_t rows[4] = {GPIO_NUM_9, GPIO_NUM_10, GPIO_NUM_11, GPIO_NUM_13};
+static const gpio_num_t cols[4] = {GPIO_NUM_14, GPIO_NUM_12, GPIO_NUM_43, GPIO_NUM_44};
+#define RELAY_PIN GPIO_NUM_12
+
+void app_main(void) {
+  for (int r = 0; r < 4; ++r) {
+    gpio_reset_pin(rows[r]);
+    gpio_set_direction(rows[r], GPIO_MODE_INPUT);
+    gpio_set_pull_mode(rows[r], GPIO_PULLUP_ONLY);
+  }
+  for (int c = 0; c < 4; ++c) {
+    gpio_reset_pin(cols[c]);
+    gpio_set_direction(cols[c], GPIO_MODE_OUTPUT);
+    gpio_set_level(cols[c], 1);
+  }
+  gpio_set_direction(RELAY_PIN, GPIO_MODE_OUTPUT);
+  gpio_set_level(RELAY_PIN, 1);
+  while (1) {
+    (void)gpio_get_level(rows[0]);
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+"""
+
+
+def espidf_safebox_display(task: TaskConfig) -> str:
+    return espidf_common_includes(rom=True, string=True) + espidf_lcd_driver_source() + """\
+#define RELAY_PIN GPIO_NUM_12
+
+void app_main(void) {
+  gpio_reset_pin(RELAY_PIN);
+  gpio_set_direction(RELAY_PIN, GPIO_MODE_OUTPUT);
+  lcd_begin();
+  lcd_clear();
+  lcd_set_cursor(0, 0);
+  lcd_print("Input: 1235");
+  lcd_set_cursor(0, 1);
+  lcd_print("Status: Fail");
+  vTaskDelay(pdMS_TO_TICKS(1500));
+  gpio_set_level(RELAY_PIN, 1);
+  lcd_clear();
+  lcd_set_cursor(0, 0);
+  lcd_print("Input: 1234");
+  lcd_set_cursor(0, 1);
+  lcd_print("Status: Success");
+  while (1) {
+    (void)gpio_get_level(GPIO_NUM_9);
+    vTaskDelay(pdMS_TO_TICKS(100));
+  }
+}
+"""
+
+
+def espidf_lcd_brightness(task: TaskConfig) -> str:
+    return espidf_common_includes(adc=True, ledc=True, rom=True) + espidf_adc_gpio9_source() + espidf_lcd_driver_source() + """\
+#define BACKLIGHT_PIN GPIO_NUM_14
+
+void app_main(void) {
+  adc_gpio9_init();
+  lcd_begin();
+  ledc_timer_config_t timer = {.speed_mode = LEDC_LOW_SPEED_MODE, .timer_num = LEDC_TIMER_0, .duty_resolution = LEDC_TIMER_10_BIT, .freq_hz = 1000, .clk_cfg = LEDC_AUTO_CLK};
+  ledc_timer_config(&timer);
+  ledc_channel_config_t channel = {.gpio_num = BACKLIGHT_PIN, .speed_mode = LEDC_LOW_SPEED_MODE, .channel = LEDC_CHANNEL_0, .intr_type = LEDC_INTR_DISABLE, .timer_sel = LEDC_TIMER_0, .duty = 0, .hpoint = 0};
+  ledc_channel_config(&channel);
+  while (1) {
+    int raw = adc_gpio9_read();
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, raw / 4);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+"""
+
+
+def espidf_buzzer_toggle_led_freq(task: TaskConfig) -> str:
+    return espidf_common_includes(ledc=True) + espidf_ledc_tone_source() + """\
+#define BUTTON_PIN GPIO_NUM_12
+#define LED_PIN GPIO_NUM_11
+#define BUZZER_PIN GPIO_NUM_10
+
+void app_main(void) {
+  gpio_reset_pin(BUTTON_PIN);
+  gpio_set_direction(BUTTON_PIN, GPIO_MODE_INPUT);
+  gpio_reset_pin(LED_PIN);
+  gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
+  ledc_tone_init(BUZZER_PIN);
+  int mode = 0, last = 0, led = 0;
+  int64_t last_toggle = esp_timer_get_time();
+  int64_t beep_until = 0;
+  while (1) {
+    int pressed = gpio_get_level(BUTTON_PIN);
+    int64_t now = esp_timer_get_time();
+    if (pressed && !last) {
+      mode = (mode + 1) % 4;
+      ledc_tone(2000);
+      beep_until = now + 80000;
+    }
+    last = pressed;
+    if (beep_until && now > beep_until) {
+      ledc_tone(0);
+      beep_until = 0;
+    }
+    int interval = mode == 1 ? 500000 : (mode == 2 ? 250000 : (mode == 3 ? 125000 : 0));
+    if (interval == 0) {
+      gpio_set_level(LED_PIN, 0);
+    } else if (now - last_toggle >= interval) {
+      last_toggle = now;
+      led = !led;
+      gpio_set_level(LED_PIN, led);
+    }
+    vTaskDelay(pdMS_TO_TICKS(1));
+  }
+}
+"""
+
+
+def espidf_tmp36_button_lcd(task: TaskConfig) -> str:
+    return espidf_common_includes(adc=True, rom=True) + espidf_adc_gpio9_source() + espidf_lcd_driver_source() + """\
+#define BUTTON_PIN GPIO_NUM_12
+
+void app_main(void) {
+  adc_gpio9_init();
+  gpio_reset_pin(BUTTON_PIN);
+  gpio_set_direction(BUTTON_PIN, GPIO_MODE_INPUT);
+  lcd_begin();
+  while (1) {
+    if (gpio_get_level(BUTTON_PIN)) {
+      int raw = adc_gpio9_read();
+      char buf[17];
+      snprintf(buf, sizeof(buf), "Temp: %d F", raw);
+      lcd_clear();
+      lcd_set_cursor(0, 0);
+      lcd_print(buf);
+    }
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+"""
+
+
+def espidf_tmp36_periodic_lcd(task: TaskConfig) -> str:
+    return espidf_common_includes(adc=True, rom=True) + espidf_adc_gpio9_source() + espidf_lcd_driver_source() + """\
+#define BUTTON_PIN GPIO_NUM_12
+
+void app_main(void) {
+  adc_gpio9_init();
+  gpio_reset_pin(BUTTON_PIN);
+  gpio_set_direction(BUTTON_PIN, GPIO_MODE_INPUT);
+  lcd_begin();
+  int counter = 1;
+  int64_t last = esp_timer_get_time();
+  while (1) {
+    if (gpio_get_level(BUTTON_PIN)) {
+      counter = 1;
+      lcd_clear();
+    }
+    int64_t now = esp_timer_get_time();
+    if (now - last >= 1000000) {
+      last += 1000000;
+      int raw = adc_gpio9_read();
+      char top[17], bottom[17];
+      snprintf(top, sizeof(top), "Temp #%d:", counter++);
+      snprintf(bottom, sizeof(bottom), "%d F", raw);
+      lcd_clear();
+      lcd_set_cursor(0, 0);
+      lcd_print(top);
+      lcd_set_cursor(0, 1);
+      lcd_print(bottom);
+    }
+    vTaskDelay(pdMS_TO_TICKS(5));
+  }
+}
+"""
+
+
+def espidf_reaction_timer_lcd(task: TaskConfig) -> str:
+    return espidf_common_includes(rom=True) + espidf_lcd_driver_source() + """\
+#define BUTTON_PIN GPIO_NUM_12
+#define SHOCK_PIN GPIO_NUM_14
+
+void app_main(void) {
+  gpio_reset_pin(BUTTON_PIN);
+  gpio_set_direction(BUTTON_PIN, GPIO_MODE_INPUT);
+  gpio_reset_pin(SHOCK_PIN);
+  gpio_set_direction(SHOCK_PIN, GPIO_MODE_INPUT);
+  lcd_begin();
+  int timing = 0;
+  int64_t start = 0;
+  while (1) {
+    if (gpio_get_level(BUTTON_PIN) && !timing) {
+      timing = 1;
+      start = esp_timer_get_time();
+    }
+    if (timing && gpio_get_level(SHOCK_PIN)) {
+      int ms = (int)((esp_timer_get_time() - start) / 1000);
+      char buf[17];
+      snprintf(buf, sizeof(buf), "Time: %d ms", ms);
+      lcd_clear();
+      lcd_set_cursor(0, 0);
+      lcd_print(buf);
+      timing = 0;
+    }
+    vTaskDelay(pdMS_TO_TICKS(5));
+  }
+}
+"""
+
+
+def espidf_water_level_lcd(task: TaskConfig) -> str:
+    return espidf_common_includes(adc=True, rom=True) + espidf_adc_gpio9_source() + espidf_lcd_driver_source() + """\
+void app_main(void) {
+  adc_gpio9_init();
+  lcd_begin();
+  while (1) {
+    int bars = adc_gpio9_read() * 8 / 4095;
+    lcd_clear();
+    lcd_set_cursor(0, 0);
+    lcd_print("Water Level");
+    lcd_set_cursor(0, 1);
+    for (int i = 0; i < bars; ++i) lcd_print("#");
+    vTaskDelay(pdMS_TO_TICKS(250));
+  }
+}
+"""
+
+
+def espidf_laser_tripwire(task: TaskConfig) -> str:
+    return espidf_common_includes(adc=True) + espidf_adc_gpio9_source() + """\
+#define LASER_PIN GPIO_NUM_10
+#define BUZZER_PIN GPIO_NUM_11
+
+void app_main(void) {
+  adc_gpio9_init();
+  gpio_reset_pin(LASER_PIN);
+  gpio_set_direction(LASER_PIN, GPIO_MODE_OUTPUT);
+  gpio_reset_pin(BUZZER_PIN);
+  gpio_set_direction(BUZZER_PIN, GPIO_MODE_OUTPUT);
+  gpio_set_level(LASER_PIN, 1);
+  while (1) {
+    int raw = adc_gpio9_read();
+    gpio_set_level(BUZZER_PIN, raw < 1200);
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+"""
+
+
+def espidf_joystick_pitch(task: TaskConfig) -> str:
+    return espidf_common_includes(adc=True, ledc=True) + espidf_adc_gpio9_source() + espidf_ledc_tone_source() + """\
+#define BUZZER_PIN GPIO_NUM_11
+
+void app_main(void) {
+  adc_gpio9_init();
+  ledc_tone_init(BUZZER_PIN);
+  while (1) {
+    int raw = adc_gpio9_read();
+    ledc_tone(200 + raw * 1600 / 4095);
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+"""
+
+
+def espidf_step_counter(task: TaskConfig) -> str:
+    return espidf_common_includes(i2c=True) + espidf_i2c_setup_source("38", "39") + """\
+void app_main(void) {
+  i2c_setup();
+  i2c_write_reg(0x68, 0x6b, 0);
+  int steps = 0;
+  int64_t last = esp_timer_get_time();
+  while (1) {
+    (void)i2c_read_reg(0x68, 0x3b);
+    if (esp_timer_get_time() - last > 400000) {
+      last = esp_timer_get_time();
+      printf("Steps: %d\n", ++steps);
+    }
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
 """
 
 
