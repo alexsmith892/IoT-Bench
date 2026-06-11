@@ -5,3 +5,4 @@ For the 3rd time, a timer is triggered that toggles the external LED at 4 Hz;
 For the 4th time, the timer is stopped and the external LED will not blink;
 The process repeats and the toggling frequency of the LED will undergo the sequence of 1 Hz, 2 Hz, 4 Hz, N/A, 1 Hz, 2 Hz, 4 Hz, N/A, … as you press the button. In addition, every time the button is pressed, the buzzer will go off, indicating that the button has been pressed. The timing diagram is given below. The button and buzzer must be connected to separate GPIO pins, and the buzzer operation will be triggered by its own connected GPIO pin.
 LED: GPIO 4, Buzzer: GPIO 3, Button: GPIO 2.
+Use only the Arduino core and its built-in libraries (e.g., Wire, SPI, Serial); do not use any external or third-party libraries. Communicate with sensors and modules directly (register-level / pin-level).

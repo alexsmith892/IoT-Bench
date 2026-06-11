@@ -1,2 +1,3 @@
 Write the program that will read the password input from the 16 key keypad, there are in total 8 lines connected to each 4 rows and 4 cols. In particular, the password will be set to "1234". The program will read the key input from the 16 key keypad, and if the input matches the password, the program will connect the relay to unlock the safebox.
 16 Key keypad: use GPIO 9,8,7,6 for Rows and GPIO 5,4,3,2 for Columns. Relay: use GPIO 13.
+Use only the Arduino core and its built-in libraries (e.g., Wire, SPI, Serial); do not use any external or third-party libraries. Communicate with sensors and modules directly (register-level / pin-level).
