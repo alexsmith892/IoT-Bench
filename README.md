@@ -1,9 +1,13 @@
 # IoT-Bench Arduino Mega Harness
 
-This repository uses the `bench` package as the only supported harness for the
-Arduino Mega IoT-SkillsBench tasks. Task behavior lives in YAML; case
-generation, Wokwi diagrams, scenarios, builds, live runs, artifact validation,
-and result reporting are shared by task family.
+This repository currently implements the Arduino Mega portion of IoT-Bench.
+The `bench` package is the only supported harness for these tasks. Task
+behavior lives in YAML; case generation, Wokwi diagrams, scenarios, builds,
+live runs, artifact validation, and result reporting are shared by task family.
+Broader benchmark features such as multi-board support, generated scenario
+suites, waveform-heavy peripheral analysis, fault injection, and public
+leaderboard infrastructure are project goals, not completed repository
+features unless they are explicitly represented in the code here.
 
 The benchmark result contract is:
 
@@ -52,11 +56,13 @@ artifacts/logic/
 artifacts/serial/
 artifacts/archive/vcd/
 artifacts/archive/serial/
+artifacts/submissions/
+artifacts/variants/
 ```
 
 Stimulus-driven tasks also include `scenario.yaml`. Runtime build outputs,
-VCDs, serial logs, archives, and verification manifests are generated locally
-and are ignored by default.
+VCDs, serial logs, archives, submission copies/builds, variant outputs, and
+verification manifests are generated locally and are ignored by default.
 
 ## Workflow
 
@@ -148,10 +154,8 @@ Level 2 live-supported:
 - `reverse_parking_sensor`
 - `rotary_encoder` (surrogate: dual digital-source quadrature injection)
 - `16key_keypad` (surrogate: matrix cross-point switches)
-
-Level 2 unsupported:
-- `bme280_read_i2c` (unsupported: no native Wokwi BME280 and no custom chip model)
-- `bme280_read_spi` (unsupported: no native Wokwi BME280 and no custom chip model)
+- `bme280_read_i2c` (custom deterministic BME280 chip; multi-variant)
+- `bme280_read_spi` (custom deterministic BME280 chip; multi-variant)
 
 Level 3 live-supported:
 - `dht11_read_button_display`
@@ -203,10 +207,10 @@ python -m unittest discover tests
 
 ## Wokwi And Fixture Notes
 
-- Build products, VCD captures, serial logs, archive snapshots, and
-  verification manifests are local outputs. They include machine-specific
-  details from Arduino and Wokwi runs, so regenerate them instead of committing
-  them.
+- Build products, VCD captures, serial logs, archive snapshots, submission
+  copies/builds, variant outputs, and verification manifests are local outputs.
+  They include machine-specific details from Arduino and Wokwi runs, so
+  regenerate them instead of committing them.
 - `run` builds before simulation. A genuine compile failure of the submission
   is reported as `CF`; missing firmware binaries after a successful compile are
   an artifact problem and reported as `IF` before Wokwi starts.
@@ -214,7 +218,7 @@ python -m unittest discover tests
   availability. Use `doctor` when diagnosing environment failures.
 - Wokwi scenario automation is treated as an isolated surface in
   `bench.scenarios`.
-- Tasks with `support.status: unsupported` or `manual` are reported as `CF`
+- Tasks with `support.status: unsupported` or `manual` are reported as `IF`
   with a harness reason. They are skipped by bulk `generate` and `lint` so
   invalid diagrams are not mistaken for live benchmark cases.
 - Debounce uses a synthetic rapid press/release sequence with Wokwi button
@@ -227,8 +231,12 @@ python -m unittest discover tests
   full sensor model.
 - DHT11 tasks use Wokwi's DHT22 component as a deterministic DHT-family
   surrogate because Wokwi does not expose a distinct DHT11 part.
-- BME280 I2C/SPI tasks are not live-supported until the harness has a real
-  custom chip model; Wokwi does not provide a native BME280 part.
+- BME280 I2C/SPI tasks are live-supported through the deterministic custom
+  `chip-bme280` model in `bench/chips/bme280`; Wokwi does not provide a native
+  BME280 part. The custom model is a benchmark peripheral, not a complete
+  physical BME280 emulator. Temperature, humidity, and pressure are all scored
+  per simulation variant (`expected_temperature_c`, `expected_humidity_rh`,
+  `expected_pressure_pa`).
 - DS1307 validation focuses on the RTC date/time contract. The upstream wording
   mentions temperature data, but Wokwi's DS1307 model does not provide a
   trustworthy temperature observable for this harness.

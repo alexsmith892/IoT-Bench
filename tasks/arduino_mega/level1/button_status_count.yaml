@@ -24,6 +24,9 @@ validator:
   family: serial_count_sequence
   params:
     expected_count: 3
+    # exact_sequence: serial integers must be exactly 1, 2, 3 in order, so a
+    # hardcoded "3" (or any value >= 3) cannot satisfy the count oracle.
+    match_mode: exact_sequence
 simulation:
   timeout_ms: 1500
 case:

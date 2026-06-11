@@ -1,7 +1,7 @@
 {
   "id": "bme280-read-spi-wokwi-mega",
   "task": "bme280_read_spi",
-  "name": "Read BME280 humidity and temperature over SPI",
+  "name": "Read BME280 humidity, temperature, and pressure over SPI",
   "simulator": "wokwi",
   "board": {
     "type": "wokwi-arduino-mega",

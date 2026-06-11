@@ -1,5 +1,5 @@
 task_id: bme280_read_i2c
-name: Read BME280 humidity and temperature over I2C
+name: Read BME280 humidity, temperature, and pressure over I2C
 platform: arduino_mega
 level: level2
 support:
@@ -19,21 +19,25 @@ fixture:
       pins: {sda: "20", scl: "21"}
       attrs: {temperatureC: "24.5", humidityRH: "55.0", pressurePa: "101325"}
 simulation_variants:
+  # Every variant must override expected_* explicitly; deep_merge would
+  # otherwise leak the base params into both variants.
   - id: scenario_a
-    attrs: {bme1: {temperatureC: "24.5", humidityRH: "55.0"}}
+    attrs: {bme1: {temperatureC: "24.5", humidityRH: "55.0", pressurePa: "101325"}}
     validator:
-      params: {expected_temperature_c: 24.5, expected_humidity_rh: 55.0}
+      params: {expected_temperature_c: 24.5, expected_humidity_rh: 55.0, expected_pressure_pa: 101325}
   - id: scenario_b
-    attrs: {bme1: {temperatureC: "31.0", humidityRH: "42.0"}}
+    attrs: {bme1: {temperatureC: "31.0", humidityRH: "42.0", pressurePa: "99000"}}
     validator:
-      params: {expected_temperature_c: 31.0, expected_humidity_rh: 42.0}
+      params: {expected_temperature_c: 31.0, expected_humidity_rh: 42.0, expected_pressure_pa: 99000}
 validator:
   family: bme280_environment
   params:
     expected_temperature_c: 24.5
     expected_humidity_rh: 55.0
+    expected_pressure_pa: 101325
     temperature_tolerance_c: 0.5
     humidity_tolerance_rh: 2.0
+    pressure_tolerance_pa: 100
     bus_activity: {bus: i2c, pins: [D0, D1], min_transitions: 2}
 simulation: {timeout_ms: 3000, require_distinct_variant_outputs: true}
 case: {id: bme280-read-i2c-wokwi-mega, sketch_name: bme280_read_i2c}

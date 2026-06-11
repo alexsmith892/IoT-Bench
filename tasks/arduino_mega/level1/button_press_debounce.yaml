@@ -41,7 +41,8 @@ validator:
     expected_text: "Button Pressed!"
     expected_triggers: 2
 simulation:
-  timeout_ms: 1200
+  # 1165 ms scenario end + observation margin (the budget lint warns under 100 ms).
+  timeout_ms: 1400
 case:
   id: button-press-debounce-wokwi-mega
   sketch_name: button_press_debounce

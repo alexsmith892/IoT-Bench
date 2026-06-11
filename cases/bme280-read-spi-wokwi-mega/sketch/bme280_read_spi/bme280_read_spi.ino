@@ -22,6 +22,8 @@ void loop() {
   Serial.print(bme.readTemperature(), 1);
   Serial.print(" C Humidity: ");
   Serial.print(bme.readHumidity(), 1);
-  Serial.println(" %");
+  Serial.print(" % Pressure: ");
+  Serial.print(bme.readPressure(), 0);
+  Serial.println(" Pa");
   delay(500);
 }

@@ -40,5 +40,8 @@ validator:
     - family: serial_count_sequence
       params:
         expected_count: 3
+        # exact_sequence: the printed step counts must be exactly 1, 2, 3 in
+        # order, so a fixed-output stub cannot satisfy the oracle.
+        match_mode: exact_sequence
 simulation: {timeout_ms: 2500}
 case: {id: step-counter-print-wokwi-mega, sketch_name: step_counter_print}

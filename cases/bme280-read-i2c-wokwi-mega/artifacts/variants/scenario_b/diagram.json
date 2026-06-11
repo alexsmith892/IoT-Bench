@@ -25,7 +25,7 @@
       "attrs": {
         "temperatureC": "31.0",
         "humidityRH": "42.0",
-        "pressurePa": "101325"
+        "pressurePa": "99000"
       }
     }
   ],
