@@ -62,3 +62,16 @@ def monotonic_counter_reaches(values: list[int], expected: int) -> bool:
         previous = value
     return reached
 
+
+def exact_count_sequence(values: list[int], expected: int, *, allow_repeats: bool = False) -> bool:
+    """True only when values are exactly 1, 2, ..., expected in order.
+
+    Rejects under-specified output (a single hardcoded value), skipped counts,
+    and extra trailing values. With allow_repeats, consecutive duplicates are
+    collapsed first (tolerates noisy re-prints of the current count).
+    """
+
+    if allow_repeats:
+        values = [value for index, value in enumerate(values) if index == 0 or values[index - 1] != value]
+    return values == list(range(1, expected + 1))
+

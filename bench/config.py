@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -319,8 +321,14 @@ def validate_families(task: TaskConfig, channels: list[dict[str, Any]]) -> None:
             state_texts = params.get("state_texts")
             if not isinstance(state_texts, dict) or set(map(str, state_texts)) != {"0", "1"}:
                 raise ConfigError(f"{task.path}: PIR serial validation requires state_texts for 0 and 1")
-    if task.validator_family == "serial_count_sequence" and "expected_count" not in params:
-        raise ConfigError(f"{task.path}: serial_count_sequence requires expected_count")
+    if task.validator_family == "serial_count_sequence":
+        if "expected_count" not in params:
+            raise ConfigError(f"{task.path}: serial_count_sequence requires expected_count")
+        match_mode = params.get("match_mode", "monotonic_reaches")
+        if match_mode not in {"monotonic_reaches", "exact_sequence"}:
+            raise ConfigError(
+                f"{task.path}: serial_count_sequence match_mode must be monotonic_reaches or exact_sequence"
+            )
     if task.validator_family == "debounce_serial":
         if "expected_triggers" not in params:
             raise ConfigError(f"{task.path}: debounce_serial requires expected_triggers")
@@ -352,6 +360,7 @@ def validate_families(task: TaskConfig, channels: list[dict[str, Any]]) -> None:
     if task.validator_family == "lcd_text_sequence":
         validate_lcd_text_sequence_config(task, params)
     validate_scenario(task)
+    validate_simulation_budget(task)
 
 
 def validator_requires_serial(validator: dict[str, Any]) -> bool:
@@ -480,6 +489,56 @@ def validate_scenario(task: TaskConfig) -> None:
             validate_required_duration(task, position, "duration_ms")
 
 
+def scenario_end_ms(scenario: dict[str, Any]) -> float:
+    """Total scenario timeline length, mirroring bench.scenarios defaults."""
+
+    family = scenario.get("family")
+    initial = float(scenario.get("initial_delay_ms", 200))
+    if family == "timeline":
+        return sum(float(step.get("delay_ms", 0)) for step in scenario.get("steps") or [])
+    if family == "button_press_sequence":
+        return initial + sum(
+            float(press.get("duration_ms", 200)) + float(press.get("after_ms", 200))
+            for press in scenario.get("presses") or []
+        )
+    if family == "bounced_button_sequence":
+        return (
+            initial
+            + sum(float(item.get("duration_ms", 1)) for item in scenario.get("sequence") or [])
+            + float(scenario.get("final_delay_ms", 250))
+        )
+    if family == "pir_state_sequence":
+        return initial + sum(float(item.get("duration_ms", 300)) for item in scenario.get("states") or [])
+    if family == "analog_position_sequence":
+        return initial + sum(
+            float(item.get("duration_ms", 300)) for item in scenario.get("positions") or []
+        )
+    if family == "control_sequence":
+        return initial + sum(
+            float(item.get("duration_ms", 300)) for item in scenario.get("controls") or []
+        )
+    return 0.0
+
+
+def validate_simulation_budget(task: TaskConfig) -> None:
+    scenario = task.scenario
+    if not scenario:
+        return
+    end_ms = scenario_end_ms(scenario)
+    timeout_ms = float(task.simulation.get("timeout_ms", 5000))
+    if timeout_ms <= end_ms:
+        raise ConfigError(
+            f"{task.path}: simulation timeout_ms ({timeout_ms:g}) does not exceed the scenario "
+            f"timeline ({end_ms:g} ms); later stimulus steps would never run"
+        )
+    if timeout_ms - end_ms < 100:
+        print(
+            f"warning: {task.path}: only {timeout_ms - end_ms:g} ms between scenario end "
+            f"({end_ms:g} ms) and simulation timeout ({timeout_ms:g} ms); consider raising timeout_ms",
+            file=sys.stderr,
+        )
+
+
 def validate_binary_absent_or_value(task: TaskConfig, item: dict[str, Any], name: str) -> None:
     if name in item:
         validate_binary_value(task, item, name)
@@ -524,9 +583,16 @@ def validate_custom_chips(task: TaskConfig, custom_chips: Any) -> None:
                 raise ConfigError(f"{task.path}: custom chip requires {field}")
 
 
+def sanitize_variant_id(value: str) -> str:
+    """Filesystem-safe variant id used for per-variant artifact paths."""
+
+    return re.sub(r"[^A-Za-z0-9._-]+", "-", value).strip("-")
+
+
 def validate_simulation_variants(task: TaskConfig, variants: Any) -> None:
     if not isinstance(variants, list) or not variants:
         raise ConfigError(f"{task.path}: simulation_variants must be a non-empty list")
+    sanitized_ids: dict[str, str] = {}
     for variant in variants:
         if not isinstance(variant, dict):
             raise ConfigError(f"{task.path}: simulation variant must be a mapping")
@@ -535,6 +601,18 @@ def validate_simulation_variants(task: TaskConfig, variants: Any) -> None:
         attrs = variant.get("attrs")
         if attrs is not None and not isinstance(attrs, dict):
             raise ConfigError(f"{task.path}: simulation variant attrs must be a mapping")
+        raw_id = str(variant["id"])
+        sanitized = sanitize_variant_id(raw_id)
+        if not sanitized:
+            raise ConfigError(
+                f"{task.path}: simulation variant id {raw_id!r} sanitizes to an empty filename"
+            )
+        if sanitized in sanitized_ids:
+            raise ConfigError(
+                f"{task.path}: simulation variant ids {sanitized_ids[sanitized]!r} and {raw_id!r} "
+                f"collide after sanitization ({sanitized!r}); variant artifacts would overwrite each other"
+            )
+        sanitized_ids[sanitized] = raw_id
 
 
 def validate_serial_observation_config(task: TaskConfig, params: dict[str, Any]) -> None:

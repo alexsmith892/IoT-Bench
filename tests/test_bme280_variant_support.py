@@ -126,6 +126,110 @@ class Bme280VariantSupportTests(unittest.TestCase):
             self.assertEqual(result["classification"], "FAIL", result)
             self.assertIn("scenario_a", result["reason"])
 
+    def test_pressure_within_tolerance_passes(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            case_dir = Path(tmp)
+            task, paths = bme_task(case_dir)
+            task.data["validator"]["params"]["expected_pressure_pa"] = 101325
+            assert paths.serial_log is not None
+            paths.serial_log.parent.mkdir(parents=True)
+            paths.serial_log.write_text(
+                "Temperature: 24.5 C Humidity: 55.0 % Pressure: 101300 Pa\n", encoding="utf-8"
+            )
+
+            self.assertEqual(validate_task(task, paths).classification, "PASS")
+
+    def test_missing_pressure_fails_when_expected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            case_dir = Path(tmp)
+            task, paths = bme_task(case_dir)
+            task.data["validator"]["params"]["expected_pressure_pa"] = 101325
+            assert paths.serial_log is not None
+            paths.serial_log.parent.mkdir(parents=True)
+            paths.serial_log.write_text("Temperature: 24.5 C Humidity: 55.0 %\n", encoding="utf-8")
+
+            result = validate_task(task, paths)
+
+            self.assertEqual(result.classification, "FAIL")
+            self.assertIn("pressure", result.reason)
+
+    def test_wrong_pressure_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            case_dir = Path(tmp)
+            task, paths = bme_task(case_dir)
+            task.data["validator"]["params"]["expected_pressure_pa"] = 101325
+            assert paths.serial_log is not None
+            paths.serial_log.parent.mkdir(parents=True)
+            paths.serial_log.write_text(
+                "Temperature: 24.5 C Humidity: 55.0 % Pressure: 99000 Pa\n", encoding="utf-8"
+            )
+
+            self.assertEqual(validate_task(task, paths).classification, "FAIL")
+
+    def test_pressure_expectation_falls_back_to_variant_attr(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            case_dir = Path(tmp)
+            task, paths = bme_task(case_dir)
+            task.data["validator"]["params"] = {}
+            task.data["active_simulation_variant"] = {
+                "id": "scenario_a",
+                "attrs": {"bme1": {"temperatureC": "24.5", "humidityRH": "55.0", "pressurePa": "101325"}},
+            }
+            assert paths.serial_log is not None
+            paths.serial_log.parent.mkdir(parents=True)
+
+            paths.serial_log.write_text(
+                "Temperature: 24.5 C Humidity: 55.0 % Pressure: 101325 Pa\n", encoding="utf-8"
+            )
+            self.assertEqual(validate_task(task, paths).classification, "PASS")
+
+            paths.serial_log.write_text("Temperature: 24.5 C Humidity: 55.0 %\n", encoding="utf-8")
+            self.assertEqual(validate_task(task, paths).classification, "FAIL")
+
+    def test_pressure_not_required_when_unset(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            case_dir = Path(tmp)
+            task, paths = bme_task(case_dir)
+            assert paths.serial_log is not None
+            paths.serial_log.parent.mkdir(parents=True)
+            paths.serial_log.write_text("Temperature: 24.5 C Humidity: 55.0 %\n", encoding="utf-8")
+
+            self.assertEqual(validate_task(task, paths).classification, "PASS")
+
+    def test_identical_numeric_outputs_with_different_text_fail_distinctness(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            case_dir = Path(tmp)
+            task, paths = bme_task(case_dir)
+            # Both variants accept their own values, but the firmware printed
+            # the same numbers with cosmetic differences -> distinctness fail.
+            task.data["simulation_variants"][0]["validator"]["params"] = {
+                "expected_temperature_c": 24.5,
+                "expected_humidity_rh": 55.0,
+                "temperature_tolerance_c": 50.0,
+                "humidity_tolerance_rh": 50.0,
+            }
+            task.data["simulation_variants"][1]["validator"]["params"] = {
+                "expected_temperature_c": 31.0,
+                "expected_humidity_rh": 42.0,
+                "temperature_tolerance_c": 50.0,
+                "humidity_tolerance_rh": 50.0,
+            }
+            task.data["validator"]["params"]["temperature_tolerance_c"] = 50.0
+            task.data["validator"]["params"]["humidity_tolerance_rh"] = 50.0
+            serial_dir = case_dir / "artifacts" / "serial"
+            serial_dir.mkdir(parents=True)
+            (serial_dir / "scenario_a.serial.log").write_text(
+                "Temperature: 28.0 C Humidity: 50.0 %\n", encoding="utf-8"
+            )
+            (serial_dir / "scenario_b.serial.log").write_text(
+                "Temp reading: 28.0 C / RH: 50.0 %\n", encoding="utf-8"
+            )
+
+            result = validate_case(task, paths)
+
+            self.assertEqual(result["classification"], "FAIL", result)
+            self.assertIn("identical numeric outputs", result["reason"], result)
+
     def test_custom_bme280_chip_part_lints_with_case_local_binary_and_json(self):
         with tempfile.TemporaryDirectory() as tmp:
             case_dir = Path(tmp)

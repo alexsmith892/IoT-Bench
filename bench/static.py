@@ -10,12 +10,29 @@ class StaticCheckError(Exception):
     """Raised when a source-level constraint fails."""
 
 
+# Arduino compiles every source file in the sketch directory, so static checks
+# must see the same set or a forbidden call can hide in a helper file.
+SOURCE_SUFFIXES = {".ino", ".h", ".hpp", ".c", ".cpp"}
+# Generated/build output inside a submitted sketch directory is not compiled
+# as sketch source and must not be scanned.
+EXCLUDED_DIR_NAMES = {"build", "artifacts", ".git", "__pycache__"}
+
+
 def read_arduino_sources(sketch_path: Path) -> str:
-    ino_files = [sketch_path] if sketch_path.is_file() else sorted(sketch_path.glob("*.ino"))
-    if not ino_files:
+    if sketch_path.is_file():
+        source_files = [sketch_path]
+    else:
+        source_files = sorted(
+            path
+            for path in sketch_path.rglob("*")
+            if path.is_file()
+            and path.suffix.lower() in SOURCE_SUFFIXES
+            and not (set(path.relative_to(sketch_path).parts[:-1]) & EXCLUDED_DIR_NAMES)
+        )
+    if not any(path.suffix.lower() == ".ino" for path in source_files):
         raise StaticCheckError(f"no .ino file found in {sketch_path}")
     return "\n".join(
-        path.read_text(encoding="utf-8", errors="replace") for path in ino_files
+        path.read_text(encoding="utf-8", errors="replace") for path in source_files
     )
 
 

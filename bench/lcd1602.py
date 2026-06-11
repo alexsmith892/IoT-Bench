@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+from bisect import bisect_right
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .vcd import VcdEvent, parse_vcd_signals
 
@@ -52,18 +53,19 @@ def decode_lcd1602_vcd_frames(
     mapping.update(signals or {})
     events_by_signal = parse_vcd_signals(vcd_path, mapping.values())
     events = {logical: events_by_signal[name] for logical, name in mapping.items()}
+    readers = {logical: make_value_reader(signal_events) for logical, signal_events in events.items()}
     frame = LcdFrame(rows=[" " * cols for _ in range(rows)])
     history = [LcdTimedFrame(0.0, clone_frame(frame))]
     cursor = 0
     pending: tuple[int, int] | None = None
 
     for time_s in falling_edges(events["e"]):
-        rs = value_at(events["rs"], time_s)
+        rs = readers["rs"](time_s)
         nibble = (
-            value_at(events["d4"], time_s)
-            | (value_at(events["d5"], time_s) << 1)
-            | (value_at(events["d6"], time_s) << 2)
-            | (value_at(events["d7"], time_s) << 3)
+            readers["d4"](time_s)
+            | (readers["d5"](time_s) << 1)
+            | (readers["d6"](time_s) << 2)
+            | (readers["d7"](time_s) << 3)
         )
         if pending is None or pending[0] != rs:
             pending = (rs, nibble)
@@ -92,13 +94,26 @@ def falling_edges(events: list[VcdEvent]) -> list[float]:
     ]
 
 
+def make_value_reader(events: list[VcdEvent]) -> Callable[[float], int]:
+    """O(log n) signal-level lookup over a precomputed timestamp index.
+
+    Matches the historical linear-scan semantics exactly, including returning
+    the first event's value when probed before the first timestamp.
+    """
+
+    timestamps = [event.timestamp_s for event in events]
+
+    def reader(time_s: float) -> int:
+        if not events:
+            return 0
+        index = bisect_right(timestamps, time_s)
+        return events[0].value if index == 0 else events[index - 1].value
+
+    return reader
+
+
 def value_at(events: list[VcdEvent], time_s: float) -> int:
-    value = events[0].value if events else 0
-    for event in events:
-        if event.timestamp_s > time_s:
-            break
-        value = event.value
-    return value
+    return make_value_reader(events)(time_s)
 
 
 def write_data(frame: LcdFrame, cursor: int, byte: int, cols: int, rows: int) -> int:

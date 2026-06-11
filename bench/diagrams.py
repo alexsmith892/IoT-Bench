@@ -536,6 +536,109 @@ def validate_diagram_file(path: Path, task: TaskConfig) -> None:
     validate_diagram_shape(diagram)
     validate_part_types(diagram, task, path)
     validate_analyzer_wiring(diagram, task)
+    validate_scenario_controls(diagram, task)
+
+
+# Automation controls accepted per part type. This list tracks the Wokwi CLI
+# set-control behavior (and the bench BME280 custom chip's controls) and is
+# intentionally explicit so scenario typos fail at lint time instead of
+# silently doing nothing during a live simulation.
+PART_TYPE_CONTROLS: dict[str, set[str]] = {
+    "wokwi-pushbutton": {"pressed"},
+    "wokwi-dht22": {"temperature", "humidity"},
+    "wokwi-ds18b20": {"temperature"},
+    "wokwi-photoresistor-sensor": {"lux"},
+    "wokwi-analog-joystick": {"x", "y", "pressed"},
+    "wokwi-mpu6050": {"accelX", "accelY", "accelZ", "rotationX", "rotationY", "rotationZ"},
+    "wokwi-potentiometer": {"position"},
+    "wokwi-hc-sr04": {"distance"},
+    "wokwi-ntc-temperature-sensor": {"temperature"},
+    # bench/chips/bme280: deterministic custom chip; controls match its
+    # bme280.chip.json control ids (which double as diagram attrs).
+    "chip-bme280": {"temperatureC", "humidityRH", "pressurePa"},
+}
+
+# Fixed scenario families drive a single hardcoded control on a configurable
+# part id (see bench.scenarios). Map each to that control name.
+FIXED_FAMILY_CONTROLS = {
+    "button_press_sequence": ("part_id", "btn1", "pressed"),
+    "bounced_button_sequence": ("part_id", "btn1", "pressed"),
+    "pir_state_sequence": ("part_id", "pir1", "pressed"),
+    "analog_position_sequence": ("part_id", "pot1", "position"),
+}
+
+
+def scenario_control_pairs(task: TaskConfig) -> list[tuple[str, str]]:
+    scenario = task.scenario
+    if not scenario:
+        return []
+    family = scenario.get("family")
+    if family in FIXED_FAMILY_CONTROLS:
+        key, default_part, control = FIXED_FAMILY_CONTROLS[family]
+        return [(str(scenario.get(key, default_part)), control)]
+    pairs: list[tuple[str, str]] = []
+    if family == "control_sequence":
+        for item in scenario.get("controls") or []:
+            if isinstance(item, dict):
+                pairs.append((str(item.get("part_id")), str(item.get("control"))))
+    if family == "timeline":
+        for item in scenario.get("steps") or []:
+            if isinstance(item, dict) and isinstance(item.get("set_control"), dict):
+                control = item["set_control"]
+                pairs.append((str(control.get("part_id")), str(control.get("control"))))
+    return pairs
+
+
+def validate_scenario_controls(diagram: dict[str, Any], task: TaskConfig) -> None:
+    part_types = {
+        str(part_data.get("id")): str(part_data.get("type"))
+        for part_data in diagram.get("parts", [])
+        if isinstance(part_data, dict) and part_data.get("id") is not None
+    }
+    validate_variant_attr_targets(diagram, task, part_types)
+    for part_id, control in scenario_control_pairs(task):
+        part_type = part_types.get(part_id)
+        if part_type is None:
+            raise DiagramError(
+                f"{task.path}: scenario references unknown part id {part_id!r} "
+                f"(diagram parts: {sorted(part_types)})"
+            )
+        allowed = PART_TYPE_CONTROLS.get(part_type)
+        if allowed is None:
+            raise DiagramError(
+                f"{task.path}: scenario drives part {part_id!r} of type {part_type!r}, "
+                "which has no known automation controls (extend PART_TYPE_CONTROLS if Wokwi supports it)"
+            )
+        if control not in allowed:
+            raise DiagramError(
+                f"{task.path}: control {control!r} is not valid for {part_type!r} "
+                f"(part {part_id!r}); known controls: {sorted(allowed)}"
+            )
+
+
+def validate_variant_attr_targets(
+    diagram: dict[str, Any],
+    task: TaskConfig,
+    part_types: dict[str, str],
+) -> None:
+    for variant in task.simulation_variants:
+        for part_id, attrs in (variant.get("attrs") or {}).items():
+            part_type = part_types.get(str(part_id))
+            if part_type is None:
+                raise DiagramError(
+                    f"{task.path}: simulation variant references unknown part id {part_id!r}"
+                )
+            # Custom chips expose exactly their declared controls as attrs;
+            # native parts accept arbitrary cosmetic attrs, so only chip-*
+            # attr names are validated here.
+            if part_type.startswith("chip-") and isinstance(attrs, dict):
+                allowed = PART_TYPE_CONTROLS.get(part_type, set())
+                unknown = sorted(set(map(str, attrs)) - allowed)
+                if unknown:
+                    raise DiagramError(
+                        f"{task.path}: simulation variant sets unknown attrs {unknown} "
+                        f"on {part_type!r} (known: {sorted(allowed)})"
+                    )
 
 
 def validate_diagram_shape(diagram: dict[str, Any]) -> None:

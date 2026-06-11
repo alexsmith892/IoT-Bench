@@ -11,6 +11,7 @@ from bench.runner import CasePaths
 from bench.serial import (
     SerialLogError,
     count_occurrences,
+    exact_count_sequence,
     extract_floats,
     extract_ints,
     monotonic_counter_reaches,
@@ -186,15 +187,18 @@ def validate_serial_numeric_ranges(task: TaskConfig, paths: CasePaths) -> Valida
 def validate_bme280_environment(task: TaskConfig, paths: CasePaths) -> ValidationResult:
     text = read_serial_log_or_fail(paths)
     params = task.validator_params()
+    variant = task.data.get("active_simulation_variant") or {}
+    variant_attrs = next(iter((variant.get("attrs") or {}).values()), {})
     expected_temperature = params.get("expected_temperature_c")
     expected_humidity = params.get("expected_humidity_rh")
     if expected_temperature is None or expected_humidity is None:
-        variant = task.data.get("active_simulation_variant") or {}
-        attrs = next(iter((variant.get("attrs") or {}).values()), {})
-        expected_temperature = attrs.get("temperatureC", attrs.get("temperature"))
-        expected_humidity = attrs.get("humidityRH", attrs.get("humidity"))
+        expected_temperature = variant_attrs.get("temperatureC", variant_attrs.get("temperature"))
+        expected_humidity = variant_attrs.get("humidityRH", variant_attrs.get("humidity"))
     if expected_temperature is None or expected_humidity is None:
         return ValidationResult(FAIL, "BME280 validator requires expected temperature and humidity")
+    expected_pressure = params.get("expected_pressure_pa")
+    if expected_pressure is None:
+        expected_pressure = variant_attrs.get("pressurePa")
 
     expected_temperature = float(expected_temperature)
     expected_humidity = float(expected_humidity)
@@ -227,6 +231,22 @@ def validate_bme280_environment(task: TaskConfig, paths: CasePaths) -> Validatio
     metrics["matched_temperature_c"] = round(matching_temperature, 3)
     metrics["matched_humidity_rh"] = round(matching_humidity, 3)
 
+    if expected_pressure is not None:
+        expected_pressure = float(expected_pressure)
+        pressure_tolerance = float(params.get("pressure_tolerance_pa", 100.0))
+        pressures = labeled_serial_values(text, r"press(?:ure)?")
+        metrics["expected_pressure_pa"] = expected_pressure
+        metrics["pressure_tolerance_pa"] = pressure_tolerance
+        metrics["observed_pressures_pa"] = rounded(pressures, digits=3)
+        matching_pressure = first_within(pressures, expected_pressure, pressure_tolerance)
+        if matching_pressure is None:
+            return ValidationResult(
+                FAIL,
+                f"serial log is missing BME280 pressure near {expected_pressure:g} Pa",
+                metrics,
+            )
+        metrics["matched_pressure_pa"] = round(matching_pressure, 3)
+
     bus_activity = params.get("bus_activity")
     if bus_activity:
         bus_result = validate_bus_activity(
@@ -237,7 +257,7 @@ def validate_bme280_environment(task: TaskConfig, paths: CasePaths) -> Validatio
         if bus_result.classification != PASS:
             return ValidationResult(bus_result.classification, bus_result.reason, metrics)
 
-    return ValidationResult(PASS, "serial log contains expected BME280 temperature and humidity", metrics)
+    return ValidationResult(PASS, "serial log contains expected BME280 readings", metrics)
 
 
 def labeled_serial_values(text: str, label_pattern: str) -> list[float]:
@@ -815,8 +835,18 @@ def validate_serial_count_sequence(task: TaskConfig, paths: CasePaths) -> Valida
     text = read_serial_log_or_fail(paths)
     params = task.validator_params()
     expected_count = int(params.get("expected_count", 3))
+    match_mode = str(params.get("match_mode", "monotonic_reaches"))
+    allow_repeats = bool(params.get("allow_repeats", False))
     values = extract_ints(text)
-    metrics = {"integers": values, "expected_count": expected_count}
+    metrics = {"integers": values, "expected_count": expected_count, "match_mode": match_mode}
+    if match_mode == "exact_sequence":
+        if not exact_count_sequence(values, expected_count, allow_repeats=allow_repeats):
+            return ValidationResult(
+                FAIL,
+                f"serial log does not show the exact count sequence 1..{expected_count}",
+                metrics,
+            )
+        return ValidationResult(PASS, "serial log shows the exact count sequence", metrics)
     if not monotonic_counter_reaches(values, expected_count):
         return ValidationResult(
             FAIL,
