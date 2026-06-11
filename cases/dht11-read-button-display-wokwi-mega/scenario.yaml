@@ -7,9 +7,28 @@ steps:
     part-id: btn1
     control: pressed
     value: 1
-- delay: 150ms
+- delay: 100ms
 - set-control:
     part-id: btn1
     control: pressed
     value: 0
-- delay: 800ms
+- delay: 700ms
+- set-control:
+    part-id: dht1
+    control: temperature
+    value: 31
+- set-control:
+    part-id: dht1
+    control: humidity
+    value: 62
+- delay: 250ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 100ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 700ms

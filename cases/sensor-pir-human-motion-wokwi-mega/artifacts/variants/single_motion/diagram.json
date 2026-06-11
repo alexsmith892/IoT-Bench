@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "wokwi-arduino-mega",
+      "id": "mega",
+      "top": 120,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "pir1",
+      "top": -35,
+      "left": 150,
+      "attrs": {
+        "color": "orange",
+        "label": "PIR emu",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r1",
+      "top": 50,
+      "left": 198,
+      "attrs": {
+        "value": "10000"
+      },
+      "rotate": 90
+    }
+  ],
+  "connections": [
+    [
+      "pir1:1.r",
+      "mega:5V",
+      "red",
+      []
+    ],
+    [
+      "pir1:2.r",
+      "mega:4",
+      "green",
+      []
+    ],
+    [
+      "r1:1",
+      "mega:4",
+      "green",
+      []
+    ],
+    [
+      "r1:2",
+      "mega:GND.1",
+      "black",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

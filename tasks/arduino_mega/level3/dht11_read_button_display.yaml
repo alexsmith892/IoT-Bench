@@ -25,20 +25,65 @@ fixture:
     - type: lcd1602
       id: lcd1
       pins: {rs: "12", e: "11", d4: "4", d5: "5", d6: "6", d7: "7"}
+# Each variant presses the button, changes the DHT readings mid-run via
+# set-control, and presses again: the LCD must show the variant's initial values
+# and then the injected values, so a frozen/hardcoded display fails.
 scenario:
-  family: button_press_sequence
-  part_id: btn1
-  initial_delay_ms: 200
-  presses:
-    - {duration_ms: 150, after_ms: 800}
+  family: timeline
+  steps:
+    - {delay_ms: 200}
+    - set_control: {part_id: btn1, control: pressed, value: 1}
+    - {delay_ms: 100}
+    - set_control: {part_id: btn1, control: pressed, value: 0}
+    - {delay_ms: 700}
+    - set_control: {part_id: dht1, control: temperature, value: 31}
+    - set_control: {part_id: dht1, control: humidity, value: 62}
+    - {delay_ms: 250}
+    - set_control: {part_id: btn1, control: pressed, value: 1}
+    - {delay_ms: 100}
+    - set_control: {part_id: btn1, control: pressed, value: 0}
+    - {delay_ms: 700}
+simulation_variants:
+  - id: warm_to_hot
+    attrs: {dht1: {temperature: "24", humidity: "40"}}
+  - id: cool_to_mild
+    attrs: {dht1: {temperature: "18", humidity: "55"}}
+    scenario:
+      family: timeline
+      steps:
+        - {delay_ms: 200}
+        - set_control: {part_id: btn1, control: pressed, value: 1}
+        - {delay_ms: 100}
+        - set_control: {part_id: btn1, control: pressed, value: 0}
+        - {delay_ms: 700}
+        - set_control: {part_id: dht1, control: temperature, value: 27}
+        - set_control: {part_id: dht1, control: humidity, value: 33}
+        - {delay_ms: 250}
+        - set_control: {part_id: btn1, control: pressed, value: 1}
+        - {delay_ms: 100}
+        - set_control: {part_id: btn1, control: pressed, value: 0}
+        - {delay_ms: 700}
+    validator:
+      checks:
+        - {}
+        - params:
+            frames:
+              - expected_texts: ["Temp:", "RH:"]
+                expected_regexps: ["Temp:\\s*18(\\.0)?\\s*C", "RH:\\s*55(\\.0)?\\s*%"]
+              - expected_texts: ["Temp:", "RH:"]
+                expected_regexps: ["Temp:\\s*27(\\.0)?\\s*C", "RH:\\s*33(\\.0)?\\s*%"]
 validator:
   family: composite
   checks:
     - family: static_checks
       params:
         required_any_patterns: [["attachInterrupt", "digitalPinToInterrupt"]]
-    - family: lcd_text
+    - family: lcd_text_sequence
       params:
-        expected_texts: ["Temp:", "RH:"]
-simulation: {timeout_ms: 1800}
+        frames:
+          - expected_texts: ["Temp:", "RH:"]
+            expected_regexps: ["Temp:\\s*24(\\.0)?\\s*C", "RH:\\s*40(\\.0)?\\s*%"]
+          - expected_texts: ["Temp:", "RH:"]
+            expected_regexps: ["Temp:\\s*31(\\.0)?\\s*C", "RH:\\s*62(\\.0)?\\s*%"]
+simulation: {timeout_ms: 2700}
 case: {id: dht11-read-button-display-wokwi-mega, sketch_name: dht11_read_button_display}

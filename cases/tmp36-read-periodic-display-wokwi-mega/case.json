@@ -12,7 +12,8 @@
     "diagram": "diagram.json",
     "wokwi": "wokwi.toml",
     "build": "artifacts/build",
-    "vcd": "artifacts/logic/wokwi.vcd"
+    "vcd": "artifacts/logic/wokwi.vcd",
+    "scenario": "scenario.yaml"
   },
   "observed_signal": {
     "vcd_name": "D0",

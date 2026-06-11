@@ -29,14 +29,29 @@ scenario:
   initial_delay_ms: 200
   presses:
     - {duration_ms: 150, after_ms: 800}
+# Each variant seeds a different TMP36 output (ADC counts via the pot surrogate)
+# and requires the displayed Fahrenheit value to match it, so a hardcoded
+# display fails the other variant. 153 counts ~ 24.8 C ~ 77 F; 184 ~ 104 F.
+simulation_variants:
+  - id: warm
+    attrs: {pot1: {value: "153"}}
+  - id: hot
+    attrs: {pot1: {value: "184"}}
+    validator:
+      checks:
+        - {}
+        - params:
+            expected_regexps: ["Temp:\\s*10[3-5](\\.\\d)?\\s*F"]
 validator:
   family: composite
   checks:
     - family: static_checks
       params:
+        required_patterns: ["analogRead\\s*\\(\\s*A0"]
         required_any_patterns: [["attachInterrupt", "digitalPinToInterrupt"]]
     - family: lcd_text
       params:
         expected_texts: ["Temp:"]
+        expected_regexps: ["Temp:\\s*7[6-8](\\.\\d)?\\s*F"]
 simulation: {timeout_ms: 1800}
 case: {id: tmp36-read-button-display-wokwi-mega, sketch_name: tmp36_read_button_display}

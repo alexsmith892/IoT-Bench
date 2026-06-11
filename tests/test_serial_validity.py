@@ -59,6 +59,15 @@ class SerialValidityTests(unittest.TestCase):
             root = Path(tmp)
             serial_log = root / "serial.log"
             serial_log.write_text(serial_text, encoding="utf-8")
+            # These cases exercise the serial oracle; provide a sketch that
+            # satisfies the tasks' static gates so they are not what fails.
+            sketch_dir = root / "sketch"
+            sketch_dir.mkdir()
+            (sketch_dir / "sketch.ino").write_text(
+                "void setup(){ pinMode(2, INPUT); }\n"
+                "void loop(){ digitalRead(2); analogRead(A0); millis(); }\n",
+                encoding="utf-8",
+            )
             task = load_task(task_id)
             result = validate_task(
                 task,

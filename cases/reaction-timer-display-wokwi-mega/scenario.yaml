@@ -17,4 +17,4 @@ steps:
     part-id: shock1
     control: pressed
     value: 1
-- delay: 100ms
+- delay: 150ms

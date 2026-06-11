@@ -728,7 +728,10 @@ def validate_variants(task: TaskConfig, paths: CasePaths) -> dict[str, Any]:
         numeric_signatures = {
             current_id: tuple(extract_floats(text)) for current_id, text in serial_outputs.items()
         }
-        if len(set(numeric_signatures.values())) == 1:
+        # Text-only outputs (no numbers in any variant) are already covered by
+        # the text comparison above; the numeric backstop only applies when at
+        # least one variant emits numbers.
+        if any(numeric_signatures.values()) and len(set(numeric_signatures.values())) == 1:
             return result_payload(
                 FAIL,
                 "all simulation variants produced identical numeric outputs",
