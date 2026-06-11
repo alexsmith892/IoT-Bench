@@ -3,11 +3,11 @@
 This repository currently implements the Arduino Mega portion of IoT-Bench.
 The `bench` package is the only supported harness for these tasks. Task
 behavior lives in YAML; case generation, Wokwi diagrams, scenarios, builds,
-live runs, artifact validation, and result reporting are shared by task family.
-Broader benchmark features such as multi-board support, generated scenario
-suites, waveform-heavy peripheral analysis, fault injection, and public
-leaderboard infrastructure are project goals, not completed repository
-features unless they are explicitly represented in the code here.
+live runs, artifact validation, batch evaluation, and result reporting are
+shared by task family. Multi-board support (ESP32, Zephyr), waveform-heavy
+peripheral analysis, fault injection, and the public leaderboard frontend are
+project goals, not completed repository features unless they are explicitly
+represented in the code here.
 
 The benchmark result contract is:
 
@@ -32,19 +32,27 @@ benchmark outcome.
 
 ```text
 bench/
-  cli.py              # generate/build/run/validate/doctor entry point
+  cli.py              # generate/prompt/build/lint/doctor/run/evaluate/
+                      # repeatability/validate-artifacts entry point
   config.py           # task YAML loading and family-aware validation
-  diagrams.py         # deterministic Wokwi diagram families
-  runner.py           # case generation, compile, Wokwi execution, verification
+  diagrams.py         # deterministic Wokwi diagram families + control allowlist
+  runner.py           # case generation, compile, Wokwi execution, variants,
+                      # provenance manifests
   scenarios.py        # Wokwi automation scenario generation
   serial.py           # serial-log parsing helpers
-  static.py           # source-level checks such as forbidden delay()
+  static.py           # source-level checks (required/forbidden patterns)
   vcd.py              # VCD parsing and waveform analysis helpers
+  lcd1602.py          # LCD1602 4-bit bus decoding from VCD
   validators/         # reusable validator families
+  chips/bme280/       # deterministic custom Wokwi chip for BME280 tasks
+  tool_versions.yaml  # pinned arduino-cli / wokwi-cli versions
 tasks/arduino_mega/level*/
-  *.yaml              # source of truth for task behavior
+  *.yaml              # source of truth for task oracles (the answer key)
+  *.prompt.md         # frozen model-facing task statement (one per task)
 cases/
   <task>-wokwi-mega/  # generated Wokwi projects and reference sketches
+tests/
+  adversarial/        # known cheat stubs per task (regression corpus)
 ```
 
 Generated cases contain `case.yaml`, `case.json`, `diagram.json`,
@@ -60,9 +68,61 @@ artifacts/submissions/
 artifacts/variants/
 ```
 
-Stimulus-driven tasks also include `scenario.yaml`. Runtime build outputs,
-VCDs, serial logs, archives, submission copies/builds, variant outputs, and
-verification manifests are generated locally and are ignored by default.
+Stimulus-driven tasks also include `scenario.yaml`; tasks whose variants
+override the stimulus additionally get
+`artifacts/variants/<id>/scenario.yaml`. Runtime build outputs, VCDs, serial
+logs, archives, submission copies/builds, variant outputs, and verification
+manifests are generated locally and are ignored by default.
+
+## Task Prompts And The Information Boundary
+
+Each task has a frozen, model-facing specification in
+`tasks/.../<task_id>.prompt.md` (print it with `python -m bench.cli prompt
+--task <id>`). The prompt is the *only* task material a model under test may
+see. The task YAML is the answer key: it contains the variant stimulus values,
+scenario timings, and expected numeric bands that make the oracles
+hardcode-resistant. Showing the YAML (or generated `scenario.yaml` /
+`diagram.json` attrs) to a model under test invalidates the result.
+
+Every prompt ends with the benchmark's library policy: submissions must use
+only the Arduino core and its built-in libraries (`Wire`, `SPI`, `Serial`,
+bundled core libraries) and communicate with sensors directly. This is what
+makes the source-level static gates (e.g. requiring `Wire.requestFrom` in the
+submission) fair: third-party driver libraries are disallowed by rule, so
+their absence in a submission's source is a legitimate behavior failure.
+
+## Anti-Gaming Oracles
+
+Pass/fail is designed so that a hardcoded-output submission cannot pass:
+
+- **Simulation variants** (`simulation_variants` in task YAML) run the same
+  firmware against multiple configurations. Variants can override component
+  attrs (e.g. a different seeded RTC time or sensor value per run) and/or
+  declare a full replacement `scenario:` (a different stimulus timeline per
+  run). Expected outputs differ per variant, so output that is constant across
+  variants fails.
+- `simulation.require_distinct_variant_outputs: true` additionally rejects
+  submissions whose serial output is identical across variants (text and,
+  where numbers are emitted, numeric values).
+- **Stimulus correlation**: scenario-driven oracles check that output tracks
+  injected stimulus (exact debounced-press counts, PIR state-transition order,
+  step-count sequences, accelerometer raw counts matching injected values, LCD
+  frames showing sensor values before and after a mid-run change).
+- **Numeric display assertions**: `lcd_text` / `lcd_text_sequence` accept
+  `expected_regexps` (per frame for the sequence form) so LCD oracles check
+  values, not just labels.
+- **Static gates**: source-level required patterns (real I2C read path,
+  `digitalRead`, `millis`, ...) reject print-only stubs before simulation.
+- **Adversarial regression corpus**: `tests/adversarial/<task_id>/*.ino` holds
+  known cheat stubs for previously weak tasks. `tests/test_adversarial_static.py`
+  pins which stubs the static gate must reject and which intentionally pass it
+  (decoy stubs, rejected at runtime by the variant oracles — verified by live
+  swap runs). Reference solutions for all hardened tasks have been verified BC
+  live, and every stub verified BF live.
+- **Provenance**: `artifacts/verification.json` records hashes for sketch,
+  diagram, scenario, firmware, per-variant diagrams/scenarios, and outputs,
+  plus tool versions. `validate-artifacts` refuses artifacts that do not match
+  (-> `IF`), so results cannot be produced from tampered inputs unnoticed.
 
 ## Workflow
 
@@ -124,6 +184,25 @@ python -m bench.cli run --task button_status_count --sketch path/to/submission
 python -m bench.cli validate-artifacts --task blink_led_no_delay --case cases/blink-led-no-delay-wokwi-mega --sketch path/to/submission
 ```
 
+Batch-evaluate a directory of submissions (one sketch per task) into JSONL,
+with automatic retry of `IF` results:
+
+```powershell
+python -m bench.cli evaluate --sketch-dir path/to/submissions --output results.jsonl --if-retries 1
+```
+
+Measure live repeatability of the reference sketches (flake census — any task
+that flakes here is a leaderboard noise source):
+
+```powershell
+python -m bench.cli repeatability --runs 10 --output flakes.jsonl
+```
+
+Both commands enforce the pinned tool versions in `bench/tool_versions.yaml`
+(override with `--allow-tool-version-mismatch`), so a Wokwi or arduino-cli
+behavior change surfaces as an environment problem instead of silently
+shifting behavior judgments.
+
 ## Task Coverage
 
 Level 1:
@@ -134,22 +213,22 @@ Level 1:
 - `buzzer_doorbell`
 - `button_status_display`
 - `button_status_count`
-- `button_press_debounce`
+- `button_press_debounce` (multi-variant: 2 vs 3 bounced presses)
 - `breathing_led`
-- `sensor_pir_human_motion`
+- `sensor_pir_human_motion` (multi-variant: different motion patterns)
 - `tmp36_read`
 
 Level 2 live-supported:
 - `lcd1602_display_hello_world`
 - `dht11_read`
-- `ds1307_rtc`
-- `mpu6050_read_i2c`
+- `ds1307_rtc` (multi-variant: different seeded clock per run)
+- `mpu6050_read_i2c` (multi-variant: per-variant accel/gyro injection, raw-count oracle)
 - `tilt_detection_alarm`
 - `photoresistor_nightlight`
 - `ds18b20_heat_alarm`
 - `clap_switch`
 - `hcsr501_motion_alarm`
-- `hcsr04_find_distance`
+- `hcsr04_find_distance` (multi-variant: different configured distances)
 - `parking_sensor`
 - `reverse_parking_sensor`
 - `rotary_encoder` (surrogate: dual digital-source quadrature injection)
@@ -157,20 +236,23 @@ Level 2 live-supported:
 - `bme280_read_i2c` (custom deterministic BME280 chip; multi-variant)
 - `bme280_read_spi` (custom deterministic BME280 chip; multi-variant)
 
-Level 3 live-supported:
-- `dht11_read_button_display`
-- `mpu6050_read_button_display`
-- `mpu6050_read_periodic_display`
+Level 3 live-supported (the display tasks below are multi-variant with
+numeric LCD oracles tied to injected stimulus):
+- `dht11_read_button_display` (mid-run DHT value change between button reads)
+- `mpu6050_read_button_display` (per-variant accel/gyro injection)
+- `mpu6050_read_periodic_display` (per-variant accel/gyro injection)
 - `lcd1602_auto_brightness_control`
 - `buzzer_toggle_led_freq`
-- `tmp36_read_button_display`
-- `tmp36_read_periodic_display`
-- `reaction_timer_display`
+- `tmp36_read_button_display` (per-variant seeded ADC value)
+- `tmp36_read_periodic_display` (mid-run analog change; counter + value frames)
+- `reaction_timer_display` (per-variant button->shock gap; displayed ms must
+  fall in the matching band)
 - `sensor_water_level_display`
 - `buzzer_laser_tripwire`
 - `joystick_buzzer_pitch`
 - `safebox` (surrogate: matrix keypad; wrong-then-correct relay windows)
-- `safebox_display` (surrogate: matrix keypad; LCD + relay windows)
+- `safebox_display` (surrogate: matrix keypad; LCD must echo the
+  variant-specific wrong code before Success; relay windows)
 - `step_counter_print` (native MPU6050 acceleration controls)
 
 ## Shared Families
@@ -185,9 +267,15 @@ Level 3 live-supported:
   window-ratio checks for multi-part tasks.
 - LCD1602 displays are validated by decoding the 4-bit parallel bus from VCD.
 - LCD sequence validators can match intermediate frames instead of only the
-  final display state.
+  final display state, with optional `start_s`/`end_s` time windows and
+  `expected_regexps` for numeric content.
 - Static checks support forbidden calls, required regex patterns, and
-  "any-of" required pattern groups.
+  "any-of" required pattern groups (comments and string literals are stripped
+  before matching).
+- Simulation variants deep-merge per-variant validator params into the base
+  validator (positionally for `checks` lists — the `- {}` placeholder idiom)
+  and may replace the scenario wholesale; variant scenarios are linted with
+  the same structure/budget/control-allowlist rules as the base.
 
 ## Testing
 
@@ -196,6 +284,11 @@ Offline regression tests do not require Wokwi, network access, or a Wokwi token:
 ```powershell
 python -m unittest discover tests
 ```
+
+The offline suite includes the lint gates (variant ids, simulation budgets,
+scenario-control allowlist, registry consistency) and the adversarial
+static-gate expectations; it runs in CI on every push
+(`.github/workflows/ci.yml`).
 
 Live integration tests are opt-in and require `arduino-cli`, the Arduino AVR
 platform, `wokwi-cli`, network access, and `WOKWI_CLI_TOKEN`:
@@ -226,9 +319,14 @@ python -m unittest discover tests
   switch model.
 - PIR is benchmarked as a controllable active-high digital input using part id
   `pir1`, because the Wokwi PIR part is not a reliable scenario-control oracle.
-- TMP36 is benchmarked with a potentiometer analog source and the formula
-  `C = (Vout - 0.5) * 100`; this checks TMP36-style conversion behavior, not a
-  full sensor model.
+- TMP36 (and the other analog surrogates: water-level, photoresistor
+  brightness source, etc.) is a `wokwi-potentiometer` part. The diagram attr
+  `value` is the raw ADC reading directly (`value: "153"` -> `analogRead`
+  returns 153) and the scenario control `position` is normalized 0..1
+  (raw ~ position x 1023). The oracle checks TMP36-style conversion
+  (`C = (Vout - 0.5) * 100` at 5 V / 1023 counts), not a full sensor model.
+  These constants are AVR-specific and must come from a board profile when
+  ESP32 (3.3 V / 4095) is added.
 - DHT11 tasks use Wokwi's DHT22 component as a deterministic DHT-family
   surrogate because Wokwi does not expose a distinct DHT11 part.
 - BME280 I2C/SPI tasks are live-supported through the deterministic custom
@@ -237,9 +335,16 @@ python -m unittest discover tests
   physical BME280 emulator. Temperature, humidity, and pressure are all scored
   per simulation variant (`expected_temperature_c`, `expected_humidity_rh`,
   `expected_pressure_pa`).
-- DS1307 validation focuses on the RTC date/time contract. The upstream wording
-  mentions temperature data, but Wokwi's DS1307 model does not provide a
-  trustworthy temperature observable for this harness.
+- DS1307 validation focuses on the read-and-print RTC contract: the prompt
+  tells the model the clock is pre-seeded and must not be set, and each
+  simulation variant seeds a different `initTime` (honored per-variant by
+  Wokwi), so a hardcoded date/time string fails. Wokwi's DS1307 model
+  provides no trustworthy temperature observable, so none is scored.
+- MPU6050 automation controls take physical units (`accelX/Y/Z` in g,
+  `rotationX/Y/Z` in deg/s) and the part reports raw counts at power-on
+  default ranges: 16384 LSB/g and 131 LSB/(deg/s), verified live (0.5 g ->
+  exactly 8192). Oracles bake in these defaults, and the prompts' library
+  policy implies submissions must not reconfigure the sensor ranges.
 - Photoresistor and joystick tasks use native Wokwi parts with scenario-driven
   controls. Water-level, laser-block, sound, shock, tilt, and some motion/input
   tasks use controllable potentiometer or pushbutton surrogates when Wokwi lacks
