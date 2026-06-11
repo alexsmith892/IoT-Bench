@@ -64,6 +64,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     build.add_argument("--sketch", type=Path, help="submitted sketch directory or .ino file")
     build.add_argument("--regenerate", action="store_true")
     build.add_argument("--arduino-cli", default="arduino-cli")
+    build.add_argument("--idf-py", default="idf.py")
 
     add_task_selection(subparsers.add_parser("lint", help="locally lint generated diagrams"))
     doctor = subparsers.add_parser("doctor", help="check local benchmark tooling")
@@ -81,6 +82,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     evaluate.add_argument("--regenerate", action="store_true")
     evaluate.add_argument("--simulation-time-ms", type=int)
     evaluate.add_argument("--arduino-cli", default="arduino-cli")
+    evaluate.add_argument("--idf-py", default="idf.py")
     evaluate.add_argument("--wokwi-cli", default="wokwi-cli")
     evaluate.add_argument("--allow-tool-version-mismatch", action="store_true")
 
@@ -91,6 +93,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     repeatability.add_argument("--regenerate", action="store_true")
     repeatability.add_argument("--simulation-time-ms", type=int)
     repeatability.add_argument("--arduino-cli", default="arduino-cli")
+    repeatability.add_argument("--idf-py", default="idf.py")
     repeatability.add_argument("--wokwi-cli", default="wokwi-cli")
     repeatability.add_argument("--allow-tool-version-mismatch", action="store_true")
 
@@ -134,6 +137,7 @@ def add_run_options(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--regenerate", action="store_true")
     parser.add_argument("--simulation-time-ms", type=int)
     parser.add_argument("--arduino-cli", default="arduino-cli")
+    parser.add_argument("--idf-py", default="idf.py")
     parser.add_argument("--wokwi-cli", default="wokwi-cli")
     parser.add_argument("--allow-tool-version-mismatch", action="store_true")
 
@@ -165,6 +169,7 @@ def main(argv: list[str] | None = None) -> int:
                     sketch_override=args.sketch,
                     regenerate=args.regenerate,
                     arduino_cli=args.arduino_cli,
+                    idf_py=args.idf_py,
                 )
                 for task in tasks
             ]
@@ -196,6 +201,7 @@ def main(argv: list[str] | None = None) -> int:
                 regenerate=False,
                 simulation_time_ms=None,
                 arduino_cli="arduino-cli",
+                idf_py="idf.py",
                 wokwi_cli="wokwi-cli",
                 archived_vcd=args.archived_vcd,
                 require_provenance=not args.allow_unverified_artifacts,
@@ -214,6 +220,7 @@ def main(argv: list[str] | None = None) -> int:
                     regenerate=args.regenerate,
                     simulation_time_ms=args.simulation_time_ms,
                     arduino_cli=args.arduino_cli,
+                    idf_py=args.idf_py,
                     wokwi_cli=args.wokwi_cli,
                     archived_vcd=None,
                     require_provenance=not args.allow_unverified_artifacts,
@@ -283,6 +290,7 @@ def with_sketch_override(task, paths: CasePaths, sketch_override: Path | None) -
         build_dir=paths.build_dir,
         fqbn=paths.fqbn,
         firmware_extension=paths.firmware_extension,
+        firmware_kind=paths.firmware_kind,
         vcd=paths.vcd,
         scenario=paths.scenario,
         serial_log=paths.serial_log,
@@ -310,6 +318,7 @@ def build_single_task(
     sketch_override: Path | None,
     regenerate: bool,
     arduino_cli: str,
+    idf_py: str = "idf.py",
 ) -> dict[str, Any]:
     if not task.is_supported:
         return unsupported_task_result(task)
@@ -320,7 +329,7 @@ def build_single_task(
             sketch_override=sketch_override,
             regenerate=regenerate,
         )
-        build_case(task, paths, arduino_cli=arduino_cli)
+        build_case(task, paths, arduino_cli=arduino_cli, idf_py=idf_py)
         firmware_hex, firmware_elf = expected_firmware_paths(paths)
         return result_payload(
             PASS,
@@ -355,6 +364,7 @@ def run_single_task(
     simulation_time_ms: int | None,
     arduino_cli: str,
     wokwi_cli: str,
+    idf_py: str = "idf.py",
     archived_vcd: str | None,
     require_provenance: bool = True,
     allow_tool_version_mismatch: bool = False,
@@ -370,7 +380,12 @@ def run_single_task(
         )
         paths = with_archived_vcd(paths, archived_vcd)
         if not use_existing_artifacts and not allow_tool_version_mismatch:
-            ensure_tool_versions_compatible(arduino_cli=arduino_cli, wokwi_cli=wokwi_cli)
+            ensure_tool_versions_compatible(
+                arduino_cli=arduino_cli,
+                idf_py=idf_py,
+                wokwi_cli=wokwi_cli,
+                build_kind=task.board_profile.build_kind,
+            )
         validate_diagram_file(paths.diagram, task)
         if use_existing_artifacts:
             prepare_artifacts(
@@ -379,6 +394,7 @@ def run_single_task(
                 use_existing_artifacts=True,
                 simulation_time_ms=simulation_time_ms,
                 arduino_cli=arduino_cli,
+                idf_py=idf_py,
                 wokwi_cli=wokwi_cli,
                 require_provenance=require_provenance,
                 ignore_vcd_provenance=archived_vcd is not None,
@@ -390,6 +406,7 @@ def run_single_task(
             paths,
             simulation_time_ms=simulation_time_ms,
             arduino_cli=arduino_cli,
+            idf_py=idf_py,
             wokwi_cli=wokwi_cli,
             command="run",
         )
@@ -438,7 +455,7 @@ def evaluate_submissions(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def evaluate_one_submission(task, args: argparse.Namespace) -> dict[str, Any]:
-    sketch_path = args.sketch_dir / f"{task.task_id}.ino"
+    sketch_path = submission_path_for_task(task, args.sketch_dir)
     attempts = []
     max_attempts = args.if_retries + 1
     for attempt_index in range(1, max_attempts + 1):
@@ -450,6 +467,7 @@ def evaluate_one_submission(task, args: argparse.Namespace) -> dict[str, Any]:
             regenerate=args.regenerate,
             simulation_time_ms=args.simulation_time_ms,
             arduino_cli=args.arduino_cli,
+            idf_py=args.idf_py,
             wokwi_cli=args.wokwi_cli,
             archived_vcd=None,
             require_provenance=True,
@@ -480,6 +498,7 @@ def measure_repeatability(args: argparse.Namespace) -> dict[str, Any]:
                         regenerate=args.regenerate,
                         simulation_time_ms=args.simulation_time_ms,
                         arduino_cli=args.arduino_cli,
+                        idf_py=args.idf_py,
                         wokwi_cli=args.wokwi_cli,
                         archived_vcd=None,
                         require_provenance=True,
@@ -524,7 +543,12 @@ def benchmark_row(task, sketch_path: Path, attempts: list[dict[str, Any]], args:
         "final_result": final_result,
         "attempt_count": len(attempts),
         "attempts": attempts,
-        "tool_versions": tool_version_report(arduino_cli=args.arduino_cli, wokwi_cli=args.wokwi_cli),
+        "tool_versions": tool_version_report(
+            arduino_cli=args.arduino_cli,
+            idf_py=args.idf_py,
+            wokwi_cli=args.wokwi_cli,
+            build_kind=task.board_profile.build_kind,
+        ),
     }
 
 
@@ -545,8 +569,22 @@ def repeatability_row(task, attempts: list[dict[str, Any]], args: argparse.Names
         "runs": len(attempts),
         "flaky": bool(non_bc or len(signatures) > 1),
         "attempts": attempts,
-        "tool_versions": tool_version_report(arduino_cli=args.arduino_cli, wokwi_cli=args.wokwi_cli),
+        "tool_versions": tool_version_report(
+            arduino_cli=args.arduino_cli,
+            idf_py=args.idf_py,
+            wokwi_cli=args.wokwi_cli,
+            build_kind=task.board_profile.build_kind,
+        ),
     }
+
+
+def submission_path_for_task(task, sketch_dir: Path) -> Path:
+    if task.board_profile.build_kind == "espidf":
+        project = sketch_dir / task.task_id
+        if project.exists():
+            return project
+        return sketch_dir / f"{task.task_id}.c"
+    return sketch_dir / f"{task.task_id}.ino"
 
 
 def unsupported_task_payload(task) -> dict[str, str]:
@@ -575,10 +613,15 @@ def print_many_or_one(results: list[dict[str, Any]]) -> None:
 
 def run_doctor(*, platform: str = "arduino_mega") -> dict[str, Any]:
     profile = board_profile_for_platform(platform)
-    version_report = tool_version_report()
+    version_report = tool_version_report(build_kind=profile.build_kind)
+    build_tool_check = (
+        check_command("idf.py", "--version")
+        if profile.build_kind == "espidf"
+        else check_command("arduino-cli", "version")
+    )
     checks = [
         check_python_package("yaml", "PyYAML"),
-        check_command("arduino-cli", "version"),
+        build_tool_check,
         check_command("wokwi-cli", "--version"),
         {
             "name": "pinned tool versions",
@@ -588,10 +631,11 @@ def run_doctor(*, platform: str = "arduino_mega") -> dict[str, Any]:
             "mismatches": version_report["mismatches"],
         },
         check_env("WOKWI_CLI_TOKEN"),
-        check_arduino_core(profile),
         check_wokwi_help(),
         check_writable_artifacts(),
     ]
+    if profile.build_kind == "arduino":
+        checks.insert(-2, check_arduino_core(profile))
     return {
         "ok": all(check["ok"] for check in checks),
         "checks": checks,

@@ -71,6 +71,20 @@ class StaticSourceScanTests(unittest.TestCase):
             with self.assertRaises(StaticCheckError):
                 validate_forbidden_calls(sketch, ["delay"])
 
+    def test_espidf_project_scans_c_sources_without_ino(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sketch = make_sketch(Path(tmp), {
+                "CMakeLists.txt": "project(app)\n",
+                "main/main.c": "void app_main(void){ esp_timer_get_time(); }\n",
+            })
+            validate_required_patterns(sketch, ["esp_timer_get_time"], build_kind="espidf")
+
+    def test_espidf_project_requires_cmake(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            sketch = make_sketch(Path(tmp), {"main/main.c": "void app_main(void){}\n"})
+            with self.assertRaises(StaticCheckError):
+                validate_required_patterns(sketch, ["app_main"], build_kind="espidf")
+
 
 if __name__ == "__main__":
     unittest.main()

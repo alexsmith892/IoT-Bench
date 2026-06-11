@@ -80,6 +80,7 @@ class CasePaths:
     build_dir: Path
     fqbn: str
     firmware_extension: str = ".hex"
+    firmware_kind: str = "arduino_image"
     vcd: Path | None = None
     scenario: Path | None = None
     serial_log: Path | None = None
@@ -110,7 +111,6 @@ def generate_case(task: TaskConfig, *, root: Path | None = None) -> CasePaths:
         raise CaseConfigError(f"{task.task_id} is {task.support.get('status', 'unsupported')}: {task.support_reason}")
     root = root or repo_root()
     case_dir = case_dir_for_task(task, root)
-    sketch_dir = case_dir / "sketch" / task.sketch_name
     paths = case_paths_from_task(task, case_dir)
 
     write_diagram(paths.diagram, generate_diagram(task))
@@ -122,7 +122,7 @@ def generate_case(task: TaskConfig, *, root: Path | None = None) -> CasePaths:
     write_case_json(task, paths)
     write_wokwi_toml(task, paths)
     ensure_custom_chip_artifacts(task, paths, root)
-    ensure_sketch_files(task, sketch_dir)
+    ensure_sketch_files(task, paths.sketch)
     ensure_artifact_dirs(paths)
     validate_diagram_file(paths.diagram, task)
     return paths
@@ -169,6 +169,7 @@ def case_paths_from_task(task: TaskConfig, case_dir: Path) -> CasePaths:
         build_dir=case_dir / "artifacts" / "build",
         fqbn=task.board.get("fqbn", DEFAULT_FQBN),
         firmware_extension=task.board_profile.firmware_extension,
+        firmware_kind=task.board_profile.firmware_kind,
         vcd=(case_dir / "artifacts" / "logic" / "wokwi.vcd" if task.requires_vcd else None),
         scenario=scenario,
         serial_log=(
@@ -240,11 +241,17 @@ def write_case_json(task: TaskConfig, paths: CasePaths) -> None:
 
 
 def write_wokwi_toml(task: TaskConfig, paths: CasePaths) -> None:
+    if task.board_profile.firmware_kind == "espidf_flasher_args":
+        firmware = "artifacts/build/flasher_args.json"
+        elf = f"artifacts/build/{task.sketch_name}.elf"
+    else:
+        firmware = f"artifacts/build/{task.sketch_name}.ino{paths.firmware_extension}"
+        elf = f"artifacts/build/{task.sketch_name}.ino.elf"
     lines = [
         "[wokwi]",
         "version = 1",
-        f"firmware = 'artifacts/build/{task.sketch_name}.ino{paths.firmware_extension}'",
-        f"elf = 'artifacts/build/{task.sketch_name}.ino.elf'",
+        f"firmware = '{firmware}'",
+        f"elf = '{elf}'",
     ]
     if paths.vcd:
         lines.append(f"vcdFile = '{relative_to(paths.vcd, paths.case_dir)}'")
@@ -266,6 +273,11 @@ def expected_firmware_paths(paths: CasePaths) -> tuple[Path, Path]:
         configured = read_wokwi_firmware_paths(paths)
         if configured:
             return configured
+    if paths.firmware_kind == "espidf_flasher_args":
+        return (
+            paths.build_dir / "flasher_args.json",
+            paths.build_dir / f"{paths.sketch_name}.elf",
+        )
     return (
         paths.build_dir / f"{paths.sketch_name}.ino{paths.firmware_extension}",
         paths.build_dir / f"{paths.sketch_name}.ino.elf",
@@ -287,6 +299,13 @@ def extract_toml_string(text: str, key: str) -> str | None:
 
 
 def ensure_sketch_files(task: TaskConfig, sketch_dir: Path) -> None:
+    if task.board_profile.build_kind == "espidf":
+        ensure_espidf_project_files(task, sketch_dir)
+        return
+    ensure_arduino_sketch_files(task, sketch_dir)
+
+
+def ensure_arduino_sketch_files(task: TaskConfig, sketch_dir: Path) -> None:
     sketch_dir.mkdir(parents=True, exist_ok=True)
     sketch_yaml = sketch_dir / "sketch.yaml"
     if not sketch_yaml.exists():
@@ -296,6 +315,45 @@ def ensure_sketch_files(task: TaskConfig, sketch_dir: Path) -> None:
     ino_path = sketch_dir / f"{task.sketch_name}.ino"
     if not ino_path.exists() or task.level in {"level2", "level3"}:
         ino_path.write_text(example_sketch(task), encoding="utf-8")
+
+
+def ensure_espidf_project_files(task: TaskConfig, project_dir: Path) -> None:
+    project_dir.mkdir(parents=True, exist_ok=True)
+    main_dir = project_dir / "main"
+    main_dir.mkdir(parents=True, exist_ok=True)
+    cmake = project_dir / "CMakeLists.txt"
+    if not cmake.exists():
+        cmake.write_text(espidf_root_cmake(task), encoding="utf-8")
+    main_cmake = main_dir / "CMakeLists.txt"
+    if not main_cmake.exists():
+        main_cmake.write_text(espidf_main_cmake(), encoding="utf-8")
+    sdkconfig_defaults = project_dir / "sdkconfig.defaults"
+    if not sdkconfig_defaults.exists():
+        sdkconfig_defaults.write_text(espidf_sdkconfig_defaults(), encoding="utf-8")
+    main_source = main_dir / "main.c"
+    if not main_source.exists() or task.level in {"level2", "level3"}:
+        main_source.write_text(example_sketch(task), encoding="utf-8")
+
+
+def espidf_root_cmake(task: TaskConfig) -> str:
+    return f"""\
+cmake_minimum_required(VERSION 3.16)
+include($ENV{{IDF_PATH}}/tools/cmake/project.cmake)
+project({task.sketch_name})
+"""
+
+
+def espidf_main_cmake() -> str:
+    return """\
+idf_component_register(SRCS "main.c" INCLUDE_DIRS ".")
+"""
+
+
+def espidf_sdkconfig_defaults() -> str:
+    return """\
+CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
+CONFIG_ESP_CONSOLE_UART_DEFAULT=y
+"""
 
 
 def load_case_paths(
@@ -329,6 +387,7 @@ def load_case_paths(
         build_dir=case_dir / paths.get("build", "artifacts/build"),
         fqbn=board.get("fqbn", DEFAULT_FQBN),
         firmware_extension=task.board_profile.firmware_extension,
+        firmware_kind=task.board_profile.firmware_kind,
         vcd=(case_dir / paths["vcd"] if paths.get("vcd") else None),
         scenario=(case_dir / paths["scenario"] if paths.get("scenario") else None),
         serial_log=(case_dir / paths["serial_log"] if paths.get("serial_log") else None),
@@ -351,7 +410,13 @@ def normalize_sketch_override(task: TaskConfig, paths: CasePaths, sketch_overrid
     if destination.exists():
         shutil.rmtree(destination)
     destination.parent.mkdir(parents=True, exist_ok=True)
+    if task.board_profile.build_kind == "espidf":
+        return normalize_espidf_submission(task, source, destination)
 
+    return normalize_arduino_submission(task, source, destination)
+
+
+def normalize_arduino_submission(task: TaskConfig, source: Path, destination: Path) -> Path:
     expected_name = f"{task.sketch_name}.ino"
     if source.is_file():
         if source.suffix.lower() != ".ino":
@@ -398,6 +463,43 @@ def normalize_sketch_override(task: TaskConfig, paths: CasePaths, sketch_overrid
     return destination
 
 
+def normalize_espidf_submission(task: TaskConfig, source: Path, destination: Path) -> Path:
+    if source.is_file():
+        if source.suffix.lower() not in {".c", ".cpp"}:
+            raise BuildSimulationError(
+                f"submitted ESP-IDF source file must be .c or .cpp: {source}",
+                classification=COMPILE_FAIL,
+                failure_stage=STAGE_COMPILE,
+                failure_source=SOURCE_USER_CODE,
+            )
+        ensure_espidf_project_files(task, destination)
+        main_dir = destination / "main"
+        target = main_dir / ("main.cpp" if source.suffix.lower() == ".cpp" else "main.c")
+        if target.name != "main.c":
+            (main_dir / "CMakeLists.txt").write_text(
+                'idf_component_register(SRCS "main.cpp" INCLUDE_DIRS ".")\n',
+                encoding="utf-8",
+            )
+            main_c = main_dir / "main.c"
+            if main_c.exists():
+                main_c.unlink()
+        shutil.copy2(source, target)
+        return destination
+
+    cmake = source / "CMakeLists.txt"
+    main_cmake = source / "main" / "CMakeLists.txt"
+    source_files = sorted((source / "main").glob("*.c")) + sorted((source / "main").glob("*.cpp"))
+    if not cmake.exists() or not main_cmake.exists() or not source_files:
+        raise BuildSimulationError(
+            f"submitted ESP-IDF project must contain CMakeLists.txt, main/CMakeLists.txt, and main/*.c or main/*.cpp: {source}",
+            classification=COMPILE_FAIL,
+            failure_stage=STAGE_COMPILE,
+            failure_source=SOURCE_USER_CODE,
+        )
+    shutil.copytree(source, destination)
+    return destination
+
+
 def required_path(paths: dict[str, str], key: str) -> str:
     value = paths.get(key)
     if not value:
@@ -437,6 +539,7 @@ def prepare_artifacts(
     use_existing_artifacts: bool,
     simulation_time_ms: int | None = None,
     arduino_cli: str = "arduino-cli",
+    idf_py: str = "idf.py",
     wokwi_cli: str = "wokwi-cli",
     require_provenance: bool = True,
     ignore_vcd_provenance: bool = False,
@@ -450,12 +553,13 @@ def prepare_artifacts(
                 paths,
                 ignore_vcd=ignore_vcd_provenance,
                 arduino_cli=arduino_cli,
+                idf_py=idf_py,
                 wokwi_cli=wokwi_cli,
                 enforce_tool_versions=enforce_tool_versions,
             )
         return
 
-    build_case(task, paths, arduino_cli=arduino_cli)
+    build_case(task, paths, arduino_cli=arduino_cli, idf_py=idf_py)
     if task.simulation_variants:
         simulate_variants(
             task,
@@ -478,6 +582,7 @@ def build_case(
     paths: CasePaths,
     *,
     arduino_cli: str = "arduino-cli",
+    idf_py: str = "idf.py",
 ) -> None:
     ensure_artifact_dirs(paths)
 
@@ -505,6 +610,14 @@ def build_case(
 
     clean_build_dir(paths)
 
+    if task.board_profile.build_kind == "espidf":
+        build_espidf_case(task, paths, idf_py=idf_py)
+    else:
+        build_arduino_case(paths, arduino_cli=arduino_cli)
+    ensure_firmware_outputs(paths)
+
+
+def build_arduino_case(paths: CasePaths, *, arduino_cli: str) -> None:
     run_checked(
         [
             arduino_cli,
@@ -525,7 +638,32 @@ def build_case(
         command_failure_source=SOURCE_USER_CODE,
         infra_failure_source=SOURCE_ENVIRONMENT,
     )
-    ensure_firmware_outputs(paths)
+
+
+def build_espidf_case(task: TaskConfig, paths: CasePaths, *, idf_py: str) -> None:
+    target = task.board_profile.idf_target
+    command = [
+        idf_py,
+        "-C",
+        str(paths.sketch),
+        "-B",
+        str(paths.build_dir),
+    ]
+    if target:
+        command.append(f"-DIDF_TARGET={target}")
+    command.append("build")
+    run_checked(
+        command,
+        cwd=paths.case_dir,
+        stage="compile",
+        timeout_s=120.0,
+        command_failure_classification=COMPILE_FAIL,
+        command_failure_stage=STAGE_COMPILE,
+        infra_failure_classification=SIM_INFRA_FAIL,
+        infra_failure_stage=STAGE_SIM_INFRA,
+        command_failure_source=SOURCE_USER_CODE,
+        infra_failure_source=SOURCE_ENVIRONMENT,
+    )
 
 
 def simulate_case(
@@ -602,10 +740,11 @@ def run_case(
     *,
     simulation_time_ms: int | None = None,
     arduino_cli: str = "arduino-cli",
+    idf_py: str = "idf.py",
     wokwi_cli: str = "wokwi-cli",
     command: str = "run",
 ) -> dict[str, Any]:
-    build_case(task, paths, arduino_cli=arduino_cli)
+    build_case(task, paths, arduino_cli=arduino_cli, idf_py=idf_py)
     if task.simulation_variants:
         simulate_variants(
             task,
@@ -627,6 +766,7 @@ def run_case(
         result,
         command=command,
         arduino_cli=arduino_cli,
+        idf_py=idf_py,
         wokwi_cli=wokwi_cli,
     )
     return result
@@ -897,12 +1037,17 @@ def normalize_firmware_outputs(paths: CasePaths) -> None:
     """
 
     expected_image, expected_elf = expected_firmware_paths(paths)
-    candidates = [
-        paths.build_dir / f"{paths.sketch_name}.ino{paths.firmware_extension}",
-        paths.build_dir / f"{paths.sketch_name}.ino.elf",
-        *paths.build_dir.rglob(f"{paths.sketch_name}.ino{paths.firmware_extension}"),
-        *paths.build_dir.rglob(f"{paths.sketch_name}.ino.elf"),
-    ]
+    if paths.firmware_kind == "espidf_flasher_args":
+        candidate_names = ["flasher_args.json", f"{paths.sketch_name}.elf"]
+    else:
+        candidate_names = [
+            f"{paths.sketch_name}.ino{paths.firmware_extension}",
+            f"{paths.sketch_name}.ino.elf",
+        ]
+    candidates = []
+    for name in candidate_names:
+        candidates.append(paths.build_dir / name)
+        candidates.extend(paths.build_dir.rglob(name))
     for expected in (expected_image, expected_elf):
         if expected.exists():
             continue
@@ -1030,9 +1175,10 @@ def write_verification(
     *,
     command: str,
     arduino_cli: str = "arduino-cli",
+    idf_py: str = "idf.py",
     wokwi_cli: str = "wokwi-cli",
 ) -> Path:
-    tool_versions = current_tool_versions(arduino_cli=arduino_cli, wokwi_cli=wokwi_cli)
+    tool_versions = current_tool_versions(arduino_cli=arduino_cli, idf_py=idf_py, wokwi_cli=wokwi_cli)
     manifest = {
         "manifest_version": 2,
         "task_id": task.task_id,
@@ -1041,6 +1187,7 @@ def write_verification(
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "python_version": sys.version.split()[0],
         "arduino_cli_version": tool_versions["arduino_cli_version"],
+        "idf_py_version": tool_versions["idf_py_version"],
         "wokwi_cli_version": tool_versions["wokwi_cli_version"],
         "sketch_path": relative_to(paths.sketch, paths.case_dir),
         "sketch_hash": hash_path(paths.sketch),
@@ -1123,6 +1270,7 @@ def validate_existing_artifact_manifest(
     *,
     ignore_vcd: bool = False,
     arduino_cli: str = "arduino-cli",
+    idf_py: str = "idf.py",
     wokwi_cli: str = "wokwi-cli",
     enforce_tool_versions: bool = True,
 ) -> None:
@@ -1157,7 +1305,13 @@ def validate_existing_artifact_manifest(
             f"verification manifest belongs to case {manifest.get('case_id')!r}, not {paths.case_id!r}"
         )
     if enforce_tool_versions:
-        validate_manifest_tool_versions(manifest, arduino_cli=arduino_cli, wokwi_cli=wokwi_cli)
+        validate_manifest_tool_versions(
+            manifest,
+            arduino_cli=arduino_cli,
+            idf_py=idf_py,
+            wokwi_cli=wokwi_cli,
+            build_kind=task.board_profile.build_kind,
+        )
 
     checks: list[tuple[str, str | None, str | None]] = [
         ("sketch", manifest.get("sketch_hash"), hash_path(paths.sketch)),
@@ -1257,6 +1411,7 @@ def pinned_tool_versions() -> dict[str, str | None]:
         data = {}
     return {
         "arduino_cli_version": data.get("arduino_cli_version"),
+        "idf_py_version": data.get("idf_py_version"),
         "wokwi_cli_version": data.get("wokwi_cli_version"),
     }
 
@@ -1264,10 +1419,12 @@ def pinned_tool_versions() -> dict[str, str | None]:
 def current_tool_versions(
     *,
     arduino_cli: str = "arduino-cli",
+    idf_py: str = "idf.py",
     wokwi_cli: str = "wokwi-cli",
 ) -> dict[str, str | None]:
     return {
         "arduino_cli_version": command_version(arduino_cli, "version"),
+        "idf_py_version": command_version(idf_py, "--version"),
         "wokwi_cli_version": command_version(wokwi_cli, "--version"),
     }
 
@@ -1275,16 +1432,15 @@ def current_tool_versions(
 def tool_version_report(
     *,
     arduino_cli: str = "arduino-cli",
+    idf_py: str = "idf.py",
     wokwi_cli: str = "wokwi-cli",
+    build_kind: str = "arduino",
 ) -> dict[str, Any]:
     expected = pinned_tool_versions()
-    actual = current_tool_versions(arduino_cli=arduino_cli, wokwi_cli=wokwi_cli)
+    actual = current_tool_versions(arduino_cli=arduino_cli, idf_py=idf_py, wokwi_cli=wokwi_cli)
     mismatches = []
-    for key, label in (
-        ("arduino_cli_version", "arduino-cli"),
-        ("wokwi_cli_version", "wokwi-cli"),
-    ):
-        if expected.get(key) != actual.get(key):
+    for key, label in tool_version_keys_for_build(build_kind):
+        if expected.get(key) is not None and expected.get(key) != actual.get(key):
             mismatches.append(
                 {
                     "tool": label,
@@ -1316,9 +1472,16 @@ def tool_version_mismatch_error(report: dict[str, Any]) -> BuildSimulationError:
 def ensure_tool_versions_compatible(
     *,
     arduino_cli: str = "arduino-cli",
+    idf_py: str = "idf.py",
     wokwi_cli: str = "wokwi-cli",
+    build_kind: str = "arduino",
 ) -> dict[str, Any]:
-    report = tool_version_report(arduino_cli=arduino_cli, wokwi_cli=wokwi_cli)
+    report = tool_version_report(
+        arduino_cli=arduino_cli,
+        idf_py=idf_py,
+        wokwi_cli=wokwi_cli,
+        build_kind=build_kind,
+    )
     if not report["ok"]:
         raise tool_version_mismatch_error(report)
     return report
@@ -1328,20 +1491,33 @@ def validate_manifest_tool_versions(
     manifest: dict[str, Any],
     *,
     arduino_cli: str,
+    idf_py: str,
     wokwi_cli: str,
+    build_kind: str = "arduino",
 ) -> None:
-    current = current_tool_versions(arduino_cli=arduino_cli, wokwi_cli=wokwi_cli)
-    for key, label in (
-        ("arduino_cli_version", "arduino-cli"),
-        ("wokwi_cli_version", "wokwi-cli"),
-    ):
+    current = current_tool_versions(arduino_cli=arduino_cli, idf_py=idf_py, wokwi_cli=wokwi_cli)
+    for key, label in tool_version_keys_for_build(build_kind):
         recorded = manifest.get(key)
+        if recorded is None and key == "idf_py_version" and build_kind != "espidf":
+            continue
         actual = current.get(key)
         if recorded != actual:
             raise artifact_provenance_error(
                 f"{label} version does not match the verification manifest "
                 f"(recorded {recorded!r}, current {actual!r}); rerun the full pipeline"
             )
+
+
+def tool_version_keys_for_build(build_kind: str) -> tuple[tuple[str, str], ...]:
+    if build_kind == "espidf":
+        return (
+            ("idf_py_version", "idf.py"),
+            ("wokwi_cli_version", "wokwi-cli"),
+        )
+    return (
+        ("arduino_cli_version", "arduino-cli"),
+        ("wokwi_cli_version", "wokwi-cli"),
+    )
 
 
 def hash_path(path: Path) -> str | None:
@@ -1386,6 +1562,8 @@ def safe_filename_part(value: str) -> str:
 
 
 def example_sketch(task: TaskConfig) -> str:
+    if task.board_profile.build_kind == "espidf":
+        return espidf_example_source(task)
     advanced = advanced_example_sketch(task)
     if advanced:
         return advanced
@@ -1458,6 +1636,345 @@ def advanced_example_sketch(task: TaskConfig) -> str | None:
         "joystick_buzzer_pitch": joystick_pitch_example(),
     }
     return outputs.get(task.task_id)
+
+
+def espidf_example_source(task: TaskConfig) -> str:
+    examples = {
+        "blink_led_1hz": espidf_blink_1hz,
+        "blink_led_morse_code": espidf_morse_sos,
+        "blink_led_no_delay": espidf_blink_no_delay,
+        "blink_two_leds": espidf_blink_two_leds,
+        "buzzer_doorbell": espidf_buzzer_doorbell,
+        "buzzer_button": espidf_buzzer_button,
+        "button_status_display": espidf_button_status_display,
+        "button_status_count": espidf_button_status_count,
+        "button_press_debounce": espidf_button_press_debounce,
+        "breathing_led": espidf_breathing_led,
+        "sensor_pir_human_motion": espidf_pir_serial,
+        "tmp36_read": espidf_tmp36_read,
+    }
+    factory = examples.get(task.task_id)
+    return factory(task) if factory else "void app_main(void) {}\n"
+
+
+def espidf_common_includes(*, adc: bool = False, ledc: bool = False) -> str:
+    includes = [
+        "#include <stdio.h>",
+        "#include \"driver/gpio.h\"",
+        "#include \"esp_timer.h\"",
+        "#include \"freertos/FreeRTOS.h\"",
+        "#include \"freertos/task.h\"",
+    ]
+    if ledc:
+        includes.append("#include \"driver/ledc.h\"")
+    if adc:
+        includes.append("#include \"esp_adc/adc_oneshot.h\"")
+    return "\n".join(includes) + "\n\n"
+
+
+def espidf_gpio_output_setup(pin_name: str) -> str:
+    return f"  gpio_reset_pin({pin_name});\n  gpio_set_direction({pin_name}, GPIO_MODE_OUTPUT);\n"
+
+
+def espidf_gpio_input_setup(pin_name: str) -> str:
+    return f"  gpio_reset_pin({pin_name});\n  gpio_set_direction({pin_name}, GPIO_MODE_INPUT);\n"
+
+
+def espidf_blink_1hz(task: TaskConfig) -> str:
+    pin = fixture_pin(task, "led")
+    return espidf_common_includes() + f"""\
+#define LED_PIN GPIO_NUM_{pin}
+
+void app_main(void) {{
+{espidf_gpio_output_setup("LED_PIN")}  int level = 0;
+  while (1) {{
+    level = !level;
+    gpio_set_level(LED_PIN, level);
+    vTaskDelay(pdMS_TO_TICKS(500));
+  }}
+}}
+"""
+
+
+def espidf_morse_sos(task: TaskConfig) -> str:
+    pin = fixture_pin(task, "led")
+    return espidf_common_includes() + f"""\
+#define LED_PIN GPIO_NUM_{pin}
+
+static void set_led_for_units(int level, int units) {{
+  gpio_set_level(LED_PIN, level);
+  vTaskDelay(pdMS_TO_TICKS(200 * units));
+}}
+
+void app_main(void) {{
+{espidf_gpio_output_setup("LED_PIN")}  const int pattern[] = {{1, 1, 1, 3, 3, 3, 1, 1, 1}};
+  while (1) {{
+    for (int i = 0; i < 9; ++i) {{
+      set_led_for_units(1, pattern[i]);
+      if (i < 8) {{
+        set_led_for_units(0, (i == 2 || i == 5) ? 3 : 1);
+      }}
+    }}
+    set_led_for_units(0, 7);
+  }}
+}}
+"""
+
+
+def espidf_blink_no_delay(task: TaskConfig) -> str:
+    pin = fixture_pin(task, "led")
+    return espidf_common_includes() + f"""\
+#define LED_PIN GPIO_NUM_{pin}
+
+void app_main(void) {{
+{espidf_gpio_output_setup("LED_PIN")}  int level = 0;
+  int64_t last_toggle_us = esp_timer_get_time();
+  while (1) {{
+    int64_t now = esp_timer_get_time();
+    if (now - last_toggle_us >= 500000) {{
+      last_toggle_us += 500000;
+      level = !level;
+      gpio_set_level(LED_PIN, level);
+    }}
+    taskYIELD();
+  }}
+}}
+"""
+
+
+def espidf_blink_two_leds(task: TaskConfig) -> str:
+    pins = task.fixture.get("pins", {}) if isinstance(task.fixture, dict) else {}
+    led1 = str(pins.get("led1", task.board_profile.default_pins["led"]))
+    led2 = str(pins.get("led2", task.board_profile.default_pins["led2"]))
+    return espidf_common_includes() + f"""\
+#define LED1_PIN GPIO_NUM_{led1}
+#define LED2_PIN GPIO_NUM_{led2}
+
+void app_main(void) {{
+{espidf_gpio_output_setup("LED1_PIN")}{espidf_gpio_output_setup("LED2_PIN")}  int led1 = 0;
+  int led2 = 0;
+  int64_t last_led1_us = esp_timer_get_time();
+  int64_t last_led2_us = last_led1_us;
+  while (1) {{
+    int64_t now = esp_timer_get_time();
+    if (now - last_led1_us >= 500000) {{
+      last_led1_us += 500000;
+      led1 = !led1;
+      gpio_set_level(LED1_PIN, led1);
+    }}
+    if (now - last_led2_us >= 250000) {{
+      last_led2_us += 250000;
+      led2 = !led2;
+      gpio_set_level(LED2_PIN, led2);
+    }}
+    taskYIELD();
+  }}
+}}
+"""
+
+
+def espidf_buzzer_doorbell(task: TaskConfig) -> str:
+    button = fixture_pin(task, "button")
+    buzzer = fixture_pin(task, "buzzer")
+    return espidf_common_includes() + f"""\
+#define BUTTON_PIN GPIO_NUM_{button}
+#define BUZZER_PIN GPIO_NUM_{buzzer}
+
+void app_main(void) {{
+{espidf_gpio_input_setup("BUTTON_PIN")}{espidf_gpio_output_setup("BUZZER_PIN")}  while (1) {{
+    gpio_set_level(BUZZER_PIN, gpio_get_level(BUTTON_PIN));
+    vTaskDelay(pdMS_TO_TICKS(1));
+  }}
+}}
+"""
+
+
+def espidf_buzzer_button(task: TaskConfig) -> str:
+    button = fixture_pin(task, "button")
+    buzzer = fixture_pin(task, "buzzer")
+    return espidf_common_includes() + f"""\
+#define BUTTON_PIN GPIO_NUM_{button}
+#define BUZZER_PIN GPIO_NUM_{buzzer}
+#define DEBOUNCE_US 30000
+
+void app_main(void) {{
+{espidf_gpio_input_setup("BUTTON_PIN")}{espidf_gpio_output_setup("BUZZER_PIN")}  int stable = 0;
+  int last_reading = 0;
+  int64_t changed_at = esp_timer_get_time();
+  while (1) {{
+    int reading = gpio_get_level(BUTTON_PIN);
+    int64_t now = esp_timer_get_time();
+    if (reading != last_reading) {{
+      last_reading = reading;
+      changed_at = now;
+    }}
+    if (now - changed_at >= DEBOUNCE_US && stable != reading) {{
+      stable = reading;
+    }}
+    gpio_set_level(BUZZER_PIN, stable);
+    vTaskDelay(pdMS_TO_TICKS(1));
+  }}
+}}
+"""
+
+
+def espidf_button_status_display(task: TaskConfig) -> str:
+    button = fixture_pin(task, "button")
+    return espidf_common_includes() + f"""\
+#define BUTTON_PIN GPIO_NUM_{button}
+
+void app_main(void) {{
+{espidf_gpio_input_setup("BUTTON_PIN")}  int was_pressed = 0;
+  while (1) {{
+    int pressed = gpio_get_level(BUTTON_PIN);
+    if (pressed && !was_pressed) {{
+      printf("Button Pressed!\\n");
+    }}
+    was_pressed = pressed;
+    vTaskDelay(pdMS_TO_TICKS(5));
+  }}
+}}
+"""
+
+
+def espidf_button_status_count(task: TaskConfig) -> str:
+    button = fixture_pin(task, "button")
+    return espidf_common_includes() + f"""\
+#define BUTTON_PIN GPIO_NUM_{button}
+
+void app_main(void) {{
+{espidf_gpio_input_setup("BUTTON_PIN")}  int was_pressed = 0;
+  int count = 0;
+  while (1) {{
+    int pressed = gpio_get_level(BUTTON_PIN);
+    if (pressed && !was_pressed) {{
+      ++count;
+      printf("%d\\n", count);
+    }}
+    was_pressed = pressed;
+    vTaskDelay(pdMS_TO_TICKS(5));
+  }}
+}}
+"""
+
+
+def espidf_button_press_debounce(task: TaskConfig) -> str:
+    button = fixture_pin(task, "button")
+    return espidf_common_includes() + f"""\
+#define BUTTON_PIN GPIO_NUM_{button}
+#define DEBOUNCE_US 30000
+
+void app_main(void) {{
+{espidf_gpio_input_setup("BUTTON_PIN")}  int stable = 0;
+  int last_reading = 0;
+  int64_t changed_at = esp_timer_get_time();
+  while (1) {{
+    int reading = gpio_get_level(BUTTON_PIN);
+    int64_t now = esp_timer_get_time();
+    if (reading != last_reading) {{
+      last_reading = reading;
+      changed_at = now;
+    }}
+    if (now - changed_at >= DEBOUNCE_US && stable != reading) {{
+      stable = reading;
+      if (stable) {{
+        printf("Button Pressed!\\n");
+      }}
+    }}
+    vTaskDelay(pdMS_TO_TICKS(1));
+  }}
+}}
+"""
+
+
+def espidf_breathing_led(task: TaskConfig) -> str:
+    pin = fixture_pin(task, "led")
+    return espidf_common_includes(ledc=True) + f"""\
+#define LED_PIN GPIO_NUM_{pin}
+#define LEDC_DUTY_MAX 1023
+
+void app_main(void) {{
+  ledc_timer_config_t timer = {{
+    .speed_mode = LEDC_LOW_SPEED_MODE,
+    .timer_num = LEDC_TIMER_0,
+    .duty_resolution = LEDC_TIMER_10_BIT,
+    .freq_hz = 1000,
+    .clk_cfg = LEDC_AUTO_CLK,
+  }};
+  ledc_timer_config(&timer);
+  ledc_channel_config_t channel = {{
+    .gpio_num = LED_PIN,
+    .speed_mode = LEDC_LOW_SPEED_MODE,
+    .channel = LEDC_CHANNEL_0,
+    .intr_type = LEDC_INTR_DISABLE,
+    .timer_sel = LEDC_TIMER_0,
+    .duty = 0,
+    .hpoint = 0,
+  }};
+  ledc_channel_config(&channel);
+
+  while (1) {{
+    for (int level = 1; level <= 50; ++level) {{
+      ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, level * LEDC_DUTY_MAX / 50);
+      ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+      vTaskDelay(pdMS_TO_TICKS(10));
+    }}
+    for (int level = 50; level >= 1; --level) {{
+      ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, level * LEDC_DUTY_MAX / 50);
+      ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+      vTaskDelay(pdMS_TO_TICKS(10));
+    }}
+  }}
+}}
+"""
+
+
+def espidf_pir_serial(task: TaskConfig) -> str:
+    pir = fixture_pin(task, "pir")
+    return espidf_common_includes() + f"""\
+#define PIR_PIN GPIO_NUM_{pir}
+
+void app_main(void) {{
+{espidf_gpio_input_setup("PIR_PIN")}  int last_state = -1;
+  while (1) {{
+    int state = gpio_get_level(PIR_PIN);
+    if (state != last_state) {{
+      printf("%s\\n", state ? "Motion Detected!" : "No Motion Detected!");
+      last_state = state;
+    }}
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }}
+}}
+"""
+
+
+def espidf_tmp36_read(task: TaskConfig) -> str:
+    profile = task.board_profile
+    return espidf_common_includes(adc=True) + f"""\
+#define TMP36_CHANNEL ADC_CHANNEL_8
+
+void app_main(void) {{
+  adc_oneshot_unit_handle_t adc_handle;
+  adc_oneshot_unit_init_cfg_t init_config = {{
+    .unit_id = ADC_UNIT_1,
+  }};
+  adc_oneshot_new_unit(&init_config, &adc_handle);
+  adc_oneshot_chan_cfg_t channel_config = {{
+    .atten = ADC_ATTEN_DB_12,
+    .bitwidth = ADC_BITWIDTH_12,
+  }};
+  adc_oneshot_config_channel(adc_handle, TMP36_CHANNEL, &channel_config);
+
+  while (1) {{
+    int raw = 0;
+    adc_oneshot_read(adc_handle, TMP36_CHANNEL, &raw);
+    float voltage = raw * ({profile.voltage:.6g}f / {float(profile.adc_max):.1f}f);
+    float celsius = (voltage - 0.5f) * 100.0f;
+    printf("%.1f\\n", celsius);
+    vTaskDelay(pdMS_TO_TICKS(100));
+  }}
+}}
+"""
 
 
 def fixture_pin(task: TaskConfig, key: str, default_key: str | None = None) -> str:

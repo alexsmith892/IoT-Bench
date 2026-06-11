@@ -1,0 +1,34 @@
+task_id: tmp36_read
+name: Read TMP36-like analog temperature on ESP32-S3 GPIO 9 and print Celsius
+platform: esp32s3_espidf
+level: level1
+board:
+  type: board-esp32-s3-devkitc-1
+fixture:
+  family: analog_temperature_serial
+  pins:
+    analog: "9"
+  analog_source:
+    # Wokwi does not provide a TMP36 part in this harness. A potentiometer is
+    # used as a deterministic analog voltage source.
+    initial_value: 153
+scenario:
+  family: analog_position_sequence
+  part_id: pot1
+  initial_delay_ms: 200
+  positions:
+    - value: 0.10
+      duration_ms: 350
+    - value: 0.15
+      duration_ms: 350
+validator:
+  family: analog_temperature_serial
+  params:
+    expected_celsius: [-17.0, -0.5]
+    tolerance_celsius: 6.0
+simulation:
+  timeout_ms: 1200
+case:
+  id: tmp36-read-wokwi-esp32s3-espidf
+  sketch_name: tmp36_read
+

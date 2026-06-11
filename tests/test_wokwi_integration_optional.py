@@ -87,5 +87,47 @@ class OptionalWokwiIntegrationTests(unittest.TestCase):
         )
 
 
+@unittest.skipUnless(
+    os.environ.get("RUN_WOKWI_INTEGRATION") == "1",
+    "set RUN_WOKWI_INTEGRATION=1 to run Wokwi integration tests",
+)
+@unittest.skipUnless(shutil.which("idf.py"), "idf.py is not on PATH")
+@unittest.skipUnless(shutil.which("wokwi-cli"), "wokwi-cli is not on PATH")
+@unittest.skipUnless(os.environ.get("WOKWI_CLI_TOKEN"), "WOKWI_CLI_TOKEN is not set")
+class OptionalEsp32S3EspIdfIntegrationTests(unittest.TestCase):
+    def test_representative_espidf_level1_tasks_run_end_to_end(self):
+        for task_id in ("blink_led_1hz", "button_status_count", "breathing_led", "tmp36_read"):
+            with self.subTest(task=task_id):
+                completed = subprocess.run(
+                    [
+                        sys.executable,
+                        "-m",
+                        "bench.cli",
+                        "run",
+                        "--platform",
+                        "esp32s3_espidf",
+                        "--level",
+                        "level1",
+                        "--task",
+                        task_id,
+                        "--regenerate",
+                    ],
+                    cwd=ROOT,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    check=False,
+                    timeout=240,
+                )
+
+                self.assertEqual(
+                    completed.returncode,
+                    0,
+                    msg=f"stdout:\n{completed.stdout}\nstderr:\n{completed.stderr}",
+                )
+                payload = json.loads(completed.stdout)
+                self.assertEqual(payload["result"], "BC", payload)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -83,7 +83,7 @@ def validate_static_patterns(task: TaskConfig, paths: CasePaths) -> ValidationRe
     checks = dict(task.static_checks)
     checks.update(task.validator_params())
     try:
-        validate_static_checks(paths.sketch, checks)
+        validate_static_checks(paths.sketch, checks, build_kind=task.board_profile.build_kind)
     except StaticCheckError as exc:
         return ValidationResult(FAIL, str(exc), {"static_check_passed": False})
     return ValidationResult(PASS, "static checks passed", {"static_check_passed": True})

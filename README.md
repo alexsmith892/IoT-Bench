@@ -45,7 +45,7 @@ bench/
   lcd1602.py          # LCD1602 4-bit bus decoding from VCD
   validators/         # reusable validator families
   chips/bme280/       # deterministic custom Wokwi chip for BME280 tasks
-  tool_versions.yaml  # pinned arduino-cli / wokwi-cli versions
+  tool_versions.yaml  # pinned arduino-cli / idf.py / wokwi-cli versions
 tasks/arduino_mega/level*/
   *.yaml              # source of truth for task oracles (the answer key)
   *.prompt.md         # frozen model-facing task statement (one per task)
@@ -138,6 +138,7 @@ Check local tooling:
 
 ```powershell
 python -m bench.cli doctor
+python -m bench.cli doctor --platform esp32s3_espidf
 ```
 
 Generate or refresh Wokwi projects:
@@ -147,6 +148,7 @@ python -m bench.cli generate --task blink_led_1hz
 python -m bench.cli generate --platform arduino_mega --level level1
 python -m bench.cli generate --platform arduino_mega --level level2
 python -m bench.cli generate --platform arduino_mega --level level3
+python -m bench.cli generate --platform esp32s3_espidf --level level1
 ```
 
 Build sketches and create the firmware binaries referenced by `wokwi.toml`:
@@ -154,6 +156,7 @@ Build sketches and create the firmware binaries referenced by `wokwi.toml`:
 ```powershell
 python -m bench.cli build --task blink_led_1hz
 python -m bench.cli build --platform arduino_mega --level level1
+python -m bench.cli build --platform esp32s3_espidf --level level1
 ```
 
 Run live Wokwi simulation, capture artifacts, validate behavior, and write
@@ -164,6 +167,7 @@ python -m bench.cli run --task blink_led_1hz
 python -m bench.cli run --platform arduino_mega --level level1
 python -m bench.cli run --platform arduino_mega --level level2 --regenerate
 python -m bench.cli run --platform arduino_mega --level level3 --regenerate
+python -m bench.cli run --platform esp32s3_espidf --task blink_led_1hz --regenerate
 ```
 
 Validate existing VCD or serial artifacts without compiling or running Wokwi:
@@ -174,8 +178,9 @@ python -m bench.cli validate-artifacts --task breathing_led --case cases/breathi
 ```
 
 Opening a generated case manually in Wokwi requires a prior `build`, because
-`wokwi.toml` points at `artifacts/build/<sketch>.ino.hex` and
-`artifacts/build/<sketch>.ino.elf`.
+Arduino `wokwi.toml` files point at `artifacts/build/<sketch>.ino.hex` and
+`artifacts/build/<sketch>.ino.elf`, while ESP-IDF cases point at
+`artifacts/build/flasher_args.json` and `artifacts/build/<project>.elf`.
 
 Validate a submitted sketch against a task:
 
@@ -199,8 +204,8 @@ python -m bench.cli repeatability --runs 10 --output flakes.jsonl
 ```
 
 Both commands enforce the pinned tool versions in `bench/tool_versions.yaml`
-(override with `--allow-tool-version-mismatch`), so a Wokwi or arduino-cli
-behavior change surfaces as an environment problem instead of silently
+(override with `--allow-tool-version-mismatch`), so a Wokwi, arduino-cli, or
+idf.py behavior change surfaces as an environment problem instead of silently
 shifting behavior judgments.
 
 ## Task Coverage
@@ -290,8 +295,10 @@ scenario-control allowlist, registry consistency) and the adversarial
 static-gate expectations; it runs in CI on every push
 (`.github/workflows/ci.yml`).
 
-Live integration tests are opt-in and require `arduino-cli`, the Arduino AVR
-platform, `wokwi-cli`, network access, and `WOKWI_CLI_TOKEN`:
+Live integration tests are opt-in. Arduino Mega tests require `arduino-cli`,
+the Arduino AVR platform, `wokwi-cli`, network access, and `WOKWI_CLI_TOKEN`;
+ESP32-S3 ESP-IDF tests require `idf.py`, `wokwi-cli`, network access, and
+`WOKWI_CLI_TOKEN`:
 
 ```powershell
 $env:RUN_WOKWI_INTEGRATION = "1"

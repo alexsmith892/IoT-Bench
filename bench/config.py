@@ -28,6 +28,9 @@ class BoardProfile:
     power_pin: str
     ground_pin: str
     default_pins: dict[str, str]
+    build_kind: str = "arduino"
+    idf_target: str | None = None
+    firmware_kind: str = "arduino_image"
 
 
 BOARD_PROFILES = {
@@ -73,6 +76,34 @@ BOARD_PROFILES = {
             "spi_miso": "19",
             "spi_mosi": "23",
             "spi_cs": "5",
+        },
+    ),
+    "esp32s3_espidf": BoardProfile(
+        platform="esp32s3_espidf",
+        board_type="board-esp32-s3-devkitc-1",
+        part_id="esp",
+        fqbn="",
+        firmware_extension="",
+        voltage=3.3,
+        adc_max=4095,
+        power_pin="3V3",
+        ground_pin="GND.1",
+        build_kind="espidf",
+        idf_target="esp32s3",
+        firmware_kind="espidf_flasher_args",
+        default_pins={
+            "led": "10",
+            "led2": "11",
+            "button": "12",
+            "buzzer": "13",
+            "pir": "14",
+            "analog": "9",
+            "i2c_sda": "8",
+            "i2c_scl": "9",
+            "spi_sck": "12",
+            "spi_miso": "13",
+            "spi_mosi": "11",
+            "spi_cs": "10",
         },
     ),
 }

@@ -1,0 +1,30 @@
+task_id: blink_led_1hz
+name: Blink an LED at 1 Hz on ESP32-S3 GPIO 10
+platform: esp32s3_espidf
+level: level1
+board:
+  type: board-esp32-s3-devkitc-1
+fixture:
+  family: single_led_output
+  pins:
+    led: "10"
+  analyzer:
+    channels:
+      - signal: D0
+        pin: "10"
+validator:
+  family: waveform_frequency
+  params:
+    channels:
+      D0:
+        frequency_hz: 1.0
+        min_valid_cycles_after_startup: 4
+        half_period_range_s: [0.45, 0.55]
+        full_period_range_s: [0.9, 1.1]
+        duty_cycle_range: [0.4, 0.6]
+simulation:
+  timeout_ms: 6000
+case:
+  id: blink-1hz-wokwi-esp32s3-espidf
+  sketch_name: blink_led_1hz
+

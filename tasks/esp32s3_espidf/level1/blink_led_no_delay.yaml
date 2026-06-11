@@ -1,0 +1,32 @@
+task_id: blink_led_no_delay
+name: Blink an LED at 1 Hz without blocking delay calls on ESP32-S3
+platform: esp32s3_espidf
+level: level1
+board:
+  type: board-esp32-s3-devkitc-1
+fixture:
+  family: single_led_output
+  pins:
+    led: "10"
+  analyzer:
+    channels:
+      - signal: D0
+        pin: "10"
+static_checks:
+  forbidden_calls: [vTaskDelay, vTaskDelayUntil, esp_rom_delay_us, ets_delay_us, sleep, usleep]
+validator:
+  family: no_delay_static_plus_waveform
+  params:
+    channels:
+      D0:
+        frequency_hz: 1.0
+        min_valid_cycles_after_startup: 4
+        half_period_range_s: [0.475, 0.525]
+        full_period_range_s: [0.95, 1.05]
+        duty_cycle_range: [0.45, 0.55]
+simulation:
+  timeout_ms: 6000
+case:
+  id: blink-led-no-delay-wokwi-esp32s3-espidf
+  sketch_name: blink_led_no_delay
+

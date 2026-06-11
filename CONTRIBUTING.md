@@ -19,8 +19,9 @@ Offline tests should pass without Wokwi credentials:
 python -m unittest discover tests
 ```
 
-Live Wokwi runs require `arduino-cli`, `wokwi-cli`, the Arduino AVR platform,
-network access, and `WOKWI_CLI_TOKEN`.
+Live Arduino Mega Wokwi runs require `arduino-cli`, `wokwi-cli`, the Arduino
+AVR platform, network access, and `WOKWI_CLI_TOKEN`. ESP32-S3 ESP-IDF Wokwi
+runs require `idf.py`, `wokwi-cli`, network access, and `WOKWI_CLI_TOKEN`.
 
 ## Generated Files
 

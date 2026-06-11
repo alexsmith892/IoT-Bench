@@ -16,6 +16,7 @@ class DiagramError(Exception):
 
 NATIVE_WOKWI_PART_TYPES = {
     "board-esp32-devkit-c-v4",
+    "board-esp32-s3-devkitc-1",
     "board-bmp180",
     "wokwi-arduino-mega",
     "wokwi-esp32-devkit-v1",

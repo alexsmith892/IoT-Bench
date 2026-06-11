@@ -4,7 +4,10 @@ PyYAML>=6.0
 # External command-line tools required on PATH:
 # - Python 3.10+
 # - arduino-cli
+# - idf.py (for esp32s3_espidf tasks)
 # - wokwi-cli
 #
-# Arduino platform required for the current Wokwi Mega cases:
+# Arduino platform required for Wokwi Mega cases:
 # - arduino:avr, with FQBN arduino:avr:mega
+# ESP-IDF target required for ESP32-S3 ESP-IDF cases:
+# - esp32s3

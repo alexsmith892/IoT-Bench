@@ -1,0 +1,28 @@
+task_id: blink_led_morse_code
+name: Blink SOS in Morse code on ESP32-S3 GPIO 10
+platform: esp32s3_espidf
+level: level1
+board:
+  type: board-esp32-s3-devkitc-1
+fixture:
+  family: single_led_output
+  pins:
+    led: "10"
+  analyzer:
+    channels:
+      - signal: D0
+        pin: "10"
+validator:
+  family: morse_sos
+  params:
+    channel: D0
+    unit_s: 0.2
+    timing_tolerance: 0.05
+    high_units: [1, 1, 1, 3, 3, 3, 1, 1, 1]
+    gap_units: [1, 1, 3, 1, 1, 3, 1, 1]
+simulation:
+  timeout_ms: 8000
+case:
+  id: blink-led-morse-code-wokwi-esp32s3-espidf
+  sketch_name: blink_led_morse_code
+
