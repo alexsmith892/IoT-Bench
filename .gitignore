@@ -47,3 +47,6 @@ cases/*/artifacts/variants/*
 cases/*/artifacts/variants/*/*
 !cases/*/artifacts/variants/*/diagram.json
 !cases/*/artifacts/variants/*/case.repl
+
+# Renode CreateFileBackend rotates an existing log to <name>.1 instead of truncating.
+cases/*/artifacts/serial/*.serial.log.*
