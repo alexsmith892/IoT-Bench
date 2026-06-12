@@ -381,7 +381,18 @@ def iter_platform_tasks(
     levels: Iterable[str] = ALL_LEVELS,
     root: Path | None = None,
 ) -> Iterable[TaskConfig]:
-    for level in levels:
+    # Platforms may not populate every level (e.g. a new platform with only
+    # level1); missing level directories are skipped, but a platform with no
+    # task directory at all is still an error.
+    requested = list(levels)
+    existing = [
+        level for level in requested if (tasks_root(root) / platform / level).exists()
+    ]
+    if not existing:
+        raise ConfigError(
+            f"no task directories found for platform {platform!r} in levels {', '.join(requested)}"
+        )
+    for level in existing:
         yield from iter_tasks(platform=platform, level=level, root=root)
 
 

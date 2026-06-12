@@ -130,6 +130,15 @@ def generate_repl(task: TaskConfig) -> str:
         "uart0:",
         "    easyDMA: false",
         "",
+        "// Busy-polling firmware (k_uptime_get loops) crosses the tlib/C#",
+        "// boundary on every RTC read; at the default MIPS rating a 6 s run",
+        "// takes >400 s wall (135 s at 10 MIPS). 2 MIPS keeps polling loops at",
+        "// ~100 us resolution and Zephyr boot under 3 ms of virtual time while",
+        "// making busy-polling firmware simulate fast enough to run.",
+        "// Sleep-based firmware is unaffected (idle time is skipped either way).",
+        "cpu:",
+        "    PerformanceInMips: 2",
+        "",
     ]
     seen_pins: dict[tuple[str, int], str] = {}
     probes_by_port: dict[str, list[tuple[int, str]]] = {}
@@ -203,7 +212,11 @@ def scenario_steps_to_resc(task: TaskConfig, scenario: dict[str, Any] | None) ->
                 f"{task.task_id}: control {name!r} is not supported for {part['type']} parts (allowed: {sorted(allowed)})"
             )
         if part["type"] == "button" and name == "pressed":
-            commands.append(f"{part_id} {'Press' if truthy_control(value) else 'Release'}")
+            # Peripherals registered on a GPIO port are addressed through it
+            # (sysbus.gpio1.btn1); the bare part id is not a monitor name.
+            commands.append(
+                f"{part['port']}.{part_id} {'Press' if truthy_control(value) else 'Release'}"
+            )
     if pending_delay_ms > 0:
         commands.append(run_for_command(pending_delay_ms))
         elapsed_s += pending_delay_ms / 1000.0
@@ -299,12 +312,19 @@ globals()["iotbench_write_vcd"] = iotbench_write_vcd
 """'''
 
 
+def renode_at_path(path: str) -> str:
+    """Monitor @path token: spaces must be backslash-escaped (verified live;
+    quoting is not accepted by the tokenizer)."""
+
+    return "@" + str(path).replace(" ", "\\ ")
+
+
 def generate_resc(
     task: TaskConfig,
     *,
     repl_relpath: str,
     elf_relpath: str,
-    serial_relpath: str | None,
+    serial_abspath: str | None,
     vcd_abspath: str | None,
     scenario: dict[str, Any] | None,
     timeout_ms: int,
@@ -321,8 +341,11 @@ def generate_resc(
         f"cpu VectorTableOffset {NANO33BLE_VECTOR_TABLE_OFFSET}",
         "",
     ]
-    if serial_relpath:
-        lines.append(f"uart0 CreateFileBackend @{serial_relpath}")
+    if serial_abspath:
+        # Write-paths must be absolute: Renode resolves read @paths against
+        # the including script, but creates files relative to its own CWD
+        # (the install dir) - verified live.
+        lines.append(f"uart0 CreateFileBackend {renode_at_path(serial_abspath)}")
         lines.append("")
     if vcd_abspath:
         lines.append(vcd_hook_python(task, vcd_abspath))

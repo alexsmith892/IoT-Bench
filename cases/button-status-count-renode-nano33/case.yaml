@@ -1,0 +1,12 @@
+task_id: button_status_count
+case_id: button-status-count-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/button_status_count
+  diagram: case.repl
+  build: artifacts/build
+  scenario: scenario.yaml
+  serial_log: artifacts/serial/serial.log
+  resc: case.resc

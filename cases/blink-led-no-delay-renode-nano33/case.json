@@ -1,0 +1,27 @@
+{
+  "id": "blink-led-no-delay-renode-nano33",
+  "task": "blink_led_no_delay",
+  "name": "Blink the Nano 33 BLE red LED at 1 Hz without blocking sleeps (Zephyr)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/blink_led_no_delay",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/renode.vcd",
+    "resc": "case.resc"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO P0.24"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO P0.24"
+    }
+  ]
+}

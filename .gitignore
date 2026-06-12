@@ -32,6 +32,7 @@ cases/*/artifacts/serial/*.log
 cases/*/artifacts/archive/
 cases/*/artifacts/submissions/
 cases/*/artifacts/verification.json
+cases/*/case.resc
 cases/*/sketch/*/build/
 cases/*/sketch/*/sdkconfig
 cases/*/sketch/*/sdkconfig.old
@@ -45,3 +46,4 @@ cases/*/artifacts/variants/*
 !cases/*/artifacts/variants/*/
 cases/*/artifacts/variants/*/*
 !cases/*/artifacts/variants/*/diagram.json
+!cases/*/artifacts/variants/*/case.repl

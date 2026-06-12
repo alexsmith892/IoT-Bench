@@ -1,13 +1,20 @@
-# IoT-Bench Arduino Mega Harness
+# IoT-Bench Harness
 
-This repository currently implements the Arduino Mega portion of IoT-Bench.
-The `bench` package is the only supported harness for these tasks. Task
-behavior lives in YAML; case generation, Wokwi diagrams, scenarios, builds,
-live runs, artifact validation, batch evaluation, and result reporting are
-shared by task family. Multi-board support (ESP32, Zephyr), waveform-heavy
-peripheral analysis, fault injection, and the public leaderboard frontend are
-project goals, not completed repository features unless they are explicitly
-represented in the code here.
+This repository implements the simulation-based IoT-Bench harness. The
+`bench` package is the only supported harness for these tasks. Task behavior
+lives in YAML; case generation, platform fixtures, scenarios, builds, live
+runs, artifact validation, batch evaluation, and result reporting are shared
+by task family across three platforms and two simulator backends:
+
+| Platform | Board | Build | Simulator |
+|---|---|---|---|
+| `arduino_mega` | Arduino Mega (AVR) | arduino-cli | Wokwi (wokwi-cli) |
+| `esp32s3_espidf` | ESP32-S3 DevKitC (ESP-IDF) | idf.py | Wokwi (wokwi-cli) |
+| `zephyr_nano33ble` | Arduino Nano 33 BLE (nRF52840, Zephyr) | west | Renode (headless) |
+
+Waveform-heavy peripheral analysis, fault injection, and the public
+leaderboard frontend are project goals, not completed repository features
+unless they are explicitly represented in the code here.
 
 The benchmark result contract is:
 
@@ -139,6 +146,7 @@ Check local tooling:
 ```powershell
 python -m bench.cli doctor
 python -m bench.cli doctor --platform esp32s3_espidf
+python -m bench.cli doctor --platform zephyr_nano33ble
 ```
 
 Generate or refresh Wokwi projects:
@@ -149,6 +157,7 @@ python -m bench.cli generate --platform arduino_mega --level level1
 python -m bench.cli generate --platform arduino_mega --level level2
 python -m bench.cli generate --platform arduino_mega --level level3
 python -m bench.cli generate --platform esp32s3_espidf --level level1
+python -m bench.cli generate --platform zephyr_nano33ble --level level1
 ```
 
 Build sketches and create the firmware binaries referenced by `wokwi.toml`:
@@ -168,6 +177,7 @@ python -m bench.cli run --platform arduino_mega --level level1
 python -m bench.cli run --platform arduino_mega --level level2 --regenerate
 python -m bench.cli run --platform arduino_mega --level level3 --regenerate
 python -m bench.cli run --platform esp32s3_espidf --task blink_led_1hz --regenerate
+python -m bench.cli run --platform zephyr_nano33ble --level level1
 ```
 
 Validate existing VCD or serial artifacts without compiling or running Wokwi:
@@ -241,6 +251,14 @@ Level 2 live-supported:
 - `bme280_read_i2c` (custom deterministic BME280 chip; multi-variant)
 - `bme280_read_spi` (custom deterministic BME280 chip; multi-variant)
 
+Zephyr / Nano 33 BLE (Renode) level 1, all live-verified (reference BC across
+variants, adversarial stubs BF):
+- `blink_led_1hz`
+- `blink_led_no_delay`
+- `button_status_count` (multi-variant: 3 vs 4 presses)
+- `button_press_debounce` (multi-variant: 2 vs 3 bounced presses)
+- `sensor_pir_human_motion` (multi-variant: single vs double motion)
+
 Level 3 live-supported (the display tasks below are multi-variant with
 numeric LCD oracles tied to injected stimulus):
 - `dht11_read_button_display` (mid-run DHT value change between button reads)
@@ -304,6 +322,55 @@ ESP32-S3 ESP-IDF tests require `idf.py`, `wokwi-cli`, network access, and
 $env:RUN_WOKWI_INTEGRATION = "1"
 python -m unittest discover tests
 ```
+
+## Zephyr / Renode Platform Notes
+
+The `zephyr_nano33ble` platform evaluates Zephyr RTOS firmware for the
+Arduino Nano 33 BLE (nRF52840) in Renode instead of Wokwi, behind the same
+task schema, validators, variant machinery, and result contract. The board
+matches the upstream iot-skillsbench real-hardware target. Key facts
+(live-verified details in `docs/renode-spike.md`):
+
+- Cases get a generated `case.repl` (platform description: nRF52840 + probe
+  LEDs on observed GPIO pins + `Miscellaneous.Button` drivers for scenario
+  inputs) and `case.resc` (timed monitor script) instead of `diagram.json` /
+  `wokwi.toml`. Scenario YAML families are shared; delays become
+  `emulation RunFor` steps in exact virtual time, so stimulus timing is
+  deterministic (two runs produce byte-identical artifacts).
+- The logic-analyzer VCD is synthesized by an embedded IronPython hook that
+  records GPIO transitions with microsecond virtual timestamps; `vcd.py`,
+  the waveform validators, and (eventually) the LCD1602 decoder consume it
+  unchanged. Serial output is the UART captured to a file; the Zephyr boot
+  banner is disabled (`CONFIG_BOOT_BANNER=n`) so numeric serial oracles see
+  only firmware output.
+- Zephyr builds run through `west` from a staged, space-free directory
+  (Zephyr's kconfig.cmake cannot handle spaces in application paths, and
+  this repo's path contains one). The harness owns `CMakeLists.txt` and
+  `prj.conf`; submissions are a single `src/main.c` (or an app directory,
+  whose build config is replaced by the harness copy). CMake configure
+  failures are environment problems (`IF`); only the compile step is
+  charged as `CF`.
+- `RENODE_PERIPHERAL_CONTROLS` is the scenario-control allowlist for this
+  backend, linted like `PART_TYPE_CONTROLS`
+  (`tests/test_renode_scenario_lint.py`). Per-variant scenario overrides are
+  supported; per-variant `attrs` are rejected until the backend has
+  peripheral models whose state variants can seed.
+- The case `.repl` pins the CPU at 2 MIPS: busy-polling firmware
+  (`k_uptime_get` loops) crosses the emulator/peripheral boundary on every
+  RTC read and would otherwise simulate slower than the wall-clock guard;
+  2 MIPS keeps polling at ~100 µs resolution with Zephyr boot under 3 ms of
+  virtual time. Sleep-based firmware is unaffected.
+- Renode's stock nRF52840 model has no PWM or SAADC peripherals, so
+  hardware-PWM (breathing LED) and analog tasks need custom models before
+  they can join this platform; DHT11 and HC-SR04 stay Wokwi-only (bit-banged
+  microsecond protocols). The model fetches its SVD (register names for log
+  messages) from a URL on first run and caches it afterwards.
+
+Pinned tools for this platform (`bench/tool_versions.yaml`): the Renode
+version, west version, and the Zephyr tree revision. `doctor --platform
+zephyr_nano33ble` checks Renode, west, the workspace, and cmake/ninja (which
+are often missing from non-interactive PATH on Windows; the harness finds
+them in their default install locations).
 
 ## Wokwi And Fixture Notes
 

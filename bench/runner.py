@@ -158,9 +158,7 @@ def write_case_resc(
         task,
         repl_relpath=relative_to(paths.diagram, paths.case_dir),
         elf_relpath=relative_to(elf, paths.case_dir),
-        serial_relpath=(
-            relative_to(paths.serial_log, paths.case_dir) if paths.serial_log else None
-        ),
+        serial_abspath=(str(paths.serial_log.resolve()) if paths.serial_log else None),
         vcd_abspath=str(paths.vcd.resolve()) if paths.vcd else None,
         scenario=scenario_data,
         timeout_ms=timeout_ms or int(task.simulation.get("timeout_ms", 5000)),
@@ -1048,12 +1046,19 @@ def simulate_case_renode(
             "--console",
             "-e",
             f"include @{resc_rel}",
+            # If the include aborts mid-script (bad command, missing file),
+            # Renode drops to the interactive monitor and would sit until the
+            # wall-clock guard kills it; the trailing quit turns that into a
+            # fast, visible failure instead.
+            "-e",
+            "quit",
         ],
         cwd=paths.case_dir,
         stage="renode simulation",
-        # Renode runs at roughly 3x wall/virtual on this hardware plus ~5s
-        # startup; the guard is generous so a hang is an IF, not a flake.
-        timeout_s=max(60.0, timeout_ms / 1000.0 * 10.0 + 30.0),
+        # Busy-polling firmware costs ~7x wall/virtual at the repl's 2 MIPS
+        # rating (sleep-based firmware is ~2x) plus ~5s startup; the guard is
+        # generous so only a genuine hang becomes an IF.
+        timeout_s=max(90.0, timeout_ms / 1000.0 * 20.0 + 60.0),
         command_failure_classification=SIM_INFRA_FAIL,
         command_failure_stage=STAGE_SIM_INFRA,
         infra_failure_classification=SIM_INFRA_FAIL,

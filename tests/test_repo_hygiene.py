@@ -16,12 +16,17 @@ ROOT = Path(__file__).resolve().parents[1]
 # deliberately committed (see .gitignore).
 ALLOWED_CASE_ARTIFACTS = [
     re.compile(r"^cases/[^/]+/artifacts/variants/[^/]+/diagram\.json$"),
+    re.compile(r"^cases/[^/]+/artifacts/variants/[^/]+/case\.repl$"),
 ]
 
 # Generated-output file kinds that must never be tracked anywhere outside
 # explicit test fixtures.
 FORBIDDEN_PATTERNS = [
     re.compile(r"\.vcd$"),
+    # Renode monitor scripts embed absolute output paths (Renode resolves
+    # write-paths against its own CWD); they are regenerated deterministically
+    # on every simulate and their hashes live in the verification manifest.
+    re.compile(r"(^|/)case\.resc$"),
     re.compile(r"\.serial\.log$"),
     re.compile(r"(^|/)verification\.json$"),
     re.compile(r"\.ino\.(hex|elf|eep|bin)$"),

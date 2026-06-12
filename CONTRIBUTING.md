@@ -22,6 +22,11 @@ python -m unittest discover tests
 Live Arduino Mega Wokwi runs require `arduino-cli`, `wokwi-cli`, the Arduino
 AVR platform, network access, and `WOKWI_CLI_TOKEN`. ESP32-S3 ESP-IDF Wokwi
 runs require `idf.py`, `wokwi-cli`, network access, and `WOKWI_CLI_TOKEN`.
+Zephyr/Nano 33 BLE Renode runs require Renode, a Zephyr `west` workspace
+with the SDK installed, and cmake/ninja; check them with
+`python -m bench.cli doctor --platform zephyr_nano33ble` (the harness finds
+Renode and the workspace's venv `west` in their default locations, or set
+`IOTBENCH_RENODE`, `IOTBENCH_WEST`, and `ZEPHYR_WORKSPACE`).
 
 ## Generated Files
 
@@ -44,15 +49,19 @@ cases/*/artifacts/variants/   (except diagram.json, see below)
 cases/*/artifacts/verification.json
 cases/*/sketch/*/build/
 cases/*/*.vcd
+cases/*/case.resc
 ```
 
 Those files often contain absolute paths to the local Arduino installation or
 workspace. Regenerate cases and artifacts with `python -m bench.cli generate`,
 `python -m bench.cli build`, or `python -m bench.cli run`.
 
-One exception is committed deliberately: `cases/*/artifacts/variants/*/diagram.json`.
-Variant diagrams are deterministic derived inputs (the base diagram patched with
-each variant's attrs) that the verification manifest and
-`--use-existing-artifacts` validation read, so they stay tracked and reviewable.
-`tests/test_repo_hygiene.py` enforces that nothing else under
-`cases/*/artifacts/` is tracked.
+Two exceptions are committed deliberately:
+`cases/*/artifacts/variants/*/diagram.json` (Wokwi) and
+`cases/*/artifacts/variants/*/case.repl` (Renode). Variant diagrams and
+platform descriptions are deterministic derived inputs that the verification
+manifest and `--use-existing-artifacts` validation read, so they stay tracked
+and reviewable. Renode `case.resc` scripts are NOT tracked anywhere: they
+embed absolute output paths (Renode resolves write-paths against its own
+working directory) and are re-emitted deterministically on every simulate.
+`tests/test_repo_hygiene.py` enforces all of this.

@@ -79,5 +79,58 @@ class AdversarialStaticTests(unittest.TestCase):
                 )
 
 
+# Zephyr (zephyr_nano33ble) corpus: same contract, C sources instead of .ino.
+# (task_id, level, stub filename, expected to fail the static gate)
+ZEPHYR_STUBS = [
+    ("blink_led_no_delay", "level1", "stub_zephyr_delay_loop.c", True),
+    ("button_status_count", "level1", "stub_zephyr_print_only.c", True),
+    ("button_status_count", "level1", "stub_zephyr_decoy_fixed_count.c", False),
+    ("button_press_debounce", "level1", "stub_zephyr_print_only.c", True),
+    ("button_press_debounce", "level1", "stub_zephyr_decoy_two_triggers.c", False),
+    ("sensor_pir_human_motion", "level1", "stub_zephyr_print_only.c", True),
+    ("sensor_pir_human_motion", "level1", "stub_zephyr_decoy_hardcoded.c", False),
+]
+
+
+def zephyr_static_params(task: TaskConfig) -> dict:
+    params = static_params(task)
+    if params:
+        return params
+    return task.static_checks
+
+
+class ZephyrAdversarialStaticTests(unittest.TestCase):
+    def test_corpus_files_exist(self):
+        for task_id, _level, stub, _expect_fail in ZEPHYR_STUBS:
+            path = repo_root() / "tests" / "adversarial" / task_id / stub
+            self.assertTrue(path.exists(), path)
+
+    def test_static_gate_expectations(self):
+        for task_id, level, stub, expect_fail in ZEPHYR_STUBS:
+            with self.subTest(task=task_id, stub=stub):
+                task = load_task(task_id, platform="zephyr_nano33ble", level=level)
+                params = zephyr_static_params(task)
+                self.assertTrue(params, f"{task_id} has no static checks to pin")
+                path = repo_root() / "tests" / "adversarial" / task_id / stub
+                if expect_fail:
+                    with self.assertRaises(StaticCheckError):
+                        validate_static_checks(path, params, build_kind="zephyr")
+                else:
+                    # Decoys intentionally pass the static gate; their runtime
+                    # rejection is pinned by live swap runs (variant oracles).
+                    validate_static_checks(path, params, build_kind="zephyr")
+
+    def test_hardened_tasks_demand_runtime_distinguishers(self):
+        # Waveform-judged tasks (requires_vcd) are inherently not hardcodable
+        # through serial output; everything else needs variants or a stimulus.
+        for task_id, level, _stub, _expect_fail in ZEPHYR_STUBS:
+            with self.subTest(task=task_id):
+                task = load_task(task_id, platform="zephyr_nano33ble", level=level)
+                self.assertTrue(
+                    task.simulation_variants or task.scenario or task.requires_vcd,
+                    f"{task_id} has neither variants, a stimulus scenario, nor a waveform oracle",
+                )
+
+
 if __name__ == "__main__":
     unittest.main()

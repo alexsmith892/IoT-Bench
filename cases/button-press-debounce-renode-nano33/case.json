@@ -1,0 +1,18 @@
+{
+  "id": "button-press-debounce-renode-nano33",
+  "task": "button_press_debounce",
+  "name": "Debounce a button and print one trigger per intended press (Zephyr / Nano 33 BLE)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/button_press_debounce",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "scenario": "scenario.yaml",
+    "serial_log": "artifacts/serial/serial.log",
+    "resc": "case.resc"
+  }
+}

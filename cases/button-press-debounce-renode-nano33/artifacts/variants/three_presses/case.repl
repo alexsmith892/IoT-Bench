@@ -16,7 +16,5 @@ uart0:
 cpu:
     PerformanceInMips: 2
 
-probe_d0: Miscellaneous.LED @ gpio0 24
-
-gpio0:
-    24 -> probe_d0@0
+btn1: Miscellaneous.Button @ gpio1 11
+    -> gpio1@11

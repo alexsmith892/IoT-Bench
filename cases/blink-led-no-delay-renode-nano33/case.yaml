@@ -1,0 +1,11 @@
+task_id: blink_led_no_delay
+case_id: blink-led-no-delay-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/blink_led_no_delay
+  diagram: case.repl
+  build: artifacts/build
+  vcd: artifacts/logic/renode.vcd
+  resc: case.resc
