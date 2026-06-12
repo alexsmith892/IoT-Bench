@@ -1,0 +1,48 @@
+task_id: ds1307_rtc
+# Scoped to "read and print": the harness seeds the DS1307 model from `initTime`
+# below (per simulation variant) and validates that the firmware reads and
+# prints that date/time over I2C. The model ignores writes to the timekeeping
+# registers, so the validated contract is deliberately the read/print path.
+name: Read and print DS1307 RTC date/time over I2C (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level2
+fixture:
+  family: composite
+  components:
+    - type: ds1307
+      id: extrtc1
+      bus: twi0
+      address: "0x68"
+      attrs: {initTime: "2026-02-02T15:37:00Z"}
+# Two seeded clock values: firmware that hardcodes one date/time string fails
+# the other variant, and require_distinct_variant_outputs rejects identical
+# outputs.
+simulation_variants:
+  - id: feb_afternoon
+    attrs: {extrtc1: {initTime: "2026-02-02T15:37:00Z"}}
+    validator:
+      checks:
+        - {}
+        - params:
+            patterns: ["2026[/:-]0?2[/:-]0?2", "15[:.]37"]
+  - id: jul_morning
+    attrs: {extrtc1: {initTime: "2026-07-19T08:03:00Z"}}
+    validator:
+      checks:
+        - {}
+        - params:
+            patterns: ["2026[/:-]0?7[/:-]19", "0?8[:.]03"]
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        # Require the real I2C read path, not just a device binding, so a
+        # hard-coded print stub cannot pass the static gate.
+        required_any_patterns:
+          - ["i2c_write_read\\s*\\(", "i2c_read\\s*\\(", "i2c_transfer\\s*\\(", "i2c_burst_read\\s*\\("]
+    - family: serial_regex_sequence
+      params:
+        patterns: ["2026[/:-]0?2[/:-]0?2", "15[:.]37"]
+simulation: {timeout_ms: 1500, require_distinct_variant_outputs: true}
+case: {id: ds1307-rtc-renode-nano33, sketch_name: ds1307_rtc}

@@ -1,0 +1,24 @@
+task_id: lcd1602_display_hello_world
+name: Display Hello World centered on LCD1602 (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level2
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "P1.12"}
+      - {signal: D1, pin: "P1.14"}
+      - {signal: D2, pin: "P1.15"}
+      - {signal: D3, pin: "P1.13"}
+      - {signal: D4, pin: "P0.21"}
+      - {signal: D5, pin: "P0.27"}
+  components:
+    - type: lcd1602
+      id: lcd1
+      pins: {rs: "P1.12", e: "P1.14", d4: "P1.15", d5: "P1.13", d6: "P0.21", d7: "P0.27"}
+validator:
+  family: lcd_text
+  params:
+    expected_texts: ["Hello World"]
+simulation: {timeout_ms: 1600}
+case: {id: lcd1602-display-hello-world-renode-nano33, sketch_name: lcd1602_display_hello_world}

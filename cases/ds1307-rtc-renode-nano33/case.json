@@ -1,0 +1,17 @@
+{
+  "id": "ds1307-rtc-renode-nano33",
+  "task": "ds1307_rtc",
+  "name": "Read and print DS1307 RTC date/time over I2C (Zephyr / Nano 33 BLE)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/ds1307_rtc",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "serial_log": "artifacts/serial/serial.log",
+    "resc": "case.resc"
+  }
+}

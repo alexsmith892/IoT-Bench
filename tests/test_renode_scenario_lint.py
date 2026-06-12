@@ -25,7 +25,7 @@ PLATFORM = "zephyr_nano33ble"
 
 
 def platform_tasks() -> list[TaskConfig]:
-    return list(iter_platform_tasks(platform=PLATFORM, levels=["level1"]))
+    return list(iter_platform_tasks(platform=PLATFORM, levels=["level1", "level2"]))
 
 
 class RenodeScenarioLintTests(unittest.TestCase):
@@ -41,14 +41,31 @@ class RenodeScenarioLintTests(unittest.TestCase):
                 with self.subTest(task=task.task_id):
                     generate_case(task, root=Path(tmp))
 
-    def test_variant_attrs_rejected(self) -> None:
-        base = platform_tasks()[0]
+    def test_variant_attrs_with_unknown_control_rejected(self) -> None:
+        from bench.config import load_task
+
+        base = load_task("button_status_count", platform=PLATFORM, level="level1")
         data = copy.deepcopy(base.data)
         data["simulation_variants"] = [{"id": "a", "attrs": {"btn1": {"bounce": "false"}}}]
         task = TaskConfig(path=base.path, data=data)
         with self.assertRaises(RenodeConfigError) as ctx:
             validate_variant_scenarios(task)
-        self.assertIn("attrs", str(ctx.exception))
+        self.assertIn("bounce", str(ctx.exception))
+
+    def test_variant_attrs_on_unknown_part_rejected(self) -> None:
+        base = platform_tasks()[0]
+        data = copy.deepcopy(base.data)
+        data["simulation_variants"] = [{"id": "a", "attrs": {"ghost9": {"pressed": 1}}}]
+        task = TaskConfig(path=base.path, data=data)
+        with self.assertRaises(RenodeConfigError) as ctx:
+            validate_variant_scenarios(task)
+        self.assertIn("ghost9", str(ctx.exception))
+
+    def test_sensor_variant_attrs_accepted(self) -> None:
+        from bench.config import load_task
+
+        task = load_task("ds1307_rtc", platform=PLATFORM, level="level2")
+        validate_variant_scenarios(task)  # seeded initTime per variant
 
     def test_variant_scenario_with_unknown_part_rejected(self) -> None:
         base = platform_tasks()[0]

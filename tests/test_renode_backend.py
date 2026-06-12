@@ -226,6 +226,115 @@ class RescGenerationTests(unittest.TestCase):
             )
 
 
+def imu_task() -> TaskConfig:
+    return TaskConfig(
+        path=Path("tasks/zephyr_nano33ble/level2/lsm9ds1_read_i2c.yaml"),
+        data={
+            "task_id": "lsm9ds1_read_i2c",
+            "platform": "zephyr_nano33ble",
+            "level": "level2",
+            "fixture": {
+                "family": "composite",
+                "components": [
+                    {"type": "lsm9ds1", "id": "imu1", "bus": "twi0", "address": "0x6b"}
+                ],
+            },
+            "validator": {"family": "serial_observation_sequence", "params": {}},
+            "simulation": {"timeout_ms": 1600},
+            "case": {"id": "lsm9ds1-read-i2c-renode-nano33", "sketch_name": "lsm9ds1_read_i2c"},
+        },
+    )
+
+
+class SensorPartTests(unittest.TestCase):
+    def test_sensor_repl_declaration(self) -> None:
+        repl = generate_repl(imu_task())
+        self.assertIn("imu1: Sensors.LSM9DS1_IMU @ twi0 0x6b", repl)
+
+    def test_sensor_control_commands(self) -> None:
+        from bench.renode import control_set_command, renode_parts
+
+        task = imu_task()
+        parts = renode_parts(task)
+        self.assertEqual(
+            control_set_command(task, "imu1", parts["imu1"], "accelX", 0.5),
+            "twi0.imu1 AccelerationX 0.5",
+        )
+        self.assertEqual(
+            control_set_command(task, "imu1", parts["imu1"], "rotationX", 30),
+            "twi0.imu1 AngularRateX 30",
+        )
+
+    def test_variant_attrs_become_property_sets(self) -> None:
+        from bench.renode import part_attr_commands
+
+        commands = part_attr_commands(imu_task(), {"imu1": {"accelZ": 1.0}})
+        self.assertEqual(commands, ["twi0.imu1 AccelerationZ 1"])
+
+    def test_unknown_attr_control_rejected(self) -> None:
+        from bench.renode import part_attr_commands
+
+        with self.assertRaises(RenodeConfigError):
+            part_attr_commands(imu_task(), {"imu1": {"distance": 5}})
+
+    def test_reserved_part_id_rejected(self) -> None:
+        from bench.renode import renode_parts
+
+        task = imu_task()
+        task.data["fixture"]["components"][0]["id"] = "rtc1"
+        with self.assertRaises(RenodeConfigError) as ctx:
+            renode_parts(task)
+        self.assertIn("collides", str(ctx.exception))
+
+    def test_ds1307_plugin_included_in_resc(self) -> None:
+        task = TaskConfig(
+            path=Path("tasks/zephyr_nano33ble/level2/ds1307_rtc.yaml"),
+            data={
+                "task_id": "ds1307_rtc",
+                "platform": "zephyr_nano33ble",
+                "level": "level2",
+                "fixture": {
+                    "family": "composite",
+                    "components": [
+                        {
+                            "type": "ds1307",
+                            "id": "extrtc1",
+                            "bus": "twi0",
+                            "attrs": {"initTime": "2026-02-02T15:37:00Z"},
+                        }
+                    ],
+                },
+                "validator": {"family": "serial_regex_sequence", "params": {}},
+                "simulation": {"timeout_ms": 1500},
+                "case": {"id": "ds1307-rtc-renode-nano33", "sketch_name": "ds1307_rtc"},
+            },
+        )
+        resc = generate_resc(
+            task,
+            repl_relpath="case.repl",
+            elf_relpath="artifacts/build/zephyr/zephyr.elf",
+            serial_abspath=r"C:\abs\serial.log",
+            vcd_abspath=None,
+            scenario=None,
+            timeout_ms=1500,
+        )
+        self.assertIn("DS1307.cs", resc.splitlines()[1])
+        self.assertIn('twi0.extrtc1 InitTime "2026-02-02T15:37:00Z"', resc)
+        # Variant attrs override the fixture seed.
+        resc_variant = generate_resc(
+            task,
+            repl_relpath="case.repl",
+            elf_relpath="artifacts/build/zephyr/zephyr.elf",
+            serial_abspath=r"C:\abs\serial.log",
+            vcd_abspath=None,
+            scenario=None,
+            timeout_ms=1500,
+            variant_attrs={"extrtc1": {"initTime": "2026-07-19T08:03:00Z"}},
+        )
+        self.assertIn('twi0.extrtc1 InitTime "2026-07-19T08:03:00Z"', resc_variant)
+        self.assertNotIn("2026-02-02", resc_variant)
+
+
 class ManifestTests(unittest.TestCase):
     def test_verification_manifest_records_resc_and_zephyr_tools(self) -> None:
         from bench import runner

@@ -259,6 +259,15 @@ variants, adversarial stubs BF):
 - `button_press_debounce` (multi-variant: 2 vs 3 bounced presses)
 - `sensor_pir_human_motion` (multi-variant: single vs double motion)
 
+Zephyr / Nano 33 BLE (Renode) level 2, all live-verified:
+- `ds1307_rtc` (custom C# DS1307 model compiled by Renode at include time;
+  multi-variant seeded clock via per-variant attrs)
+- `lsm9ds1_read_i2c` (native Renode LSM9DS1 — the board's real IMU; per-variant
+  mid-run accel/gyro injection, raw-count oracle at 16384 LSB/g, 120 LSB/dps,
+  verified live)
+- `lcd1602_display_hello_world` (bit-banged 4-bit bus decoded from the
+  synthesized VCD by the existing `lcd1602.py`)
+
 Level 3 live-supported (the display tasks below are multi-variant with
 numeric LCD oracles tied to injected stimulus):
 - `dht11_read_button_display` (mid-run DHT value change between button reads)
@@ -360,11 +369,25 @@ matches the upstream iot-skillsbench real-hardware target. Key facts
   RTC read and would otherwise simulate slower than the wall-clock guard;
   2 MIPS keeps polling at ~100 µs resolution with Zephyr boot under 3 ms of
   virtual time. Sleep-based firmware is unaffected.
+- Sensor parts: scenario controls and per-variant `attrs` keep the Wokwi
+  vocabulary (`accelX` in g, `rotationX` in deg/s, `initTime` ISO-8601) and
+  are emitted as Renode property sets on the part (`twi0.imu1 AccelerationX
+  0.5`), so the same injection/oracle design carries over. The IMU task uses
+  Renode's native LSM9DS1 (the Nano 33 BLE's actual sensor) instead of a
+  custom MPU6050; the DS1307 is an IoT-Bench C# model
+  (`bench/chips/ds1307/DS1307.cs`) that Renode compiles at include time —
+  it implements the read path of the contract and ignores writes to the
+  timekeeping registers (read-and-print contract, like the Wokwi task).
+  Zephyr's I2C drivers default to TWIM (EasyDMA), which Renode's nRF52840
+  I2C model does not implement; the harness-owned `app.overlay` pins the
+  legacy `nordic,nrf-twi` driver (verified live).
 - Renode's stock nRF52840 model has no PWM or SAADC peripherals, so
-  hardware-PWM (breathing LED) and analog tasks need custom models before
-  they can join this platform; DHT11 and HC-SR04 stay Wokwi-only (bit-banged
-  microsecond protocols). The model fetches its SVD (register names for log
-  messages) from a URL on first run and caches it afterwards.
+  hardware-PWM (breathing LED) and analog tasks (TMP36 and the other
+  potentiometer surrogates) need custom C# models before they can join this
+  platform — that is the next backend milestone; DHT11 and HC-SR04 stay
+  Wokwi-only (bit-banged microsecond protocols). The model fetches its SVD
+  (register names for log messages) from a URL on first run and caches it
+  afterwards.
 
 Pinned tools for this platform (`bench/tool_versions.yaml`): the Renode
 version, west version, and the Zephyr tree revision. `doctor --platform

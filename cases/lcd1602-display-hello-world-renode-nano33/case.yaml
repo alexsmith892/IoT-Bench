@@ -1,0 +1,11 @@
+task_id: lcd1602_display_hello_world
+case_id: lcd1602-display-hello-world-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/lcd1602_display_hello_world
+  diagram: case.repl
+  build: artifacts/build
+  vcd: artifacts/logic/renode.vcd
+  resc: case.resc

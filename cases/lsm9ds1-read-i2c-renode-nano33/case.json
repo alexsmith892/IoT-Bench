@@ -1,0 +1,17 @@
+{
+  "id": "lsm9ds1-read-i2c-renode-nano33",
+  "task": "lsm9ds1_read_i2c",
+  "name": "Read LSM9DS1 raw accelerometer and gyroscope values over I2C (Zephyr / Nano 33 BLE)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/lsm9ds1_read_i2c",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "serial_log": "artifacts/serial/serial.log",
+    "resc": "case.resc"
+  }
+}

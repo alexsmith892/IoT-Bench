@@ -162,6 +162,7 @@ def write_case_resc(
         vcd_abspath=str(paths.vcd.resolve()) if paths.vcd else None,
         scenario=scenario_data,
         timeout_ms=timeout_ms or int(task.simulation.get("timeout_ms", 5000)),
+        variant_attrs=renode.active_variant_attrs(task),
     )
     paths.resc.parent.mkdir(parents=True, exist_ok=True)
     paths.resc.write_text(text, encoding="utf-8")
@@ -403,10 +404,11 @@ def ensure_zephyr_project_files(task: TaskConfig, project_dir: Path) -> None:
     project_dir.mkdir(parents=True, exist_ok=True)
     src_dir = project_dir / "src"
     src_dir.mkdir(parents=True, exist_ok=True)
-    # CMakeLists.txt and prj.conf are harness-owned: always rewritten so a
-    # stale or tampered copy can never shape a benchmark run.
+    # CMakeLists.txt, prj.conf, and app.overlay are harness-owned: always
+    # rewritten so a stale or tampered copy can never shape a benchmark run.
     (project_dir / "CMakeLists.txt").write_text(zephyr_root_cmake(task), encoding="utf-8")
     (project_dir / "prj.conf").write_text(zephyr_prj_conf(), encoding="utf-8")
+    (project_dir / "app.overlay").write_text(zephyr_app_overlay(), encoding="utf-8")
     main_source = src_dir / "main.c"
     if not main_source.exists() or task.level in {"level2", "level3"}:
         main_source.write_text(example_sketch(task), encoding="utf-8")
@@ -425,9 +427,23 @@ target_sources(app PRIVATE src/main.c)
 def zephyr_prj_conf() -> str:
     # The boot banner contains version integers that would pollute numeric
     # serial oracles (extract_ints over the whole serial log), so it is off.
+    # GPIO and I2C cover the current task families; the config is shared by
+    # all tasks so submissions never need (or get to) change it.
     return """\
 CONFIG_GPIO=y
+CONFIG_I2C=y
 CONFIG_BOOT_BANNER=n
+"""
+
+
+def zephyr_app_overlay() -> str:
+    # Renode's NRF52840_I2C models the legacy TWI (no EasyDMA); the board dts
+    # selects nordic,nrf-twim, whose TXD.PTR/RXD.PTR writes the model ignores
+    # (verified live - empty I2C transactions). Pin the legacy driver.
+    return """\
+&i2c0 {
+\tcompatible = "nordic,nrf-twi";
+};
 """
 
 
@@ -628,9 +644,10 @@ def normalize_zephyr_submission(task: TaskConfig, source: Path, destination: Pat
         )
     shutil.copytree(source, destination)
     # The build configuration is part of the benchmark fixture, not the
-    # submission: always use the harness CMakeLists.txt and prj.conf.
+    # submission: always use the harness CMakeLists.txt, prj.conf, overlay.
     (destination / "CMakeLists.txt").write_text(zephyr_root_cmake(task), encoding="utf-8")
     (destination / "prj.conf").write_text(zephyr_prj_conf(), encoding="utf-8")
+    (destination / "app.overlay").write_text(zephyr_app_overlay(), encoding="utf-8")
     return destination
 
 
@@ -1134,11 +1151,9 @@ def simulate_variants(
     for variant in task.simulation_variants:
         variant_paths = paths_for_variant(paths, variant_id(variant), variant)
         if is_renode:
-            if variant.get("attrs"):
-                raise CaseConfigError(
-                    f"{task.task_id}: per-variant attrs are not supported by the "
-                    "Renode backend yet; use per-variant scenario overrides"
-                )
+            # Variant attrs become property-set commands in the per-variant
+            # resc (re-emitted and hashed in simulate_case_renode); the
+            # platform description itself is variant-invariant.
             variant_paths.diagram.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(paths.diagram, variant_paths.diagram)
         else:
@@ -2093,9 +2108,170 @@ def zephyr_example_source(task: TaskConfig) -> str:
         "button_status_count": zephyr_button_status_count,
         "button_press_debounce": zephyr_button_press_debounce,
         "sensor_pir_human_motion": zephyr_pir_serial,
+        "ds1307_rtc": zephyr_ds1307_rtc,
+        "lsm9ds1_read_i2c": zephyr_lsm9ds1_read_i2c,
+        "lcd1602_display_hello_world": zephyr_lcd1602_hello,
     }
     factory = examples.get(task.task_id)
     return factory(task) if factory else "int main(void) { return 0; }\n"
+
+
+def zephyr_lcd_pin_define(name: str, pin_spec: str) -> str:
+    port, index = zephyr_gpio_parts(pin_spec)
+    return f"#define {name}_PORT {port}_dev\n#define {name}_PIN {index}\n"
+
+
+def zephyr_lcd1602_hello(task: TaskConfig) -> str:
+    pins = task.fixture.get("components", [{}])[0].get("pins", {})
+    defines = "".join(
+        zephyr_lcd_pin_define(name.upper(), str(pins[name]))
+        for name in ("rs", "e", "d4", "d5", "d6", "d7")
+    )
+    return f"""\
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/gpio.h>
+
+static const struct device *const gpio0_dev = DEVICE_DT_GET(DT_NODELABEL(gpio0));
+static const struct device *const gpio1_dev = DEVICE_DT_GET(DT_NODELABEL(gpio1));
+
+{defines}
+static void lcd_write_nibble(int rs, int value)
+{{
+\tgpio_pin_set(RS_PORT, RS_PIN, rs);
+\tgpio_pin_set(D4_PORT, D4_PIN, (value >> 0) & 1);
+\tgpio_pin_set(D5_PORT, D5_PIN, (value >> 1) & 1);
+\tgpio_pin_set(D6_PORT, D6_PIN, (value >> 2) & 1);
+\tgpio_pin_set(D7_PORT, D7_PIN, (value >> 3) & 1);
+\tk_busy_wait(20);
+\tgpio_pin_set(E_PORT, E_PIN, 1);
+\tk_busy_wait(40);
+\tgpio_pin_set(E_PORT, E_PIN, 0);
+\tk_busy_wait(60);
+}}
+
+static void lcd_write_byte(int rs, int value)
+{{
+\tlcd_write_nibble(rs, value >> 4);
+\tlcd_write_nibble(rs, value & 0x0F);
+\tk_msleep(1);
+}}
+
+static void lcd_init(void)
+{{
+\tk_msleep(50);
+\tlcd_write_nibble(0, 0x3);
+\tk_msleep(5);
+\tlcd_write_nibble(0, 0x3);
+\tk_msleep(1);
+\tlcd_write_nibble(0, 0x3);
+\tk_msleep(1);
+\tlcd_write_nibble(0, 0x2);
+\tk_msleep(1);
+\tlcd_write_byte(0, 0x28); /* 4-bit, 2 lines */
+\tlcd_write_byte(0, 0x0C); /* display on */
+\tlcd_write_byte(0, 0x01); /* clear */
+\tk_msleep(2);
+\tlcd_write_byte(0, 0x06); /* entry mode */
+}}
+
+int main(void)
+{{
+\tconst char *text = "  Hello World";
+
+\tgpio_pin_configure(RS_PORT, RS_PIN, GPIO_OUTPUT_LOW);
+\tgpio_pin_configure(E_PORT, E_PIN, GPIO_OUTPUT_LOW);
+\tgpio_pin_configure(D4_PORT, D4_PIN, GPIO_OUTPUT_LOW);
+\tgpio_pin_configure(D5_PORT, D5_PIN, GPIO_OUTPUT_LOW);
+\tgpio_pin_configure(D6_PORT, D6_PIN, GPIO_OUTPUT_LOW);
+\tgpio_pin_configure(D7_PORT, D7_PIN, GPIO_OUTPUT_LOW);
+
+\tlcd_init();
+\tlcd_write_byte(0, 0x80); /* cursor to line 1, column 0 */
+\tfor (const char *p = text; *p; ++p) {{
+\t\tlcd_write_byte(1, (unsigned char)*p);
+\t}}
+\twhile (1) {{
+\t\tk_msleep(1000);
+\t}}
+\treturn 0;
+}}
+"""
+
+
+def zephyr_lsm9ds1_read_i2c(task: TaskConfig) -> str:
+    return """\
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/i2c.h>
+#include <zephyr/sys/printk.h>
+
+#define LSM9DS1_ADDR 0x6B
+#define OUT_X_G 0x18
+#define OUT_X_XL 0x28
+
+static const struct device *const i2c_dev = DEVICE_DT_GET(DT_NODELABEL(i2c0));
+
+static int read_vector(uint8_t base, int16_t out[3])
+{
+\tuint8_t raw[6];
+
+\tif (i2c_burst_read(i2c_dev, LSM9DS1_ADDR, base, raw, sizeof(raw)) != 0) {
+\t\treturn -1;
+\t}
+\tfor (int i = 0; i < 3; ++i) {
+\t\tout[i] = (int16_t)((raw[2 * i + 1] << 8) | raw[2 * i]);
+\t}
+\treturn 0;
+}
+
+int main(void)
+{
+\tint16_t accel[3];
+\tint16_t gyro[3];
+
+\twhile (1) {
+\t\tif (read_vector(OUT_X_XL, accel) == 0 && read_vector(OUT_X_G, gyro) == 0) {
+\t\t\tprintk("Accel: %d %d %d Gyro: %d %d %d\\n",
+\t\t\t       accel[0], accel[1], accel[2], gyro[0], gyro[1], gyro[2]);
+\t\t}
+\t\tk_msleep(150);
+\t}
+\treturn 0;
+}
+"""
+
+
+def zephyr_ds1307_rtc(task: TaskConfig) -> str:
+    return """\
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/i2c.h>
+#include <zephyr/sys/printk.h>
+
+#define DS1307_ADDR 0x68
+
+static const struct device *const i2c_dev = DEVICE_DT_GET(DT_NODELABEL(i2c0));
+
+static int from_bcd(uint8_t value)
+{
+\treturn ((value >> 4) * 10) + (value & 0x0F);
+}
+
+int main(void)
+{
+\tuint8_t reg = 0x00;
+\tuint8_t data[7];
+
+\twhile (1) {
+\t\tif (i2c_write_read(i2c_dev, DS1307_ADDR, &reg, 1, data, sizeof(data)) == 0) {
+\t\t\tprintk("20%02d/%02d/%02d %02d:%02d:%02d\\n",
+\t\t\t       from_bcd(data[6]), from_bcd(data[5]), from_bcd(data[4]),
+\t\t\t       from_bcd(data[2] & 0x3F), from_bcd(data[1]),
+\t\t\t       from_bcd(data[0] & 0x7F));
+\t\t}
+\t\tk_msleep(250);
+\t}
+\treturn 0;
+}
+"""
 
 
 ZEPHYR_COMMON_INCLUDES = """\

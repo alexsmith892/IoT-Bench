@@ -89,6 +89,10 @@ ZEPHYR_STUBS = [
     ("button_press_debounce", "level1", "stub_zephyr_decoy_two_triggers.c", False),
     ("sensor_pir_human_motion", "level1", "stub_zephyr_print_only.c", True),
     ("sensor_pir_human_motion", "level1", "stub_zephyr_decoy_hardcoded.c", False),
+    ("ds1307_rtc", "level2", "stub_zephyr_print_only.c", True),
+    ("ds1307_rtc", "level2", "stub_zephyr_decoy_hardcoded.c", False),
+    ("lsm9ds1_read_i2c", "level2", "stub_zephyr_print_only.c", True),
+    ("lsm9ds1_read_i2c", "level2", "stub_zephyr_decoy_hardcoded.c", False),
 ]
 
 

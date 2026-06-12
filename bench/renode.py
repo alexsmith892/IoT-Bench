@@ -43,9 +43,57 @@ NANO33BLE_VECTOR_TABLE_OFFSET = "0x10000"
 
 # Renode peripheral types the scenario emitter may drive, and the controls
 # each accepts. Mirrors PART_TYPE_CONTROLS for Wokwi diagrams; linted the
-# same way (unknown part/control fails at lint time).
+# same way (unknown part/control fails at lint time). Sensor controls keep
+# the Wokwi vocabulary (accelX in g, rotationX in deg/s) and map onto the
+# Renode model's settable decimal properties below.
 RENODE_PERIPHERAL_CONTROLS: dict[str, set[str]] = {
     "button": {"pressed"},
+    "lsm9ds1": {"accelX", "accelY", "accelZ", "rotationX", "rotationY", "rotationZ", "temperature"},
+    "ds1307": {"initTime"},
+}
+
+# control name -> Renode model property for property-backed parts.
+SENSOR_CONTROL_PROPERTIES: dict[str, dict[str, str]] = {
+    "lsm9ds1": {
+        "accelX": "AccelerationX",
+        "accelY": "AccelerationY",
+        "accelZ": "AccelerationZ",
+        "rotationX": "AngularRateX",
+        "rotationY": "AngularRateY",
+        "rotationZ": "AngularRateZ",
+        "temperature": "Temperature",
+    },
+    "ds1307": {
+        "initTime": "InitTime",
+    },
+}
+
+# Renode peripheral class per sensor part type, and which controls take a
+# quoted string value instead of a bare decimal.
+SENSOR_PART_CLASSES: dict[str, str] = {
+    "lsm9ds1": "Sensors.LSM9DS1_IMU",
+    "ds1307": "I2C.IoTBench_DS1307",
+}
+STRING_VALUED_CONTROLS: dict[str, set[str]] = {
+    "ds1307": {"initTime"},
+}
+# Sensor part types whose model is an IoT-Bench C# plugin compiled by Renode
+# at include time, mapped to the source file under bench/chips/.
+SENSOR_PLUGIN_SOURCES: dict[str, str] = {
+    "ds1307": "ds1307/DS1307.cs",
+}
+DEFAULT_I2C_ADDRESSES: dict[str, int] = {
+    "lsm9ds1": 0x6B,
+    "ds1307": 0x68,
+}
+
+# Peripheral names already declared by platforms/cpus/nrf52840.repl; a part
+# id reusing one fails at repl load with "Variable already declared".
+RESERVED_PART_IDS = {
+    "cpu", "nvic", "clock", "flash", "ram", "ppi", "gpiote",
+    "gpio0", "gpio1", "uart0", "uart1", "twi0", "twi1", "spi2",
+    "rtc0", "rtc1", "rtc2", "timer0", "timer1", "timer2", "timer3", "timer4",
+    "wdt", "rng", "radio", "ficr", "temperature", "ecb", "sysbus",
 }
 
 
@@ -82,7 +130,15 @@ def renode_parts(task: TaskConfig) -> dict[str, dict[str, Any]]:
     pins = task.fixture.get("pins", {}) or {}
     family = task.fixture_family
 
+    def require_usable_id(part_id: str) -> None:
+        if part_id.lower() in RESERVED_PART_IDS:
+            raise RenodeConfigError(
+                f"{task.task_id}: part id {part_id!r} collides with a peripheral "
+                "declared by the nRF52840 platform; pick another id"
+            )
+
     def add_button(part_id: str, pin: str) -> None:
+        require_usable_id(part_id)
         port, index = parse_gpio_pin(pin)
         parts[part_id] = {"type": "button", "port": port, "pin": index}
 
@@ -101,8 +157,23 @@ def renode_parts(task: TaskConfig) -> dict[str, dict[str, Any]]:
                         f"{task.task_id}: composite component {part_id!r} needs a pin"
                     )
                 add_button(part_id, pin)
-            elif ctype in {"led", "buzzer"}:
-                continue  # outputs are observed via analyzer probes, not parts
+            elif ctype in SENSOR_PART_CLASSES:
+                require_usable_id(part_id)
+                address = int(str(component.get("address", DEFAULT_I2C_ADDRESSES[ctype])), 0)
+                attrs = dict(component.get("attrs") or {})
+                for control in attrs:
+                    require_known_control(task, ctype, part_id, control)
+                parts[part_id] = {
+                    "type": ctype,
+                    "bus": str(component.get("bus", "twi0")),
+                    "address": address,
+                    "attrs": attrs,
+                }
+            elif ctype in {"led", "buzzer", "lcd1602"}:
+                # Outputs are observed via analyzer probes, not parts; the
+                # LCD1602 in particular is decoded from the synthesized VCD
+                # (bench/lcd1602.py), so no peripheral model is needed.
+                continue
             else:
                 raise RenodeConfigError(
                     f"{task.task_id}: component type {ctype!r} is not supported by the Renode backend"
@@ -115,6 +186,85 @@ def renode_parts(task: TaskConfig) -> dict[str, dict[str, Any]]:
             f"{task.task_id}: fixture family {family!r} is not supported by the Renode backend"
         )
     return parts
+
+
+def require_known_control(task: TaskConfig, part_type: str, part_id: str, control: str) -> None:
+    allowed = RENODE_PERIPHERAL_CONTROLS.get(part_type, set())
+    if control not in allowed:
+        raise RenodeConfigError(
+            f"{task.task_id}: control {control!r} is not supported for {part_type} part "
+            f"{part_id!r} (allowed: {sorted(allowed)})"
+        )
+
+
+def part_monitor_name(part: dict[str, Any], part_id: str) -> str:
+    if "bus" in part:
+        return f"{part['bus']}.{part_id}"
+    return f"{part['port']}.{part_id}"
+
+
+def control_set_command(
+    task: TaskConfig, part_id: str, part: dict[str, Any], control: str, value: Any
+) -> str:
+    """One monitor command applying a control value to a part."""
+
+    require_known_control(task, part["type"], part_id, control)
+    if part["type"] == "button" and control == "pressed":
+        return f"{part_monitor_name(part, part_id)} {'Press' if truthy_control(value) else 'Release'}"
+    prop = SENSOR_CONTROL_PROPERTIES[part["type"]][control]
+    if control in STRING_VALUED_CONTROLS.get(part["type"], set()):
+        return f'{part_monitor_name(part, part_id)} {prop} "{value}"'
+    return f"{part_monitor_name(part, part_id)} {prop} {float(value):g}"
+
+
+def sensor_plugin_files(task: TaskConfig) -> list[Path]:
+    """C# plugin sources the case needs, included before the platform load."""
+
+    bench_dir = Path(__file__).resolve().parent
+    files = []
+    for part in renode_parts(task).values():
+        source = SENSOR_PLUGIN_SOURCES.get(part["type"])
+        if source:
+            path = bench_dir / "chips" / source
+            if path not in files:
+                files.append(path)
+    return files
+
+
+def part_attr_commands(task: TaskConfig, variant_attrs: dict[str, Any] | None = None) -> list[str]:
+    """Property-set commands for fixture component attrs, overridden by the
+    active variant's attrs (the Renode counterpart of Wokwi variant diagram
+    attr patching; hashed via the per-variant resc)."""
+
+    parts = renode_parts(task)
+    merged: dict[str, dict[str, Any]] = {
+        part_id: dict(part.get("attrs") or {}) for part_id, part in parts.items()
+    }
+    for part_id, attrs in (variant_attrs or {}).items():
+        if part_id not in parts:
+            raise RenodeConfigError(
+                f"{task.task_id}: variant attrs reference unknown part {part_id!r}; "
+                f"fixture provides {sorted(parts)}"
+            )
+        if not isinstance(attrs, dict):
+            raise RenodeConfigError(f"{task.task_id}: variant attrs for {part_id!r} must be a mapping")
+        merged.setdefault(part_id, {}).update(attrs)
+    commands = []
+    for part_id in sorted(merged):
+        for control in sorted(merged[part_id]):
+            commands.append(
+                control_set_command(task, part_id, parts[part_id], control, merged[part_id][control])
+            )
+    return commands
+
+
+def active_variant_attrs(task: TaskConfig) -> dict[str, Any] | None:
+    variant = task.data.get("active_simulation_variant")
+    if isinstance(variant, dict):
+        attrs = variant.get("attrs")
+        if isinstance(attrs, dict):
+            return attrs
+    return None
 
 
 def generate_repl(task: TaskConfig) -> str:
@@ -162,14 +312,20 @@ def generate_repl(task: TaskConfig) -> str:
             lines.append(f"    {index} -> {name}@0")
         lines.append("")
     for part_id, part in renode_parts(task).items():
-        port, index = part["port"], part["pin"]
-        if (port, index) in seen_pins:
-            raise RenodeConfigError(
-                f"{task.task_id}: part {part_id!r} and probe {seen_pins[(port, index)]!r} share pin {port} {index}"
+        if part["type"] == "button":
+            port, index = part["port"], part["pin"]
+            if (port, index) in seen_pins:
+                raise RenodeConfigError(
+                    f"{task.task_id}: part {part_id!r} and probe {seen_pins[(port, index)]!r} share pin {port} {index}"
+                )
+            lines.append(f"{part_id}: Miscellaneous.Button @ {port} {index}")
+            lines.append(f"    -> {port}@{index}")
+            lines.append("")
+        else:
+            lines.append(
+                f"{part_id}: {SENSOR_PART_CLASSES[part['type']]} @ {part['bus']} {part['address']:#x}"
             )
-        lines.append(f"{part_id}: Miscellaneous.Button @ {port} {index}")
-        lines.append(f"    -> {port}@{index}")
-        lines.append("")
+            lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -206,17 +362,10 @@ def scenario_steps_to_resc(task: TaskConfig, scenario: dict[str, Any] | None) ->
             raise RenodeConfigError(
                 f"{task.task_id}: scenario drives unknown part {part_id!r}; fixture provides {sorted(parts)}"
             )
-        allowed = RENODE_PERIPHERAL_CONTROLS[part["type"]]
-        if name not in allowed:
-            raise RenodeConfigError(
-                f"{task.task_id}: control {name!r} is not supported for {part['type']} parts (allowed: {sorted(allowed)})"
-            )
-        if part["type"] == "button" and name == "pressed":
-            # Peripherals registered on a GPIO port are addressed through it
-            # (sysbus.gpio1.btn1); the bare part id is not a monitor name.
-            commands.append(
-                f"{part['port']}.{part_id} {'Press' if truthy_control(value) else 'Release'}"
-            )
+        # Peripherals registered on a bus/port are addressed through it
+        # (sysbus.gpio1.btn1, sysbus.twi0.imu1); bare part ids are not
+        # monitor names.
+        commands.append(control_set_command(task, part_id, part, name, value))
     if pending_delay_ms > 0:
         commands.append(run_for_command(pending_delay_ms))
         elapsed_s += pending_delay_ms / 1000.0
@@ -328,19 +477,30 @@ def generate_resc(
     vcd_abspath: str | None,
     scenario: dict[str, Any] | None,
     timeout_ms: int,
+    variant_attrs: dict[str, Any] | None = None,
 ) -> str:
     """The full monitor script for one simulation run (paths relative to cwd)."""
 
-    lines = [
-        "# Generated by bench.renode - do not edit by hand.",
-        "using sysbus",
-        f'mach create "{task.case_id}"',
-        f"machine LoadPlatformDescription @{repl_relpath}",
-        "",
-        f"sysbus LoadELF @{elf_relpath}",
-        f"cpu VectorTableOffset {NANO33BLE_VECTOR_TABLE_OFFSET}",
-        "",
-    ]
+    lines = ["# Generated by bench.renode - do not edit by hand."]
+    for plugin in sensor_plugin_files(task):
+        # IoT-Bench C# peripheral models, compiled by Renode at include time;
+        # must precede the platform description that instantiates them.
+        lines.append(f"include {renode_at_path(str(plugin))}")
+    lines.extend(
+        [
+            "using sysbus",
+            f'mach create "{task.case_id}"',
+            f"machine LoadPlatformDescription @{repl_relpath}",
+            "",
+            f"sysbus LoadELF @{elf_relpath}",
+            f"cpu VectorTableOffset {NANO33BLE_VECTOR_TABLE_OFFSET}",
+            "",
+        ]
+    )
+    attr_commands = part_attr_commands(task, variant_attrs)
+    if attr_commands:
+        lines.extend(attr_commands)
+        lines.append("")
     if serial_abspath:
         # Write-paths must be absolute: Renode resolves read @paths against
         # the including script, but creates files relative to its own CWD
@@ -397,20 +557,17 @@ def validate_renode_case(task: TaskConfig, repl_path: Path, resc_path: Path | No
 
 def validate_variant_scenarios(task: TaskConfig) -> None:
     """Per-variant scenario overrides get the same control lint as the base
-    scenario; per-variant attrs are rejected until the backend grows
-    peripheral models whose state variants can seed."""
+    scenario, and per-variant attrs must target known parts and controls
+    (mirrors the Wokwi variant-attr-target lint)."""
 
     from copy import deepcopy
 
     from .scenarios import generate_scenario
 
     for variant in task.simulation_variants:
-        variant_label = str(variant.get("id") or "variant")
-        if variant.get("attrs"):
-            raise RenodeConfigError(
-                f"{task.task_id}: variant {variant_label!r} uses attrs, which the "
-                "Renode backend does not support yet; use a scenario override"
-            )
+        attrs = variant.get("attrs")
+        if attrs:
+            part_attr_commands(task, attrs)
         scenario = variant.get("scenario")
         if isinstance(scenario, dict):
             data = deepcopy(task.data)
