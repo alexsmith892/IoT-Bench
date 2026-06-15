@@ -1,0 +1,70 @@
+{
+  "name": "Deterministic MPU6050 SPI",
+  "author": "IoT-Bench",
+  "pins": [
+    "VCC",
+    "GND",
+    "SCK",
+    "SDI",
+    "SDO",
+    "CS"
+  ],
+  "controls": [
+    {
+      "id": "accelX",
+      "label": "Acceleration X (g)",
+      "type": "range",
+      "min": -16,
+      "max": 16,
+      "step": 0.01
+    },
+    {
+      "id": "accelY",
+      "label": "Acceleration Y (g)",
+      "type": "range",
+      "min": -16,
+      "max": 16,
+      "step": 0.01
+    },
+    {
+      "id": "accelZ",
+      "label": "Acceleration Z (g)",
+      "type": "range",
+      "min": -16,
+      "max": 16,
+      "step": 0.01
+    },
+    {
+      "id": "rotationX",
+      "label": "Rotation X (deg/s)",
+      "type": "range",
+      "min": -2000,
+      "max": 2000,
+      "step": 1
+    },
+    {
+      "id": "rotationY",
+      "label": "Rotation Y (deg/s)",
+      "type": "range",
+      "min": -2000,
+      "max": 2000,
+      "step": 1
+    },
+    {
+      "id": "rotationZ",
+      "label": "Rotation Z (deg/s)",
+      "type": "range",
+      "min": -2000,
+      "max": 2000,
+      "step": 1
+    },
+    {
+      "id": "temperatureC",
+      "label": "Temperature (C)",
+      "type": "range",
+      "min": -40,
+      "max": 85,
+      "step": 0.1
+    }
+  ]
+}
