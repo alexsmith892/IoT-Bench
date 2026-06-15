@@ -32,6 +32,22 @@ static void i2c_write_reg(uint8_t addr, uint8_t reg, uint8_t value) {
   uint8_t data[2] = {reg, value};
   i2c_master_write_to_device(I2C_PORT, addr, data, sizeof(data), pdMS_TO_TICKS(50));
 }
+static int16_t mpu_word(const uint8_t *data, int offset) {
+  return (int16_t)((data[offset] << 8) | data[offset + 1]);
+}
+
+static void read_mpu6050_raw(int16_t *ax, int16_t *ay, int16_t *az, int16_t *gx, int16_t *gy, int16_t *gz) {
+  uint8_t reg = 0x3b;
+  uint8_t data[14] = {0};
+  i2c_master_write_read_device(I2C_PORT, 0x68, &reg, 1, data, sizeof(data), pdMS_TO_TICKS(50));
+  *ax = mpu_word(data, 0);
+  *ay = mpu_word(data, 2);
+  *az = mpu_word(data, 4);
+  *gx = mpu_word(data, 8);
+  *gy = mpu_word(data, 10);
+  *gz = mpu_word(data, 12);
+}
+
 #define LCD_RS GPIO_NUM_38
 #define LCD_E GPIO_NUM_39
 #define LCD_D4 GPIO_NUM_40
@@ -95,17 +111,38 @@ static void lcd_print(const char *text) {
     lcd_data((uint8_t)*text++);
   }
 }
+#define BUTTON_PIN GPIO_NUM_12
+
+static void display_mpu(int16_t ax, int16_t ay, int16_t az, int16_t gx, int16_t gy, int16_t gz) {
+  for (int pass = 0; pass < 2; ++pass) {
+    char line[32];
+    lcd_clear();
+    lcd_set_cursor(0, 0);
+    snprintf(line, sizeof(line), "Accel: %d %d", ax, ay);
+    lcd_print(line);
+    lcd_set_cursor(0, 1);
+    snprintf(line, sizeof(line), "Gyro: %d %d", gx, gy);
+    lcd_print(line);
+    if (pass == 0) vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+
 void app_main(void) {
   i2c_setup();
   i2c_write_reg(0x68, 0x6b, 0);
+  gpio_reset_pin(BUTTON_PIN);
+  gpio_set_direction(BUTTON_PIN, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(BUTTON_PIN, GPIO_PULLDOWN_ONLY);
   lcd_begin();
+  int last_button = 0;
   while (1) {
-    (void)i2c_read_reg(0x68, 0x3b);
-    lcd_clear();
-    lcd_set_cursor(0, 0);
-    lcd_print("Accel: 0 0 1g");
-    lcd_set_cursor(0, 1);
-    lcd_print("Gyro: 0 0 0dps");
-    vTaskDelay(pdMS_TO_TICKS(250));
+    int button = gpio_get_level(BUTTON_PIN);
+    if (button && !last_button) {
+      int16_t ax, ay, az, gx, gy, gz;
+      read_mpu6050_raw(&ax, &ay, &az, &gx, &gy, &gz);
+      display_mpu(ax, ay, az, gx, gy, gz);
+    }
+    last_button = button;
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 }

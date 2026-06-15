@@ -280,17 +280,14 @@ families**, and the current gaps are:
   genuine sensor logic (`tmp36_read_button_display`, `tmp36_read_periodic_display`,
   `reaction_timer_display`, `sensor_water_level_display`, `joystick_buzzer_pitch`,
   `buzzer_laser_tripwire`, `parking_sensor`, `reverse_parking_sensor`,
-  `mpu6050_read_i2c`, `hcsr04_find_distance`, …). They should pass once run live;
-  they need a confirming Wokwi run before leaderboard use.
-- **Placeholder reference (NOT verifiable as-is):** `dht11_read`, `ds1307_rtc`,
+  `mpu6050_read_i2c`, `hcsr04_find_distance`, `dht11_read`, `ds1307_rtc`,
   `dht11_read_button_display`, `mpu6050_read_button_display`,
-  `mpu6050_read_periodic_display`, `safebox`, `safebox_display`. The generated
-  ESP-IDF reference for these hardcodes the expected serial/LCD output instead of
-  reading the sensor or scanning the keypad (the Mega references implement the
-  real protocol, e.g. bit-banged DHT11). A hardcoded stub cannot satisfy the
-  multi-variant oracles, so these tasks are **not yet proven solvable on ESP32**
-  and must get real ESP-IDF reference implementations (and, for `safebox_display`,
-  a tighter keypad-to-display correlation oracle) before they count.
+  `mpu6050_read_periodic_display`, `safebox`, `safebox_display`, …). They should
+  pass once run live; they need a confirming Wokwi run before leaderboard use.
+- **No known ESP32 placeholder references:** the former hardcoded DHT, RTC, MPU LCD,
+  and safebox references now exercise the simulated peripherals/keypad. Keep using
+  multi-variant or scenario-correlated oracles plus adversarial stubs before moving
+  any task into the live-verified tier.
 
 Multi-component ESP32 fixtures are guarded by `tests/test_pin_assignment_lint.py`,
 which rejects any case where two distinct components share a GPIO (a scanned

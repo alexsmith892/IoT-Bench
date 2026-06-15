@@ -138,6 +138,7 @@ validator:
         - Gyro:\s*(3[89][0-9]{2}|40[0-9]{2})
 simulation:
   timeout_ms: 2900
+  require_distinct_variant_outputs: true
 case:
   id: mpu6050-read-periodic-display-wokwi-esp32s3-espidf
   sketch_name: mpu6050_read_periodic_display

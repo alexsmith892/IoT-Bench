@@ -7,9 +7,9 @@ fixture:
   analyzer:
     channels:
     - signal: D0
-      pin: '38'
+      pin: '12'
     - signal: D1
-      pin: '8'
+      pin: '38'
     - signal: D2
       pin: '39'
     - signal: D3
@@ -30,12 +30,12 @@ fixture:
     id: k2
     pins:
       row: '9'
-      col: '12'
+      col: '8'
   - type: matrix_key
     id: k3
     pins:
       row: '9'
-      col: '43'
+      col: '45'
   - type: matrix_key
     id: k4
     pins:
@@ -45,10 +45,10 @@ fixture:
     id: k5
     pins:
       row: '10'
-      col: '12'
+      col: '8'
   - type: relay
     id: relay1
-    pin: '8'
+    pin: '12'
   - type: lcd1602
     id: lcd1
     pins:
@@ -265,6 +265,7 @@ validator:
         - 1.0
 simulation:
   timeout_ms: 2600
+  require_distinct_variant_outputs: true
 case:
   id: safebox-display-wokwi-esp32s3-espidf
   sketch_name: safebox_display

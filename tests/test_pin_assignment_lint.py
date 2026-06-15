@@ -15,6 +15,7 @@ a short).
 
 from __future__ import annotations
 
+import re
 import unittest
 
 from bench.config import iter_tasks
@@ -76,6 +77,54 @@ class PinAssignmentLintTests(unittest.TestCase):
                             f"{platform}/{task.task_id}: keypad pin(s) {overlap} "
                             "used as both row and column (short)",
                         )
+
+    def test_esp32_fixture_gpios_are_named_in_prompt(self):
+        for level in ("level1", "level2", "level3"):
+            for task in iter_tasks(platform="esp32s3_espidf", level=level):
+                fixture = task.data.get("fixture")
+                if not isinstance(fixture, dict):
+                    continue
+                prompt = task.prompt_text
+                pins: set[str] = set()
+                for component in fixture.get("components", []) or []:
+                    if not isinstance(component, dict):
+                        continue
+                    if "pin" in component:
+                        pins.add(str(component["pin"]))
+                    named = component.get("pins")
+                    if isinstance(named, dict):
+                        pins.update(str(value) for value in named.values())
+                with self.subTest(level=level, task=task.task_id):
+                    missing = sorted(
+                        pin
+                        for pin in pins
+                        if pin.isdigit()
+                        and not re.search(rf"(?<!\d){re.escape(pin)}(?!\d)", prompt)
+                    )
+                    self.assertEqual(
+                        missing,
+                        [],
+                        f"esp32s3_espidf/{task.task_id}: fixture GPIO(s) not named in prompt",
+                    )
+
+    def test_esp32_safebox_relay_uses_gpio12_and_keypad_column_moves_to_gpio8(self):
+        for task_id in ("safebox", "safebox_display"):
+            task = next(
+                task
+                for task in iter_tasks(platform="esp32s3_espidf", level="level3")
+                if task.task_id == task_id
+            )
+            components = task.fixture.get("components", []) or []
+            relay = next(component for component in components if component.get("type") == "relay")
+            keypad_cols = {
+                str(component.get("pins", {}).get("col"))
+                for component in components
+                if component.get("type") == "matrix_key"
+            }
+            with self.subTest(task=task_id):
+                self.assertEqual(str(relay.get("pin")), "12")
+                self.assertIn("8", keypad_cols)
+                self.assertNotIn("12", keypad_cols)
 
 
 if __name__ == "__main__":

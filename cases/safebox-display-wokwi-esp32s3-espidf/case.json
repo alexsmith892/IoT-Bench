@@ -17,16 +17,16 @@
   },
   "observed_signal": {
     "vcd_name": "D0",
-    "expected_connection": "GPIO 38"
+    "expected_connection": "GPIO 12"
   },
   "observed_signals": [
     {
       "vcd_name": "D0",
-      "expected_connection": "GPIO 38"
+      "expected_connection": "GPIO 12"
     },
     {
       "vcd_name": "D1",
-      "expected_connection": "GPIO 8"
+      "expected_connection": "GPIO 38"
     },
     {
       "vcd_name": "D2",

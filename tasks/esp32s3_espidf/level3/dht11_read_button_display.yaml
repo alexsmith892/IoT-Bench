@@ -135,9 +135,6 @@ validator:
   checks:
   - family: static_checks
     params:
-      required_any_patterns:
-      - - attachInterrupt
-        - digitalPinToInterrupt
       forbidden_calls:
       - pinMode
       - digitalRead
@@ -158,8 +155,10 @@ validator:
       - LiquidCrystal
       - Keypad
       required_patterns:
-      - gpio_isr_handler_add|gpio_install_isr_service|gpio_get_level\s*\(
+      - gpio_get_level\s*\(
+      - gpio_set_direction\s*\(
       - gpio_set_level\s*\(
+      - esp_timer_get_time\s*\(
   - family: lcd_text_sequence
     params:
       frames:
@@ -177,6 +176,7 @@ validator:
         - RH:\s*62(\.0)?\s*%
 simulation:
   timeout_ms: 2700
+  require_distinct_variant_outputs: true
 case:
   id: dht11-read-button-display-wokwi-esp32s3-espidf
   sketch_name: dht11_read_button_display

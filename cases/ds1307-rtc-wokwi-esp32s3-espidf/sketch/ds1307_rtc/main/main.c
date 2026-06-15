@@ -31,10 +31,24 @@ static void i2c_write_reg(uint8_t addr, uint8_t reg, uint8_t value) {
   uint8_t data[2] = {reg, value};
   i2c_master_write_to_device(I2C_PORT, addr, data, sizeof(data), pdMS_TO_TICKS(50));
 }
+static int from_bcd(uint8_t value) {
+  return ((value >> 4) * 10) + (value & 0x0f);
+}
+
 void app_main(void) {
   i2c_setup();
-  i2c_write_reg(0x68, 0x00, 0x00);
-  (void)i2c_read_reg(0x68, 0x00);
-  printf("2026/02/02 15:37:00 Temperature: 24.0 C\n");
-  while (1) vTaskDelay(pdMS_TO_TICKS(1000));
+  while (1) {
+    uint8_t reg = 0x00;
+    uint8_t data[7] = {0};
+    if (i2c_master_write_read_device(I2C_PORT, 0x68, &reg, 1, data, sizeof(data), pdMS_TO_TICKS(50)) == 0) {
+      int second = from_bcd(data[0] & 0x7f);
+      int minute = from_bcd(data[1]);
+      int hour = from_bcd(data[2] & 0x3f);
+      int day = from_bcd(data[4]);
+      int month = from_bcd(data[5]);
+      int year = 2000 + from_bcd(data[6]);
+      printf("%04d/%02d/%02d %02d:%02d:%02d\n", year, month, day, hour, minute, second);
+    }
+    vTaskDelay(pdMS_TO_TICKS(250));
+  }
 }

@@ -7,7 +7,7 @@ fixture:
   analyzer:
     channels:
     - signal: D0
-      pin: '8'
+      pin: '12'
   components:
   - type: matrix_key
     id: k1
@@ -18,12 +18,12 @@ fixture:
     id: k2
     pins:
       row: '9'
-      col: '12'
+      col: '8'
   - type: matrix_key
     id: k3
     pins:
       row: '9'
-      col: '43'
+      col: '45'
   - type: matrix_key
     id: k4
     pins:
@@ -33,10 +33,10 @@ fixture:
     id: k5
     pins:
       row: '10'
-      col: '12'
+      col: '8'
   - type: relay
     id: relay1
-    pin: '8'
+    pin: '12'
 scenario:
   family: control_sequence
   initial_delay_ms: 200

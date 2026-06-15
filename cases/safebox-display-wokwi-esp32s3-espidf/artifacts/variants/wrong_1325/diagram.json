@@ -8,7 +8,9 @@
       "id": "esp",
       "top": 120,
       "left": 20,
-      "attrs": {}
+      "attrs": {
+        "serialInterface": "USB_SERIAL_JTAG"
+      }
     },
     {
       "type": "wokwi-logic-analyzer",
@@ -114,7 +116,7 @@
     ],
     [
       "k2:2.r",
-      "esp:38",
+      "esp:8",
       "green",
       []
     ],
@@ -126,7 +128,7 @@
     ],
     [
       "k3:2.r",
-      "esp:43",
+      "esp:45",
       "green",
       []
     ],
@@ -150,7 +152,7 @@
     ],
     [
       "k5:2.r",
-      "esp:38",
+      "esp:8",
       "green",
       []
     ],
@@ -168,7 +170,7 @@
     ],
     [
       "relay1:IN",
-      "esp:38",
+      "esp:12",
       "green",
       []
     ],
@@ -240,7 +242,7 @@
     ],
     [
       "logic1:D0",
-      "esp:38",
+      "esp:12",
       "green",
       []
     ],

@@ -4055,6 +4055,7 @@ def espidf_common_includes(
     spi: bool = False,
     rom: bool = False,
     string: bool = False,
+    boolean: bool = False,
 ) -> str:
     includes = [
         "#include <stdio.h>",
@@ -4064,6 +4065,8 @@ def espidf_common_includes(
         "#include \"freertos/FreeRTOS.h\"",
         "#include \"freertos/task.h\"",
     ]
+    if boolean:
+        includes.append("#include <stdbool.h>")
     if string:
         includes.append("#include <string.h>")
     if ledc:
@@ -4664,52 +4667,132 @@ void app_main(void) {
 """
 
 
-def espidf_dht11_read(task: TaskConfig) -> str:
-    return espidf_common_includes() + """\
-#define DHT_PIN GPIO_NUM_14
+def espidf_dht_reader_source(pin: str) -> str:
+    return """\
+#define DHT_PIN GPIO_NUM_{pin}
 
+typedef struct {
+  float temperature;
+  float humidity;
+} dht_reading_t;
+
+static int64_t dht_wait_while(int level, int timeout_us) {
+  int64_t start = esp_timer_get_time();
+  while (gpio_get_level(DHT_PIN) == level) {
+    if (esp_timer_get_time() - start > timeout_us) return -1;
+  }
+  return esp_timer_get_time() - start;
+}
+
+static bool dht_read(dht_reading_t *out) {
+  uint8_t data[5] = {0, 0, 0, 0, 0};
+
+  gpio_set_direction(DHT_PIN, GPIO_MODE_OUTPUT);
+  gpio_set_level(DHT_PIN, 0);
+  esp_rom_delay_us(2000);
+  gpio_set_level(DHT_PIN, 1);
+  esp_rom_delay_us(30);
+  gpio_set_direction(DHT_PIN, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(DHT_PIN, GPIO_PULLUP_ONLY);
+
+  if (dht_wait_while(1, 120) < 0) return false;
+  if (dht_wait_while(0, 120) < 0) return false;
+  if (dht_wait_while(1, 120) < 0) return false;
+
+  for (int bit = 0; bit < 40; ++bit) {
+    if (dht_wait_while(0, 100) < 0) return false;
+    int64_t high_us = dht_wait_while(1, 150);
+    if (high_us < 0) return false;
+    if (high_us > 45) data[bit / 8] |= (uint8_t)(1 << (7 - (bit % 8)));
+  }
+
+  uint8_t checksum = (uint8_t)(data[0] + data[1] + data[2] + data[3]);
+  if (checksum != data[4]) return false;
+
+  uint16_t raw_humidity = ((uint16_t)data[0] << 8) | data[1];
+  uint16_t raw_temperature = ((uint16_t)(data[2] & 0x7f) << 8) | data[3];
+  out->humidity = raw_humidity / 10.0f;
+  out->temperature = raw_temperature / 10.0f;
+  if (data[2] & 0x80) out->temperature = -out->temperature;
+  return true;
+}
+
+""".replace("{pin}", pin)
+
+
+def espidf_dht11_read(task: TaskConfig) -> str:
+    return espidf_common_includes(rom=True, boolean=True) + espidf_dht_reader_source("14") + """\
 void app_main(void) {
   gpio_reset_pin(DHT_PIN);
   gpio_set_direction(DHT_PIN, GPIO_MODE_INPUT);
-  (void)gpio_get_level(DHT_PIN);
-  printf("Temperature: 18.0 C Humidity: 35.0 %%\\n");
-  vTaskDelay(pdMS_TO_TICKS(700));
-  printf("Temperature: 31.0 C Humidity: 65.0 %%\\n");
-  while (1) vTaskDelay(pdMS_TO_TICKS(1000));
+  while (1) {
+    dht_reading_t reading;
+    if (dht_read(&reading)) {
+      printf("Temperature: %.1f C Humidity: %.1f %%\\n", reading.temperature, reading.humidity);
+    } else {
+      printf("DHT checksum error\\n");
+    }
+    vTaskDelay(pdMS_TO_TICKS(250));
+  }
 }
 """
 
 
 def espidf_i2c_serial_stub(task: TaskConfig) -> str:
     return espidf_common_includes(i2c=True) + espidf_i2c_setup_source("38", "39") + """\
+static int from_bcd(uint8_t value) {
+  return ((value >> 4) * 10) + (value & 0x0f);
+}
+
 void app_main(void) {
   i2c_setup();
-  i2c_write_reg(0x68, 0x00, 0x00);
-  (void)i2c_read_reg(0x68, 0x00);
-  printf("2026/02/02 15:37:00 Temperature: 24.0 C\\n");
-  while (1) vTaskDelay(pdMS_TO_TICKS(1000));
+  while (1) {
+    uint8_t reg = 0x00;
+    uint8_t data[7] = {0};
+    if (i2c_master_write_read_device(I2C_PORT, 0x68, &reg, 1, data, sizeof(data), pdMS_TO_TICKS(50)) == 0) {
+      int second = from_bcd(data[0] & 0x7f);
+      int minute = from_bcd(data[1]);
+      int hour = from_bcd(data[2] & 0x3f);
+      int day = from_bcd(data[4]);
+      int month = from_bcd(data[5]);
+      int year = 2000 + from_bcd(data[6]);
+      printf("%04d/%02d/%02d %02d:%02d:%02d\\n", year, month, day, hour, minute, second);
+    }
+    vTaskDelay(pdMS_TO_TICKS(250));
+  }
 }
 """
 
 
-def espidf_mpu6050_i2c_serial(task: TaskConfig) -> str:
-    return espidf_common_includes(i2c=True) + espidf_i2c_setup_source("38", "39") + """\
-static int16_t read_word(uint8_t reg) {
-  uint8_t data[2] = {0, 0};
-  i2c_master_write_read_device(I2C_PORT, 0x68, &reg, 1, data, 2, pdMS_TO_TICKS(50));
-  return (int16_t)((data[0] << 8) | data[1]);
+def espidf_mpu6050_reader_source() -> str:
+    return """\
+static int16_t mpu_word(const uint8_t *data, int offset) {
+  return (int16_t)((data[offset] << 8) | data[offset + 1]);
 }
 
+static void read_mpu6050_raw(int16_t *ax, int16_t *ay, int16_t *az, int16_t *gx, int16_t *gy, int16_t *gz) {
+  uint8_t reg = 0x3b;
+  uint8_t data[14] = {0};
+  i2c_master_write_read_device(I2C_PORT, 0x68, &reg, 1, data, sizeof(data), pdMS_TO_TICKS(50));
+  *ax = mpu_word(data, 0);
+  *ay = mpu_word(data, 2);
+  *az = mpu_word(data, 4);
+  *gx = mpu_word(data, 8);
+  *gy = mpu_word(data, 10);
+  *gz = mpu_word(data, 12);
+}
+
+"""
+
+
+def espidf_mpu6050_i2c_serial(task: TaskConfig) -> str:
+    return espidf_common_includes(i2c=True) + espidf_i2c_setup_source("38", "39") + espidf_mpu6050_reader_source() + """\
 void app_main(void) {
   i2c_setup();
   i2c_write_reg(0x68, 0x6b, 0);
   while (1) {
-    int16_t ax = read_word(0x3b);
-    int16_t ay = read_word(0x3d);
-    int16_t az = read_word(0x3f);
-    int16_t gx = read_word(0x43);
-    int16_t gy = read_word(0x45);
-    int16_t gz = read_word(0x47);
+    int16_t ax, ay, az, gx, gy, gz;
+    read_mpu6050_raw(&ax, &ay, &az, &gx, &gy, &gz);
     printf("Accel: %d %d %d Gyro: %d %d %d\\n", ax, ay, az, gx, gy, gz);
     vTaskDelay(pdMS_TO_TICKS(100));
   }
@@ -5109,99 +5192,266 @@ void app_main(void) {
 
 
 def espidf_lcd_dht(task: TaskConfig) -> str:
-    return espidf_common_includes(rom=True) + espidf_lcd_driver_source() + """\
+    return espidf_common_includes(rom=True, boolean=True) + espidf_dht_reader_source("14") + espidf_lcd_driver_source() + """\
 #define BUTTON_PIN GPIO_NUM_12
-#define DHT_PIN GPIO_NUM_14
 
 void app_main(void) {
   gpio_reset_pin(BUTTON_PIN);
   gpio_set_direction(BUTTON_PIN, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(BUTTON_PIN, GPIO_PULLDOWN_ONLY);
   gpio_reset_pin(DHT_PIN);
   gpio_set_direction(DHT_PIN, GPIO_MODE_INPUT);
   lcd_begin();
+  int last_button = 0;
   while (1) {
-    if (gpio_get_level(BUTTON_PIN)) {
-      lcd_clear();
-      lcd_set_cursor(0, 0);
-      lcd_print("Temp: 24.0C");
-      lcd_set_cursor(0, 1);
-      lcd_print("RH: 40.0%");
+    int button = gpio_get_level(BUTTON_PIN);
+    if (button && !last_button) {
+      dht_reading_t reading;
+      if (dht_read(&reading)) {
+        for (int pass = 0; pass < 2; ++pass) {
+          char line[17];
+          lcd_clear();
+          lcd_set_cursor(0, 0);
+          snprintf(line, sizeof(line), "Temp: %.1fC", reading.temperature);
+          lcd_print(line);
+          lcd_set_cursor(0, 1);
+          snprintf(line, sizeof(line), "RH: %.1f%%", reading.humidity);
+          lcd_print(line);
+          if (pass == 0) vTaskDelay(pdMS_TO_TICKS(20));
+        }
+      } else {
+        lcd_clear();
+        lcd_set_cursor(0, 0);
+        lcd_print("DHT error");
+      }
     }
+    last_button = button;
     vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+"""
+
+
+def espidf_lcd_mpu_button(task: TaskConfig) -> str:
+    return espidf_common_includes(i2c=True, rom=True) + espidf_i2c_setup_source("9", "10") + espidf_mpu6050_reader_source() + espidf_lcd_driver_source() + """\
+#define BUTTON_PIN GPIO_NUM_12
+
+static void display_mpu(int16_t ax, int16_t ay, int16_t az, int16_t gx, int16_t gy, int16_t gz) {
+  for (int pass = 0; pass < 2; ++pass) {
+    char line[32];
+    lcd_clear();
+    lcd_set_cursor(0, 0);
+    snprintf(line, sizeof(line), "Accel: %d %d", ax, ay);
+    lcd_print(line);
+    lcd_set_cursor(0, 1);
+    snprintf(line, sizeof(line), "Gyro: %d %d", gx, gy);
+    lcd_print(line);
+    if (pass == 0) vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}
+
+void app_main(void) {
+  i2c_setup();
+  i2c_write_reg(0x68, 0x6b, 0);
+  gpio_reset_pin(BUTTON_PIN);
+  gpio_set_direction(BUTTON_PIN, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(BUTTON_PIN, GPIO_PULLDOWN_ONLY);
+  lcd_begin();
+  int last_button = 0;
+  while (1) {
+    int button = gpio_get_level(BUTTON_PIN);
+    if (button && !last_button) {
+      int16_t ax, ay, az, gx, gy, gz;
+      read_mpu6050_raw(&ax, &ay, &az, &gx, &gy, &gz);
+      display_mpu(ax, ay, az, gx, gy, gz);
+    }
+    last_button = button;
+    vTaskDelay(pdMS_TO_TICKS(10));
+  }
+}
+"""
+
+
+def espidf_lcd_mpu_periodic(task: TaskConfig) -> str:
+    return espidf_common_includes(i2c=True, rom=True) + espidf_i2c_setup_source("9", "10") + espidf_mpu6050_reader_source() + espidf_lcd_driver_source() + """\
+static void display_average(int32_t ax, int32_t ay, int32_t az, int32_t gx, int32_t gy, int32_t gz) {
+  char line[32];
+  lcd_clear();
+  lcd_set_cursor(0, 0);
+  snprintf(line, sizeof(line), "Accel: %ld %ld", (long)ax, (long)ay);
+  lcd_print(line);
+  lcd_set_cursor(0, 1);
+  snprintf(line, sizeof(line), "Gyro: %ld %ld", (long)gx, (long)gy);
+  lcd_print(line);
+}
+
+void app_main(void) {
+  i2c_setup();
+  i2c_write_reg(0x68, 0x6b, 0);
+  lcd_begin();
+
+  int16_t ax_buf[10] = {0}, ay_buf[10] = {0}, az_buf[10] = {0};
+  int16_t gx_buf[10] = {0}, gy_buf[10] = {0}, gz_buf[10] = {0};
+  int sample_count = 0;
+  int sample_index = 0;
+  int64_t next_sample_us = esp_timer_get_time();
+
+  while (1) {
+    int64_t now = esp_timer_get_time();
+    if (now >= next_sample_us) {
+      int16_t ax, ay, az, gx, gy, gz;
+      read_mpu6050_raw(&ax, &ay, &az, &gx, &gy, &gz);
+      ax_buf[sample_index] = ax;
+      ay_buf[sample_index] = ay;
+      az_buf[sample_index] = az;
+      gx_buf[sample_index] = gx;
+      gy_buf[sample_index] = gy;
+      gz_buf[sample_index] = gz;
+      sample_index = (sample_index + 1) % 10;
+      if (sample_count < 10) sample_count++;
+
+      int32_t sum_ax = 0, sum_ay = 0, sum_az = 0, sum_gx = 0, sum_gy = 0, sum_gz = 0;
+      for (int i = 0; i < sample_count; ++i) {
+        sum_ax += ax_buf[i];
+        sum_ay += ay_buf[i];
+        sum_az += az_buf[i];
+        sum_gx += gx_buf[i];
+        sum_gy += gy_buf[i];
+        sum_gz += gz_buf[i];
+      }
+      display_average(sum_ax / sample_count, sum_ay / sample_count, sum_az / sample_count,
+                      sum_gx / sample_count, sum_gy / sample_count, sum_gz / sample_count);
+      next_sample_us += 100000;
+    }
+    vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
 """
 
 
 def espidf_lcd_mpu(task: TaskConfig) -> str:
-    return espidf_common_includes(i2c=True, rom=True) + espidf_i2c_setup_source("9", "10") + espidf_lcd_driver_source() + """\
-void app_main(void) {
-  i2c_setup();
-  i2c_write_reg(0x68, 0x6b, 0);
-  lcd_begin();
-  while (1) {
-    (void)i2c_read_reg(0x68, 0x3b);
-    lcd_clear();
-    lcd_set_cursor(0, 0);
-    lcd_print("Accel: 0 0 1g");
-    lcd_set_cursor(0, 1);
-    lcd_print("Gyro: 0 0 0dps");
-    vTaskDelay(pdMS_TO_TICKS(250));
-  }
+    if task.task_id == "mpu6050_read_periodic_display":
+        return espidf_lcd_mpu_periodic(task)
+    return espidf_lcd_mpu_button(task)
+
+
+def espidf_safebox_keypad_source(*, display: bool) -> str:
+    status_helpers = """\
+static void show_status(const char *entry, const char *status) {
+  lcd_clear();
+  lcd_set_cursor(0, 0);
+  lcd_print("Input: ");
+  lcd_print(entry);
+  lcd_set_cursor(0, 1);
+  lcd_print("Status: ");
+  lcd_print(status);
 }
+
+""" if display else ""
+    return status_helpers + """\
+static const gpio_num_t rows[4] = {GPIO_NUM_9, GPIO_NUM_10, GPIO_NUM_11, GPIO_NUM_13};
+static const gpio_num_t cols[4] = {GPIO_NUM_14, GPIO_NUM_8, GPIO_NUM_45, GPIO_NUM_46};
+static const char keys[4][4] = {{'1','2','3','A'},{'4','5','6','B'},{'7','8','9','C'},{'*','0','#','D'}};
+#define RELAY_PIN GPIO_NUM_12
+#define PASSWORD "1234"
+
+static char scan_keypad(void) {
+  for (int r = 0; r < 4; ++r) {
+    for (int i = 0; i < 4; ++i) gpio_set_level(rows[i], 1);
+    gpio_set_level(rows[r], 0);
+    esp_rom_delay_us(80);
+    for (int c = 0; c < 4; ++c) {
+      if (gpio_get_level(cols[c]) == 0) return keys[r][c];
+    }
+  }
+  return 0;
+}
+
+static void keypad_begin(void) {
+  for (int r = 0; r < 4; ++r) {
+    gpio_reset_pin(rows[r]);
+    gpio_set_direction(rows[r], GPIO_MODE_OUTPUT);
+    gpio_set_level(rows[r], 1);
+  }
+  for (int c = 0; c < 4; ++c) {
+    gpio_reset_pin(cols[c]);
+    gpio_set_direction(cols[c], GPIO_MODE_INPUT);
+    gpio_set_pull_mode(cols[c], GPIO_PULLUP_ONLY);
+  }
+  gpio_reset_pin(RELAY_PIN);
+  gpio_set_direction(RELAY_PIN, GPIO_MODE_OUTPUT);
+  gpio_set_level(RELAY_PIN, 0);
+}
+
 """
 
 
 def espidf_safebox(task: TaskConfig) -> str:
-    return espidf_common_includes(string=True) + """\
-static const gpio_num_t rows[4] = {GPIO_NUM_9, GPIO_NUM_10, GPIO_NUM_11, GPIO_NUM_13};
-static const gpio_num_t cols[4] = {GPIO_NUM_14, GPIO_NUM_12, GPIO_NUM_43, GPIO_NUM_44};
-#define RELAY_PIN GPIO_NUM_8
-
+    return espidf_common_includes(rom=True, string=True, boolean=True) + espidf_safebox_keypad_source(display=False) + """\
 void app_main(void) {
-  for (int r = 0; r < 4; ++r) {
-    gpio_reset_pin(rows[r]);
-    gpio_set_direction(rows[r], GPIO_MODE_INPUT);
-    gpio_set_pull_mode(rows[r], GPIO_PULLUP_ONLY);
-  }
-  for (int c = 0; c < 4; ++c) {
-    gpio_reset_pin(cols[c]);
-    gpio_set_direction(cols[c], GPIO_MODE_OUTPUT);
-    gpio_set_level(cols[c], 1);
-  }
-  gpio_set_direction(RELAY_PIN, GPIO_MODE_OUTPUT);
-  gpio_set_level(RELAY_PIN, 1);
+  char entry[5] = {0};
+  int entry_len = 0;
+  char last_key = 0;
+  bool unlocked = false;
+
+  keypad_begin();
   while (1) {
-    (void)gpio_get_level(rows[0]);
-    vTaskDelay(pdMS_TO_TICKS(20));
+    char key = scan_keypad();
+    if (key && key != last_key && !unlocked) {
+      if (entry_len < 4) {
+        entry[entry_len++] = key;
+        entry[entry_len] = '\\0';
+      }
+      if (entry_len == 4) {
+        if (strcmp(entry, PASSWORD) == 0) {
+          unlocked = true;
+          gpio_set_level(RELAY_PIN, 1);
+        } else {
+          entry_len = 0;
+          entry[0] = '\\0';
+        }
+      }
+    }
+    last_key = key;
+    vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
 """
 
 
 def espidf_safebox_display(task: TaskConfig) -> str:
-    return espidf_common_includes(rom=True, string=True) + espidf_lcd_driver_source() + """\
-#define RELAY_PIN GPIO_NUM_8
-
+    return espidf_common_includes(rom=True, string=True, boolean=True) + espidf_lcd_driver_source() + espidf_safebox_keypad_source(display=True) + """\
 void app_main(void) {
-  gpio_reset_pin(RELAY_PIN);
-  gpio_set_direction(RELAY_PIN, GPIO_MODE_OUTPUT);
+  char entry[5] = {0};
+  int entry_len = 0;
+  char last_key = 0;
+  bool unlocked = false;
+
+  keypad_begin();
   lcd_begin();
-  lcd_clear();
-  lcd_set_cursor(0, 0);
-  lcd_print("Input: 1235");
-  lcd_set_cursor(0, 1);
-  lcd_print("Status: Fail");
-  vTaskDelay(pdMS_TO_TICKS(1500));
-  gpio_set_level(RELAY_PIN, 1);
-  lcd_clear();
-  lcd_set_cursor(0, 0);
-  lcd_print("Input: 1234");
-  lcd_set_cursor(0, 1);
-  lcd_print("Status: Success");
+  show_status("", "Enter");
   while (1) {
-    (void)gpio_get_level(GPIO_NUM_9);
-    vTaskDelay(pdMS_TO_TICKS(100));
+    char key = scan_keypad();
+    if (key && key != last_key && !unlocked) {
+      if (entry_len < 4) {
+        entry[entry_len++] = key;
+        entry[entry_len] = '\\0';
+        show_status(entry, "Enter");
+      }
+      if (entry_len == 4) {
+        if (strcmp(entry, PASSWORD) == 0) {
+          unlocked = true;
+          gpio_set_level(RELAY_PIN, 1);
+          show_status(entry, "Success");
+        } else {
+          show_status(entry, "Fail");
+          entry_len = 0;
+          entry[0] = '\\0';
+        }
+      }
+    }
+    last_key = key;
+    vTaskDelay(pdMS_TO_TICKS(5));
   }
 }
 """

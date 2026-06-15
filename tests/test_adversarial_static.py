@@ -154,5 +154,45 @@ class ZephyrAdversarialStaticTests(unittest.TestCase):
                 )
 
 
+ESPIDF_STUBS = [
+    ("dht11_read", "level2", "stub_espidf_hardcoded.c", False),
+    ("ds1307_rtc", "level2", "stub_espidf_hardcoded.c", False),
+    ("dht11_read_button_display", "level3", "stub_espidf_hardcoded.c", False),
+    ("mpu6050_read_button_display", "level3", "stub_espidf_hardcoded.c", False),
+    ("mpu6050_read_periodic_display", "level3", "stub_espidf_hardcoded.c", False),
+    ("safebox", "level3", "stub_espidf_timer_unlock.c", False),
+    ("safebox_display", "level3", "stub_espidf_hardcoded.c", False),
+]
+
+
+class EspIdfAdversarialStaticTests(unittest.TestCase):
+    def test_corpus_files_exist(self):
+        for task_id, _level, stub, _expect_fail in ESPIDF_STUBS:
+            path = repo_root() / "tests" / "adversarial" / task_id / stub
+            self.assertTrue(path.exists(), path)
+
+    def test_static_gate_expectations(self):
+        for task_id, level, stub, expect_fail in ESPIDF_STUBS:
+            with self.subTest(task=task_id, stub=stub):
+                task = load_task(task_id, platform="esp32s3_espidf", level=level)
+                params = static_params(task)
+                self.assertTrue(params, f"{task_id} has no static checks to pin")
+                path = repo_root() / "tests" / "adversarial" / task_id / stub
+                if expect_fail:
+                    with self.assertRaises(StaticCheckError):
+                        validate_static_checks(path, params, build_kind="espidf")
+                else:
+                    validate_static_checks(path, params, build_kind="espidf")
+
+    def test_hardened_tasks_demand_runtime_distinguishers(self):
+        for task_id, level, _stub, _expect_fail in ESPIDF_STUBS:
+            with self.subTest(task=task_id):
+                task = load_task(task_id, platform="esp32s3_espidf", level=level)
+                self.assertTrue(
+                    task.simulation_variants or task.scenario or task.requires_vcd,
+                    f"{task_id} has neither variants, a stimulus scenario, nor a waveform oracle",
+                )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -35,9 +35,6 @@ validator:
   checks:
   - family: static_checks
     params:
-      required_any_patterns:
-      - - pinMode\s*\(\s*14
-        - pinMode\s*\(\s*DHT_PIN
       forbidden_calls:
       - pinMode
       - digitalRead
@@ -60,6 +57,8 @@ validator:
       required_patterns:
       - gpio_get_level\s*\(
       - gpio_set_direction\s*\(
+      - gpio_set_level\s*\(
+      - esp_timer_get_time\s*\(
   - family: serial_observation_sequence
     params:
       observations:
