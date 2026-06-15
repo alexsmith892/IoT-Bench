@@ -15,6 +15,7 @@ from bench.runner import (
     CaseConfigError,
     CasePaths,
     clean_build_dir,
+    command_with_windows_batch_wrapper,
     ensure_firmware_outputs,
     generate_case,
 )
@@ -135,6 +136,18 @@ class BuildHygieneTests(unittest.TestCase):
                 clean_build_dir(paths)
 
             self.assertTrue(case_dir.exists())
+
+    def test_windows_batch_wrapper_resolves_path_shims(self):
+        with patch("bench.runner.sys.platform", "win32"), patch(
+            "bench.runner.shutil.which",
+            return_value=r"C:\Users\alexs\bin\idf.py.cmd",
+        ):
+            command = command_with_windows_batch_wrapper("idf.py", ["build"])
+
+        self.assertEqual(command[:4], ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass"])
+        self.assertIn(r"C:\Users\alexs\bin\idf.py.cmd", command[-1])
+        self.assertIn("'build'", command[-1])
+        self.assertIn("exit $LASTEXITCODE", command[-1])
 
 
 if __name__ == "__main__":

@@ -60,7 +60,75 @@ def write_variant_serial(case_dir: Path, variant_id: str, text: str) -> None:
     (serial_dir / f"{variant_id}.serial.log").write_text(text, encoding="utf-8")
 
 
+def debounce_variant_task(case_dir: Path) -> tuple[TaskConfig, CasePaths]:
+    task = TaskConfig(
+        path=case_dir / "task.yaml",
+        data={
+            "task_id": "button_press_debounce",
+            "fixture": {"family": "button_serial", "pins": {"button": "12"}},
+            "validator": {
+                "family": "debounce_serial",
+                "params": {"expected_text": "Button Pressed!", "expected_triggers": 2},
+            },
+            "simulation_variants": [
+                {"id": "two_presses"},
+                {
+                    "id": "three_presses",
+                    "validator": {"params": {"expected_triggers": 3}},
+                },
+            ],
+            "simulation": {"require_distinct_variant_outputs": True},
+            "case": {"id": case_dir.name, "sketch_name": "button_press_debounce"},
+        },
+    )
+    paths = CasePaths(
+        task_id="button_press_debounce",
+        case_id=case_dir.name,
+        case_dir=case_dir,
+        sketch=case_dir / "sketch" / "button_press_debounce",
+        diagram=case_dir / "diagram.json",
+        wokwi_toml=case_dir / "wokwi.toml",
+        build_dir=case_dir / "artifacts" / "build",
+        fqbn="arduino:avr:mega",
+        serial_log=case_dir / "artifacts" / "serial" / "serial.log",
+    )
+    return task, paths
+
+
+ESP_ROM_PREAMBLE = """\
+ESP-ROM:esp32s3-20210327
+Build:Mar 27 2021
+rst:0x1 (POWERON),boot:0x8 (SPI_FAST_FLASH_BOOT)
+SPIWP:0xee
+mode:DIO, clock div:1
+load:0x3fce3818,len:0x109c
+entry 0x403c98ac
+"""
+
+
 class VariantClassificationTests(unittest.TestCase):
+    def test_single_case_missing_serial_log_is_if_not_exception(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            case_dir = Path(tmp)
+            task, paths = variant_task(case_dir)
+            task = TaskConfig(
+                path=task.path,
+                data={
+                    **task.data,
+                    "simulation_variants": [],
+                    "validator": {
+                        "family": "serial_count_sequence",
+                        "params": {"expected_count": 1, "match_mode": "exact_sequence"},
+                    },
+                },
+            )
+
+            result = validate_case(task, paths)
+
+        self.assertEqual(result["result"], RESULT_IF, result)
+        self.assertEqual(result["classification"], "SIM_OUTPUT_FAIL", result)
+        self.assertEqual(result["failure_source"], "artifact", result)
+
     def test_all_variants_passing_is_bc(self):
         with tempfile.TemporaryDirectory() as tmp:
             case_dir = Path(tmp)
@@ -111,6 +179,47 @@ class VariantClassificationTests(unittest.TestCase):
 
         self.assertEqual(result["result"], RESULT_IF, result)
         self.assertEqual(result["classification"], "SIM_OUTPUT_FAIL", result)
+
+    def test_esp_rom_boot_numbers_do_not_count_as_variant_numeric_output(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            case_dir = Path(tmp)
+            task, paths = debounce_variant_task(case_dir)
+            write_variant_serial(
+                case_dir,
+                "two_presses",
+                ESP_ROM_PREAMBLE + "Button Pressed!\nButton Pressed!\n",
+            )
+            write_variant_serial(
+                case_dir,
+                "three_presses",
+                ESP_ROM_PREAMBLE + "Button Pressed!\nButton Pressed!\nButton Pressed!\n",
+            )
+
+            result = validate_case(task, paths)
+
+        self.assertEqual(result["result"], RESULT_BC, result)
+
+    def test_payload_text_distinctness_ignores_esp_rom_preamble(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            case_dir = Path(tmp)
+            task, paths = debounce_variant_task(case_dir)
+            task.data["simulation_variants"][1]["validator"]["params"]["expected_triggers"] = 2
+            write_variant_serial(
+                case_dir,
+                "two_presses",
+                ESP_ROM_PREAMBLE + "Button Pressed!\nButton Pressed!\n",
+            )
+            write_variant_serial(
+                case_dir,
+                "three_presses",
+                ESP_ROM_PREAMBLE.replace("20210327", "20210328")
+                + "Button Pressed!\nButton Pressed!\n",
+            )
+
+            result = validate_case(task, paths)
+
+        self.assertEqual(result["result"], RESULT_BF, result)
+        self.assertIn("identical serial output", result["reason"], result)
 
 
 if __name__ == "__main__":

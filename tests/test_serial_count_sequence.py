@@ -81,6 +81,17 @@ class ExactCountSequenceTests(unittest.TestCase):
         self.assertEqual(classify("999\n", params), "PASS")  # documented legacy laxness
         self.assertEqual(classify("3\n2\n", params), "FAIL")
 
+    def test_line_pattern_ignores_boot_numbers_without_accepting_missing_counts(self):
+        params = {**EXACT, "line_pattern": r"^\s*(\d+)\s*$"}
+
+        self.assertEqual(classify("ESP-ROM:20230327\nBuild: 5.5.4\n1\n2\n3\n", params), "PASS")
+        self.assertEqual(classify("ESP-ROM:20230327\nBuild: 5.5.4\n", params), "FAIL")
+
+    def test_line_pattern_can_extract_labeled_task_counts(self):
+        params = {**EXACT, "line_pattern": r"^\s*Steps:\s*(\d+)\s*$"}
+
+        self.assertEqual(classify("rst:0x1\nSteps: 1\nSteps: 2\nSteps: 3\n", params), "PASS")
+
 
 class SerialHelperTests(unittest.TestCase):
     def test_exact_count_sequence_helper(self):

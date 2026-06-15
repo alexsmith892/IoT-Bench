@@ -335,6 +335,67 @@ class SensorPartTests(unittest.TestCase):
         self.assertNotIn("2026-02-02", resc_variant)
 
 
+def bme280_task() -> TaskConfig:
+    return TaskConfig(
+        path=Path("tasks/zephyr_nano33ble/level2/bme280_read_i2c.yaml"),
+        data={
+            "task_id": "bme280_read_i2c",
+            "platform": "zephyr_nano33ble",
+            "level": "level2",
+            "fixture": {
+                "family": "composite",
+                "components": [
+                    {
+                        "type": "bme280",
+                        "id": "bme1",
+                        "bus": "twi0",
+                        "address": "0x76",
+                        "attrs": {"temperatureC": "24.5", "humidityRH": "55.0"},
+                    }
+                ],
+            },
+            "validator": {"family": "bme280_environment", "params": {}},
+            "simulation": {"timeout_ms": 1600},
+            "case": {"id": "bme280-read-i2c-renode-nano33", "sketch_name": "bme280_read_i2c"},
+        },
+    )
+
+
+class Bme280PartTests(unittest.TestCase):
+    def test_repl_declares_native_model(self) -> None:
+        repl = generate_repl(bme280_task())
+        self.assertIn("bme1: I2C.BME280 @ twi0 0x76", repl)
+
+    def test_fixture_attrs_become_property_sets(self) -> None:
+        from bench.renode import part_attr_commands
+
+        commands = part_attr_commands(bme280_task())
+        self.assertEqual(
+            commands,
+            ["twi0.bme1 Humidity 55", "twi0.bme1 Temperature 24.5"],
+        )
+
+    def test_variant_attrs_override_fixture_seed(self) -> None:
+        from bench.renode import part_attr_commands
+
+        commands = part_attr_commands(
+            bme280_task(), {"bme1": {"temperatureC": "31.0", "humidityRH": "42.0"}}
+        )
+        self.assertEqual(
+            commands,
+            ["twi0.bme1 Humidity 42", "twi0.bme1 Temperature 31"],
+        )
+
+    def test_pressure_control_rejected(self) -> None:
+        # The native model's pressure encoder does not invert through the
+        # Bosch compensation math (off ~1056x, verified live), so pressurePa
+        # must fail the control lint instead of seeding an unsound oracle.
+        from bench.renode import part_attr_commands
+
+        with self.assertRaises(RenodeConfigError):
+            part_attr_commands(bme280_task(), {"bme1": {"pressurePa": "101325"}})
+
+
 class ManifestTests(unittest.TestCase):
     def test_verification_manifest_records_resc_and_zephyr_tools(self) -> None:
         from bench import runner
@@ -374,6 +435,75 @@ class ManifestTests(unittest.TestCase):
             self.assertIsNotNone(manifest["resc_hash"])
             self.assertEqual(manifest["resc_path"], "case.resc")
             self.assertIsNotNone(manifest["diagram_hash"])
+
+
+class ZephyrSubmissionNormalizationTests(unittest.TestCase):
+    """A full project submission contributes only src/; everything Zephyr's
+    build system would auto-include (boards/ overlays and conf fragments,
+    app-dir Kconfig, presets) must be dropped so the harness-owned build
+    configuration cannot be altered by a submission."""
+
+    def normalize(self, populate) -> Path:
+        from bench.runner import normalize_zephyr_submission
+
+        task = blink_task()
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name)
+        source = root / "submission"
+        (source / "src").mkdir(parents=True)
+        populate(source)
+        return normalize_zephyr_submission(task, source, root / "normalized")
+
+    def test_project_submission_keeps_only_src(self) -> None:
+        def populate(source: Path) -> None:
+            (source / "src" / "main.c").write_text("int main(void){return 0;}\n", encoding="utf-8")
+            (source / "src" / "helper.h").write_text("#define X 1\n", encoding="utf-8")
+            boards = source / "boards"
+            boards.mkdir()
+            (boards / "arduino_nano_33_ble.overlay").write_text("/* hijack */\n", encoding="utf-8")
+            (boards / "arduino_nano_33_ble.conf").write_text("CONFIG_BOOT_BANNER=y\n", encoding="utf-8")
+            (source / "Kconfig").write_text("source \"Kconfig.zephyr\"\n", encoding="utf-8")
+            (source / "prj.conf").write_text("CONFIG_EVIL=y\n", encoding="utf-8")
+            (source / "app.overlay").write_text("/* hijack */\n", encoding="utf-8")
+            (source / "CMakeLists.txt").write_text("# hijack\n", encoding="utf-8")
+
+        destination = self.normalize(populate)
+        self.assertTrue((destination / "src" / "main.c").exists())
+        self.assertTrue((destination / "src" / "helper.h").exists())
+        self.assertFalse((destination / "boards").exists())
+        self.assertFalse((destination / "Kconfig").exists())
+        from bench.runner import zephyr_app_overlay, zephyr_prj_conf, zephyr_root_cmake
+
+        task = blink_task()
+        self.assertEqual(
+            (destination / "CMakeLists.txt").read_text(encoding="utf-8"), zephyr_root_cmake(task)
+        )
+        self.assertEqual((destination / "prj.conf").read_text(encoding="utf-8"), zephyr_prj_conf())
+        self.assertEqual(
+            (destination / "app.overlay").read_text(encoding="utf-8"), zephyr_app_overlay()
+        )
+
+    def test_project_without_main_c_is_compile_fail(self) -> None:
+        from bench.runner import COMPILE_FAIL, BuildSimulationError
+
+        def populate(source: Path) -> None:
+            (source / "src" / "app.c").write_text("int main(void){return 0;}\n", encoding="utf-8")
+
+        with self.assertRaises(BuildSimulationError) as ctx:
+            self.normalize(populate)
+        self.assertEqual(ctx.exception.classification, COMPILE_FAIL)
+
+    def test_harness_cmake_compiles_every_src_c_file(self) -> None:
+        # Static gates scan all submitted sources; compiling all of src/*.c
+        # (like arduino-cli compiles the whole sketch dir) keeps a
+        # pattern-stuffed decoy file from satisfying a gate without at least
+        # surviving the compiler.
+        from bench.runner import zephyr_root_cmake
+
+        cmake = zephyr_root_cmake(blink_task())
+        self.assertIn("file(GLOB app_sources CONFIGURE_DEPENDS src/*.c)", cmake)
+        self.assertIn("target_sources(app PRIVATE ${app_sources})", cmake)
 
 
 if __name__ == "__main__":

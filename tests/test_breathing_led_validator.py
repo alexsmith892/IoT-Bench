@@ -7,8 +7,10 @@ from tests.validator_test_utils import (
     make_case,
     update_case_vcd,
     validate_artifacts_args,
+    write_digital_vcd,
     write_pwm_vcd,
 )
+from bench.vcd import VcdParseError, build_segments, parse_vcd_signal
 
 
 class BreathingLedValidatorTests(unittest.TestCase):
@@ -49,6 +51,33 @@ class BreathingLedValidatorTests(unittest.TestCase):
                 validate_artifacts_args("breathing_led", case_dir),
                 "PASS",
             )
+
+    def test_same_timestamp_edges_are_collapsed_before_segment_building(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vcd = Path(tmp) / "same-timestamp.vcd"
+            write_digital_vcd(
+                vcd,
+                [
+                    (0.0, 0),
+                    (0.001, 1),
+                    (0.001, 0),
+                    (0.002, 1),
+                    (0.003, 0),
+                ],
+            )
+
+            events = parse_vcd_signal(vcd)
+            build_segments(events)
+
+            self.assertEqual([(event.timestamp_s, event.value) for event in events], [(0.0, 0), (0.002, 1), (0.003, 0)])
+
+    def test_decreasing_vcd_timestamps_still_fail(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            vcd = Path(tmp) / "decreasing.vcd"
+            write_digital_vcd(vcd, [(0.0, 0), (0.002, 1), (0.001, 0)])
+
+            with self.assertRaises(VcdParseError):
+                parse_vcd_signal(vcd)
 
 
 if __name__ == "__main__":
