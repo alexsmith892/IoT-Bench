@@ -259,9 +259,68 @@ Level 2 live-supported:
 ESP32-S3 ESP-IDF also has `buzzer_button` as an ESP32-only supported level-1
 task. ESP32-S3 serial capture uses Wokwi's USB Serial/JTAG interface, so
 generated ESP-IDF diagrams set `serialInterface = "USB_SERIAL_JTAG"` and the
-generated `sdkconfig.defaults` routes `printf` there.
+generated `sdkconfig.defaults` routes `printf` there. ADC/PWM constants follow
+the board profile (3.3 V / 4095 counts; LEDC for PWM), and the breathing-LED
+duty-cycle and buzzer-frequency oracles run over the Wokwi VCD exactly as on
+Mega.
 
-Zephyr / Nano 33 BLE (Renode) level 1, all live-verified (reference BC across
+### ESP32-S3 maturity (honest status)
+
+The ESP32-S3 oracles, variant machinery, static framework-rejection gates, and
+custom chips are shared with Mega, so where a reference solution exists the
+verification quality matches Mega. Maturity is **not yet uniform across task
+families**, and the current gaps are:
+
+- **Live-verified (reference BC live; the strong tier):** the level-1 LED/timing,
+  PWM/breathing, buzzer, button/debounce/count, PIR and `tmp36_read` tasks, plus
+  `lcd1602_display_hello_world`, `16key_keypad`, `bme280_read_i2c`,
+  `bme280_read_spi`, and `mpu6050_read_spi`. These carry an
+  `artifacts/verification.json`.
+- **Real reference, not yet live-verified:** the analog/LCD display tasks with
+  genuine sensor logic (`tmp36_read_button_display`, `tmp36_read_periodic_display`,
+  `reaction_timer_display`, `sensor_water_level_display`, `joystick_buzzer_pitch`,
+  `buzzer_laser_tripwire`, `parking_sensor`, `reverse_parking_sensor`,
+  `mpu6050_read_i2c`, `hcsr04_find_distance`, …). They should pass once run live;
+  they need a confirming Wokwi run before leaderboard use.
+- **Placeholder reference (NOT verifiable as-is):** `dht11_read`, `ds1307_rtc`,
+  `dht11_read_button_display`, `mpu6050_read_button_display`,
+  `mpu6050_read_periodic_display`, `safebox`, `safebox_display`. The generated
+  ESP-IDF reference for these hardcodes the expected serial/LCD output instead of
+  reading the sensor or scanning the keypad (the Mega references implement the
+  real protocol, e.g. bit-banged DHT11). A hardcoded stub cannot satisfy the
+  multi-variant oracles, so these tasks are **not yet proven solvable on ESP32**
+  and must get real ESP-IDF reference implementations (and, for `safebox_display`,
+  a tighter keypad-to-display correlation oracle) before they count.
+
+Multi-component ESP32 fixtures are guarded by `tests/test_pin_assignment_lint.py`,
+which rejects any case where two distinct components share a GPIO (a scanned
+keypad matrix is the only allowed shared net). This caught a class of
+prompt/fixture pin-drift bugs (e.g. a button wired onto the LCD register-select
+line) that compile cleanly but make a case physically unrunnable.
+
+Zephyr / Nano 33 BLE (Renode) maturity is tracked in
+`docs/zephyr-task-status.md` and upstream coverage is mapped in
+`docs/upstream-task-mapping.md`.
+
+- **Live-validated:** most GPIO, serial, ADC, I2C, keypad, LCD, and simple
+  timing tasks have local Renode BC evidence and variant/adversarial coverage.
+- **Implemented but not yet live-promoted:** the HC-SR04 tasks
+  (`hcsr04_find_distance`, `parking_sensor`, `reverse_parking_sensor`) have
+  YAML and a custom Renode model, but still need a current live sweep to prove
+  echo timing at the pinned 2 MIPS CPU setting.
+- **BF triage:** `breathing_led`, `mpu6050_read_periodic_display`, and
+  `joystick_buzzer_pitch` have existing task/oracle support but previous
+  reference evidence recorded BF, so they are not counted as live-validated.
+- **Canonical-pending unsupported:** `dht11_read`, `bme280_read_spi`,
+  `ds18b20_heat_alarm`, and `dht11_read_button_display` are present as
+  Zephyr task definitions but marked unsupported until Workstream A wires real
+  Renode DHT11, DS18B20, and SPI-BME280 support.
+- **IoT-Bench addition:** `lsm9ds1_read_i2c` is intentionally kept outside the
+  upstream canonical set because it exercises the Nano 33 BLE's onboard IMU and
+  Renode has a native LSM9DS1 model.
+
+<!-- stale-zephyr-status-start
+Historical Zephyr status block, superseded by docs/zephyr-task-status.md (reference BC across
 variants, adversarial stubs BF):
 - `blink_led_1hz`
 - `blink_led_morse_code`
@@ -276,7 +335,7 @@ variants, adversarial stubs BF):
 - `tmp36_read` (custom IoT-Bench SAADC C# model, `bench/chips/saadc/`;
   multi-variant stimulus timelines, 3.3 V / 4095 conversion)
 
-Zephyr / Nano 33 BLE (Renode) level 2, all live-verified:
+Historical Zephyr level 2 status block, superseded by docs/zephyr-task-status.md:
 - `clap_switch` (digital sound-sensor surrogate toggles relay output)
 - `ds1307_rtc` (custom C# DS1307 model compiled by Renode at include time;
   multi-variant seeded clock via per-variant attrs)
@@ -315,6 +374,7 @@ numeric LCD oracles tied to injected stimulus):
 - `safebox_display` (surrogate: matrix keypad; LCD must echo the
   variant-specific wrong code before Success; relay windows)
 - `step_counter_print` (native MPU6050 acceleration controls)
+stale-zephyr-status-end -->
 
 ## Shared Families
 
@@ -416,8 +476,8 @@ matches the upstream iot-skillsbench real-hardware target. Key facts
   counts) and driven by scenario `position` controls (0..1 of full scale),
   mirroring the Wokwi potentiometer surrogate. There is still no nRF PWM
   model, so hardware-PWM tasks (breathing LED) remain a future backend
-  milestone; DHT11 and HC-SR04 stay Wokwi-only (bit-banged microsecond
-  protocols). The platform model fetches its SVD (register names for log
+  milestone. HC-SR04 has a custom model but still needs live timing validation;
+  DHT11, DS18B20, and BME280-SPI are unsupported pending Renode support. The platform model fetches its SVD (register names for log
   messages) from a URL on first run and caches it afterwards.
 
 Pinned tools for this platform (`bench/tool_versions.yaml`): the Renode
