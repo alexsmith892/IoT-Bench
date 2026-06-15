@@ -1,0 +1,69 @@
+{
+  "_source": "https://github.com/iot-agent/iot-skillsbench/tree/main/tasks",
+  "_files": [
+    "tasks/level1/level1-nRF52840-Zephyr.txt",
+    "tasks/level2/level2-nRF52840-Zephyr.txt",
+    "tasks/level3/level3-nRF52840-Zephyr.txt"
+  ],
+  "_note": "Canonical IoT-SkillsBench nRF52840/Zephyr task ids, vendored so the offline suite can assert the local task set against upstream without network. Ignore the upstream 'tasks_new/' and 'tasks/single/' folders. Update this file (and tests/test_canonical_task_set.py KNOWN_* sets) only when realigning to a new upstream revision.",
+  "_aliases": {
+    "led": ["my-led", "my-led-1", "my-led-2"],
+    "button_buzzer": ["my-button", "my-buzzer"],
+    "digital_sensor": ["sr501", "sound-sensor", "ky020", "lock-relay", "data-dht11", "data-ds18b20"],
+    "ultrasonic": ["sr04-trig", "sr04-echo"],
+    "encoder": ["encoder-clk", "encoder-dt"],
+    "keypad": ["row-1", "row-2", "row-3", "row-4", "col-1", "col-2", "col-3", "col-4"],
+    "lcd1602": ["D-7", "D-6", "D-5", "D-4", "RS", "E"],
+    "spi_sensor": ["my_sensor"],
+    "analog": ["zephyr_user ADC 0"],
+    "i2c": ["i2c bus 0"]
+  },
+  "level1": [
+    "blink_led_1hz",
+    "blink_led_morse_code",
+    "blink_led_no_delay",
+    "blink_two_leds",
+    "buzzer_doorbell",
+    "buzzer_button",
+    "button_status_display",
+    "button_status_count",
+    "button_press_debounce",
+    "breathing_led",
+    "sensor_pir_human_motion",
+    "tmp36_read"
+  ],
+  "level2": [
+    "rotary_encoder",
+    "16key_keypad",
+    "lcd1602_display_hello_world",
+    "dht11_read",
+    "ds1307_rtc",
+    "mpu6050_read_i2c",
+    "bme280_read_i2c",
+    "bme280_read_spi",
+    "tilt_detection_alarm",
+    "photoresistor_nightlight",
+    "ds18b20_heat_alarm",
+    "clap_switch",
+    "hcsr501_motion_alarm",
+    "hcsr04_find_distance",
+    "parking_sensor",
+    "reverse_parking_sensor"
+  ],
+  "level3": [
+    "dht11_read_button_display",
+    "mpu6050_read_button_display",
+    "mpu6050_read_periodic_display",
+    "safebox",
+    "safebox_display",
+    "lcd1602_auto_brightness_control",
+    "buzzer_toggle_led_freq",
+    "tmp36_read_button_display",
+    "tmp36_read_periodic_display",
+    "reaction_timer_display",
+    "sensor_water_level_display",
+    "buzzer_laser_tripwire",
+    "joystick_buzzer_pitch",
+    "step_counter_print"
+  ]
+}

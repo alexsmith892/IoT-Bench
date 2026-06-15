@@ -14,5 +14,7 @@ jobs:
           python-version: "3.11"
       - name: Install dependencies
         run: python -m pip install -r requirements.txt
+      - name: Zephyr contract gates (canonical task set + Renode regen drift)
+        run: python -m unittest tests.test_canonical_task_set tests.test_renode_regen_drift
       - name: Run offline tests
         run: python -m unittest discover tests
