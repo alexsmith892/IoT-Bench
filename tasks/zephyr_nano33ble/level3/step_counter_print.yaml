@@ -1,0 +1,73 @@
+task_id: step_counter_print
+name: Count movement spikes from GY-521/MPU6050 and print steps (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level3
+# The IoT-Bench MPU6050 model exposes the same accel controls as the Wokwi
+# native part, so the scenario injects a baseline-then-spike acceleration
+# profile and the firmware must threshold-count the spikes. The number of
+# injected spikes differs per variant (exact_sequence count oracle), so a
+# fixed transcript fails.
+fixture:
+  family: composite
+  components:
+    - type: mpu6050
+      id: imu1
+      bus: twi0
+      address: "0x68"
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+    # Establish a 1 g (gravity) resting baseline on Z with X/Y level.
+    - {part_id: imu1, control: accelX, value: 0.0, duration_ms: 50}
+    - {part_id: imu1, control: accelY, value: 0.0, duration_ms: 50}
+    - {part_id: imu1, control: accelZ, value: 1.0, duration_ms: 300}
+    # Three discrete movement spikes (1.9 g, within the +/-2 g range)
+    # separated by rest periods. Each upward threshold crossing is one step.
+    - {part_id: imu1, control: accelZ, value: 1.9, duration_ms: 200}
+    - {part_id: imu1, control: accelZ, value: 1.0, duration_ms: 250}
+    - {part_id: imu1, control: accelZ, value: 1.9, duration_ms: 200}
+    - {part_id: imu1, control: accelZ, value: 1.0, duration_ms: 250}
+    - {part_id: imu1, control: accelZ, value: 1.9, duration_ms: 200}
+    - {part_id: imu1, control: accelZ, value: 1.0, duration_ms: 300}
+simulation_variants:
+  - id: three_steps
+  - id: four_steps
+    scenario:
+      family: control_sequence
+      initial_delay_ms: 200
+      controls:
+        - {part_id: imu1, control: accelX, value: 0.0, duration_ms: 50}
+        - {part_id: imu1, control: accelY, value: 0.0, duration_ms: 50}
+        - {part_id: imu1, control: accelZ, value: 1.0, duration_ms: 300}
+        - {part_id: imu1, control: accelZ, value: 1.9, duration_ms: 200}
+        - {part_id: imu1, control: accelZ, value: 1.0, duration_ms: 250}
+        - {part_id: imu1, control: accelZ, value: 1.9, duration_ms: 200}
+        - {part_id: imu1, control: accelZ, value: 1.0, duration_ms: 250}
+        - {part_id: imu1, control: accelZ, value: 1.9, duration_ms: 200}
+        - {part_id: imu1, control: accelZ, value: 1.0, duration_ms: 250}
+        - {part_id: imu1, control: accelZ, value: 1.9, duration_ms: 200}
+        - {part_id: imu1, control: accelZ, value: 1.0, duration_ms: 300}
+    validator:
+      checks:
+        - {}
+        - params:
+            expected_count: 4
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        # Require the real I2C read path and a time source so a hard-coded
+        # print stub cannot pass.
+        required_any_patterns:
+          - ["i2c_write_read\\s*\\(", "i2c_read\\s*\\(", "i2c_transfer\\s*\\(", "i2c_burst_read\\s*\\("]
+          - ["k_uptime_get", "k_cycle_get", "k_timer_init", "k_msleep"]
+    - family: serial_count_sequence
+      params:
+        expected_count: 3
+        # exact_sequence: the printed step counts must be exactly 1, 2, 3 in
+        # order, so a fixed-output stub cannot satisfy the oracle.
+        match_mode: exact_sequence
+simulation: {timeout_ms: 2600, require_distinct_variant_outputs: true}
+case: {id: step-counter-print-renode-nano33, sketch_name: step_counter_print}

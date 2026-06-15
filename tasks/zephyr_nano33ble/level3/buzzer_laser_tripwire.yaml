@@ -1,0 +1,70 @@
+task_id: buzzer_laser_tripwire
+name: Trigger buzzer when laser beam to photoresistor is blocked (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level3
+# Laser emitter is a plain GPIO output the firmware must hold on (D0 window
+# ratio); the photoresistor is an SAADC channel (bright/beam-on -> low ADC,
+# blocked/dark -> high ADC, bench polarity convention); the active buzzer is
+# observed on D1. Two stimulus orders make a schedule-replay stub fail.
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "P0.21"}
+      - {signal: D1, pin: "P0.27"}
+  components:
+    - type: photoresistor
+      id: photo1
+      channel: 0
+      attrs: {position: "0.05"}
+    - type: led
+      id: laser1
+      pin: "P0.21"
+    - type: buzzer
+      id: buzzer1
+      pin: "P0.27"
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+    - {part_id: photo1, control: position, value: 0.05, duration_ms: 400}  # beam reaching ~t=0.2-0.6s
+    - {part_id: photo1, control: position, value: 0.90, duration_ms: 400}  # beam blocked ~t=0.6-1.0s
+simulation_variants:
+  - id: clear_then_blocked
+  - id: blocked_then_clear
+    scenario:
+      family: control_sequence
+      initial_delay_ms: 200
+      controls:
+        - {part_id: photo1, control: position, value: 0.90, duration_ms: 400}
+        - {part_id: photo1, control: position, value: 0.05, duration_ms: 400}
+    validator:
+      checks:
+        - {}
+        - params:
+            channel: D0
+            windows: [{start_s: 0.20, end_s: 0.95, ratio_range: [0.80, 1.0]}]
+        - params:
+            channel: D1
+            active_windows_s: [[0.30, 0.55]]
+            inactive_windows_s: [[0.70, 0.95]]
+            active_ratio_min: 0.40
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_any_patterns:
+          - ["adc_read\\s*\\(", "adc_read_dt\\s*\\(", "adc_read_async\\s*\\("]
+    - family: window_ratios
+      params:
+        channel: D0
+        windows: [{start_s: 0.20, end_s: 0.95, ratio_range: [0.80, 1.0]}]
+    - family: stimulus_to_output
+      params:
+        channel: D1
+        active_windows_s: [[0.70, 0.95]]
+        inactive_windows_s: [[0.30, 0.55]]
+        active_ratio_min: 0.40
+simulation: {timeout_ms: 1200}
+case: {id: buzzer-laser-tripwire-renode-nano33, sketch_name: buzzer_laser_tripwire}

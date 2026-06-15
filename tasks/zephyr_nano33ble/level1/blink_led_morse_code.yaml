@@ -1,0 +1,25 @@
+task_id: blink_led_morse_code
+name: Blink SOS in Morse code on the Nano 33 BLE red LED (Zephyr)
+platform: zephyr_nano33ble
+level: level1
+fixture:
+  family: single_led_output
+  pins:
+    led: "P0.24"
+  analyzer:
+    channels:
+      - signal: D0
+        pin: "P0.24"
+validator:
+  family: morse_sos
+  params:
+    channel: D0
+    unit_s: 0.2
+    timing_tolerance: 0.05
+    high_units: [1, 1, 1, 3, 3, 3, 1, 1, 1]
+    gap_units: [1, 1, 3, 1, 1, 3, 1, 1]
+simulation:
+  timeout_ms: 8000
+case:
+  id: blink-led-morse-code-renode-nano33
+  sketch_name: blink_led_morse_code

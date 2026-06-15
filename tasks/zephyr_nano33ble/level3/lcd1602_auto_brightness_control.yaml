@@ -1,0 +1,60 @@
+task_id: lcd1602_auto_brightness_control
+name: Auto-adjust LCD backlight brightness from ambient light (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level3
+# The KY-018 photoresistor is an SAADC channel (bright -> low counts, dark
+# -> high counts); the backlight level pin K is observed on D0 and its PWM
+# duty (software PWM, no nRF PWM model in Renode) must track the ambient
+# light: bright -> dim backlight (low duty), dark -> bright backlight
+# (high duty). A second variant reverses the stimulus order.
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "P1.08"}
+  components:
+    - type: photoresistor
+      id: photo1
+      channel: 0
+      attrs: {position: "0.05"}
+    - type: lcd1602
+      id: lcd1
+      pins: {rs: "P1.12", e: "P1.14", d4: "P1.15", d5: "P1.13", d6: "P0.21", d7: "P0.27"}
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+    - {part_id: photo1, control: position, value: 0.05, duration_ms: 350}  # bright
+    - {part_id: photo1, control: position, value: 0.90, duration_ms: 350}  # dark
+simulation_variants:
+  - id: bright_then_dark
+  - id: dark_then_bright
+    scenario:
+      family: control_sequence
+      initial_delay_ms: 200
+      controls:
+        - {part_id: photo1, control: position, value: 0.90, duration_ms: 350}
+        - {part_id: photo1, control: position, value: 0.05, duration_ms: 350}
+    validator:
+      checks:
+        - {}
+        - params:
+            channel: D0
+            windows:
+              - {start_s: 0.30, end_s: 0.50, ratio_range: [0.70, 1.00]}
+              - {start_s: 0.70, end_s: 0.90, ratio_range: [0.02, 0.25]}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_any_patterns:
+          - ["adc_read\\s*\\(", "adc_read_dt\\s*\\(", "adc_read_async\\s*\\("]
+    - family: window_ratios
+      params:
+        channel: D0
+        windows:
+          - {start_s: 0.30, end_s: 0.50, ratio_range: [0.02, 0.25]}
+          - {start_s: 0.70, end_s: 0.90, ratio_range: [0.70, 1.00]}
+simulation: {timeout_ms: 1200}
+case: {id: lcd1602-auto-brightness-control-renode-nano33, sketch_name: lcd1602_auto_brightness_control}

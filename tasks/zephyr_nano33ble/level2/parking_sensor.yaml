@@ -1,0 +1,44 @@
+task_id: parking_sensor
+name: Scale LED and buzzer pitch as object approaches (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level2
+# Fixed 35 cm obstacle (IoT-Bench HC-SR04 model). The LED must be on for the
+# bulk of the run and the passive buzzer must emit the pitch mandated by the
+# prompt's mapping (freq = 2500 - 20 * distance -> 1800 Hz at 35 cm, inside
+# the 1429-2500 Hz window).
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "P0.24"}
+      - {signal: D1, pin: "P0.27"}
+  components:
+    - type: led
+      id: led1
+      pin: "P0.24"
+    - type: hcsr04
+      id: sonar1
+      pins: {trig: "P1.11", echo: "P1.10"}
+      attrs: {distance: "35"}
+    - type: buzzer
+      id: buzzer1
+      pin: "P0.27"
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_patterns:
+          ["gpio_pin_set(?:_dt|_raw)?\\s*\\(", "gpio_pin_get(?:_dt|_raw)?\\s*\\("]
+    - family: window_ratios
+      params:
+        channel: D0
+        windows:
+          - {start_s: 0.20, end_s: 1.20, ratio_range: [0.70, 1.00]}
+    - family: frequency_windows
+      params:
+        channel: D1
+        windows:
+          - {start_s: 0.20, end_s: 1.20, half_period_range_s: [0.00020, 0.00035], full_period_range_s: [0.00040, 0.00070]}
+simulation: {timeout_ms: 1400}
+case: {id: parking-sensor-renode-nano33, sketch_name: parking_sensor}

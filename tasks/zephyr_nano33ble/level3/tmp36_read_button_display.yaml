@@ -1,0 +1,59 @@
+task_id: tmp36_read_button_display
+name: Sample TMP36 on button interrupt and display Fahrenheit on LCD (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level3
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "P1.12"}
+      - {signal: D1, pin: "P1.14"}
+      - {signal: D2, pin: "P1.15"}
+      - {signal: D3, pin: "P1.13"}
+      - {signal: D4, pin: "P0.21"}
+      - {signal: D5, pin: "P0.27"}
+  components:
+    - type: button
+      id: btn1
+      pin: "P1.11"
+    - type: analog_source
+      id: pot1
+      channel: 0
+      attrs: {value: "928"}
+    - type: lcd1602
+      id: lcd1
+      pins: {rs: "P1.12", e: "P1.14", d4: "P1.15", d5: "P1.13", d6: "P0.21", d7: "P0.27"}
+scenario:
+  family: button_press_sequence
+  part_id: btn1
+  initial_delay_ms: 200
+  presses:
+    - {duration_ms: 150, after_ms: 800}
+# Each variant seeds a different TMP36 output (raw SAADC counts at 3.3 V /
+# 4095) and requires the displayed Fahrenheit value to match it, so a
+# hardcoded display fails the other variant.
+# 928 counts ~ 0.748 V ~ 24.8 C ~ 76.6 F; 1117 ~ 0.900 V ~ 40.0 C ~ 104 F.
+simulation_variants:
+  - id: warm
+    attrs: {pot1: {value: "928"}}
+  - id: hot
+    attrs: {pot1: {value: "1117"}}
+    validator:
+      checks:
+        - {}
+        - params:
+            expected_regexps: ["Temp:\\s*10[3-5](\\.\\d)?\\s*F"]
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_any_patterns:
+          - ["adc_read\\s*\\(", "adc_read_dt\\s*\\(", "adc_read_async\\s*\\("]
+          - ["gpio_pin_interrupt_configure", "gpio_init_callback"]
+    - family: lcd_text
+      params:
+        expected_texts: ["Temp:"]
+        expected_regexps: ["Temp:\\s*7[6-8](\\.\\d)?\\s*F"]
+simulation: {timeout_ms: 1800}
+case: {id: tmp36-read-button-display-renode-nano33, sketch_name: tmp36_read_button_display}

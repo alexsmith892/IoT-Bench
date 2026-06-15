@@ -1,0 +1,63 @@
+task_id: joystick_buzzer_pitch
+name: Map joystick Y-axis analog input to passive buzzer pitch (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level3
+# The joystick axes are SAADC channels (X on 0, Y on 1). The Y level changes
+# mid-run and the buzzer square-wave frequency must track it: low Y -> low
+# pitch, high Y -> high pitch. A second variant reverses the order so a
+# fixed-schedule tone fails.
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "P0.27"}
+  components:
+    - type: joystick_axis
+      id: joy_x
+      channel: 0
+      attrs: {position: "0.5"}
+    - type: joystick_axis
+      id: joy_y
+      channel: 1
+      attrs: {position: "0.5"}
+    - type: buzzer
+      id: buzzer1
+      pin: "P0.27"
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+    - {part_id: joy_y, control: position, value: 0.1, duration_ms: 350}
+    - {part_id: joy_y, control: position, value: 0.9, duration_ms: 350}
+simulation_variants:
+  - id: low_then_high
+  - id: high_then_low
+    scenario:
+      family: control_sequence
+      initial_delay_ms: 200
+      controls:
+        - {part_id: joy_y, control: position, value: 0.9, duration_ms: 350}
+        - {part_id: joy_y, control: position, value: 0.1, duration_ms: 350}
+    validator:
+      checks:
+        - {}
+        - params:
+            channel: D0
+            windows:
+              - {start_s: 0.30, end_s: 0.50, half_period_range_s: [0.00025, 0.00050], full_period_range_s: [0.00050, 0.00100]}
+              - {start_s: 0.70, end_s: 0.90, half_period_range_s: [0.0012, 0.0035], full_period_range_s: [0.0024, 0.0070]}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_any_patterns:
+          - ["adc_read\\s*\\(", "adc_read_dt\\s*\\(", "adc_read_async\\s*\\("]
+    - family: frequency_windows
+      params:
+        channel: D0
+        windows:
+          - {start_s: 0.30, end_s: 0.50, half_period_range_s: [0.0012, 0.0035], full_period_range_s: [0.0024, 0.0070]}
+          - {start_s: 0.70, end_s: 0.90, half_period_range_s: [0.00025, 0.00050], full_period_range_s: [0.00050, 0.00100]}
+simulation: {timeout_ms: 1200}
+case: {id: joystick-buzzer-pitch-renode-nano33, sketch_name: joystick_buzzer_pitch}

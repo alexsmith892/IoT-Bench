@@ -1,0 +1,102 @@
+task_id: safebox
+name: Unlock relay when keypad password 1234 is entered (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level3
+# Matrix keys are cross-points of the IoT-Bench keypad model. A single
+# scenario first enters a WRONG code, then the correct 1234, so the relay
+# must stay LOW until (and only until) the correct code is complete. A
+# second variant uses a different wrong code ordering, so a schedule replay
+# that unlocks on a timer still has to track the actual scan.
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "P0.13"}
+  components:
+    # Keys 1,2,3 on row 1 (P1.11); 4,5 on row 2 (P1.12); columns P1.14,
+    # P0.23, P0.21 (standard 4x4 layout, only exercised keys populated).
+    - {type: matrix_key, id: k1, pins: {row: "P1.11", col: "P1.14"}}
+    - {type: matrix_key, id: k2, pins: {row: "P1.11", col: "P0.23"}}
+    - {type: matrix_key, id: k3, pins: {row: "P1.11", col: "P0.21"}}
+    - {type: matrix_key, id: k4, pins: {row: "P1.12", col: "P1.14"}}
+    - {type: matrix_key, id: k5, pins: {row: "P1.12", col: "P0.23"}}
+    - type: relay
+      id: relay1
+      pin: "P0.13"
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+    # Wrong code 1-2-3-5 (relay must stay LOW).
+    - {part_id: k1, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k1, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k2, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k2, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k3, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k3, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k5, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k5, control: pressed, value: 0, duration_ms: 80}
+    # Correct code 1-2-3-4 (relay unlocks after the 4th key, ~t=1.6s).
+    - {part_id: k1, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k1, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k2, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k2, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k3, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k3, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k4, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k4, control: pressed, value: 0, duration_ms: 80}
+simulation_variants:
+  - id: unlocks_second
+  - id: never_correct
+    scenario:
+      family: control_sequence
+      initial_delay_ms: 200
+      controls:
+        # Wrong code 1-2-3-5 twice: the relay must never unlock.
+        - {part_id: k1, control: pressed, value: 1, duration_ms: 120}
+        - {part_id: k1, control: pressed, value: 0, duration_ms: 80}
+        - {part_id: k2, control: pressed, value: 1, duration_ms: 120}
+        - {part_id: k2, control: pressed, value: 0, duration_ms: 80}
+        - {part_id: k3, control: pressed, value: 1, duration_ms: 120}
+        - {part_id: k3, control: pressed, value: 0, duration_ms: 80}
+        - {part_id: k5, control: pressed, value: 1, duration_ms: 120}
+        - {part_id: k5, control: pressed, value: 0, duration_ms: 80}
+        - {part_id: k1, control: pressed, value: 1, duration_ms: 120}
+        - {part_id: k1, control: pressed, value: 0, duration_ms: 80}
+        - {part_id: k2, control: pressed, value: 1, duration_ms: 120}
+        - {part_id: k2, control: pressed, value: 0, duration_ms: 80}
+        - {part_id: k3, control: pressed, value: 1, duration_ms: 120}
+        - {part_id: k3, control: pressed, value: 0, duration_ms: 80}
+        - {part_id: k5, control: pressed, value: 1, duration_ms: 120}
+        - {part_id: k5, control: pressed, value: 0, duration_ms: 80}
+    validator:
+      checks:
+        - {}
+        - params:
+            channel: D0
+            # Both base windows must be overridden explicitly: deep_merge
+            # merges window lists positionally, so a shorter list would
+            # leak the base unlock window into this variant.
+            windows:
+              - {start_s: 0.30, end_s: 1.45, ratio_range: [0.0, 0.10]}
+              - {start_s: 1.95, end_s: 2.45, ratio_range: [0.0, 0.10]}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        # The password lives in data (stripped before static matching), so
+        # correctness is enforced behaviourally by the relay windows; static
+        # checks only confirm the source genuinely scans and drives pins.
+        required_patterns:
+          ["gpio_pin_get(?:_dt|_raw)?\\s*\\(", "gpio_pin_set(?:_dt|_raw)?\\s*\\("]
+    - family: window_ratios
+      params:
+        channel: D0
+        windows:
+          # Relay LOW throughout the wrong code and the start of the correct code.
+          - {start_s: 0.30, end_s: 1.45, ratio_range: [0.0, 0.15]}
+          # Relay HIGH after the correct code completes.
+          - {start_s: 1.95, end_s: 2.45, ratio_range: [0.85, 1.0]}
+simulation: {timeout_ms: 2600}
+case: {id: safebox-renode-nano33, sketch_name: safebox}

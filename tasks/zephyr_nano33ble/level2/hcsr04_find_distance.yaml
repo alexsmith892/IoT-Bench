@@ -1,0 +1,53 @@
+task_id: hcsr04_find_distance
+name: Measure HC-SR04 distance and print centimeters (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level2
+# IoT-Bench HC-SR04 model (bench/chips/hcsr04/HCSR04.cs): on a trigger pulse
+# the echo pin pulses high for 58 us/cm after a 200 us burst delay, in exact
+# virtual time. Two seeded distances (per-variant attrs) make a hardcoded
+# distance transcript fail.
+fixture:
+  family: composite
+  components:
+    - type: hcsr04
+      id: sonar1
+      pins: {trig: "P1.11", echo: "P1.10"}
+      attrs: {distance: "100"}
+simulation_variants:
+  - id: far
+    attrs: {sonar1: {distance: "100"}}
+    validator:
+      checks:
+        - {}
+        - params:
+            observations:
+              - label: configured_distance
+                patterns: ["Distance.*100"]
+                numeric_ranges: [[95, 105]]
+  - id: near
+    attrs: {sonar1: {distance: "40"}}
+    validator:
+      checks:
+        - {}
+        - params:
+            observations:
+              - label: configured_distance
+                patterns: ["Distance.*40"]
+                numeric_ranges: [[35, 45]]
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_patterns:
+          ["gpio_pin_set(?:_dt|_raw)?\\s*\\(", "gpio_pin_get(?:_dt|_raw)?\\s*\\("]
+        required_any_patterns:
+          - ["k_cycle_get", "k_uptime_get", "k_busy_wait", "k_cyc_to_us"]
+    - family: serial_observation_sequence
+      params:
+        observations:
+          - label: configured_distance
+            patterns: ["Distance.*100"]
+            numeric_ranges: [[95, 105]]
+simulation: {timeout_ms: 1200, require_distinct_variant_outputs: true}
+case: {id: hcsr04-find-distance-renode-nano33, sketch_name: hcsr04_find_distance}

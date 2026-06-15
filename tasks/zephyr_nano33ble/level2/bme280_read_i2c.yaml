@@ -1,0 +1,53 @@
+task_id: bme280_read_i2c
+# Scoped to temperature + humidity: Renode's native BME280 model
+# (Antmicro.Renode.Peripherals.I2C.BME280, v1.16.1) encodes both channels so
+# that the Bosch compensation math over its calibration and raw-data registers
+# reproduces the set property values (temperature exactly, humidity within
+# ~0.2 %RH at these setpoints; verified live). The model's pressure encoder is
+# ~1056x off from the datasheet compensation formulas with ~6.4 kPa of
+# quantization per ADC count, so pressure is excluded from the fixture
+# controls and the oracle (see bench/renode.py RENODE_PERIPHERAL_CONTROLS).
+name: Read BME280 temperature and humidity over I2C (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level2
+fixture:
+  family: composite
+  components:
+    - type: bme280
+      id: bme1
+      bus: twi0
+      address: "0x76"
+      attrs: {temperatureC: "24.5", humidityRH: "55.0"}
+# Two seeded environments: firmware that hardcodes one transcript fails the
+# other variant, and require_distinct_variant_outputs rejects identical
+# outputs. Every variant overrides expected_* explicitly; deep_merge would
+# otherwise leak the base params into both variants.
+simulation_variants:
+  - id: warm_humid
+    attrs: {bme1: {temperatureC: "24.5", humidityRH: "55.0"}}
+    validator:
+      checks:
+        - {}
+        - params: {expected_temperature_c: 24.5, expected_humidity_rh: 55.0}
+  - id: hot_dry
+    attrs: {bme1: {temperatureC: "31.0", humidityRH: "42.0"}}
+    validator:
+      checks:
+        - {}
+        - params: {expected_temperature_c: 31.0, expected_humidity_rh: 42.0}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        # Require the real I2C read path so a hard-coded print stub fails statically.
+        required_any_patterns:
+          - ["i2c_write_read\\s*\\(", "i2c_read\\s*\\(", "i2c_transfer\\s*\\(", "i2c_burst_read\\s*\\("]
+    - family: bme280_environment
+      params:
+        expected_temperature_c: 24.5
+        expected_humidity_rh: 55.0
+        temperature_tolerance_c: 0.5
+        humidity_tolerance_rh: 2.0
+simulation: {timeout_ms: 1600, require_distinct_variant_outputs: true}
+case: {id: bme280-read-i2c-renode-nano33, sketch_name: bme280_read_i2c}

@@ -1,0 +1,62 @@
+task_id: photoresistor_nightlight
+name: Turn on LED when photoresistor light level falls below threshold (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level2
+# The photoresistor divider is an SAADC channel of the IoT-Bench SAADC model
+# (bench/chips/saadc/). Polarity matches the bench convention: bright -> low
+# ADC counts, dark -> high counts. The prompt pins the threshold at half
+# scale (2048 counts ~ 1.65 V) so the oracle windows are deterministic.
+# Two stimulus orders (bright->dark and dark->bright) make a fixed on/off
+# schedule fail one of the variants.
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "P0.24"}
+  components:
+    - type: photoresistor
+      id: photo1
+      channel: 0
+      attrs: {position: "0.05"}
+    - type: led
+      id: led1
+      pin: "P0.24"
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+    - {part_id: photo1, control: position, value: 0.05, duration_ms: 400}  # bright ~t=0.2-0.6s
+    - {part_id: photo1, control: position, value: 0.90, duration_ms: 400}  # dark   ~t=0.6-1.0s
+simulation_variants:
+  - id: bright_then_dark
+  - id: dark_then_bright
+    scenario:
+      family: control_sequence
+      initial_delay_ms: 200
+      controls:
+        - {part_id: photo1, control: position, value: 0.90, duration_ms: 400}
+        - {part_id: photo1, control: position, value: 0.05, duration_ms: 400}
+    validator:
+      checks:
+        - {}
+        - params:
+            channel: D0
+            active_windows_s: [[0.30, 0.55]]
+            inactive_windows_s: [[0.70, 0.95]]
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        # Require the real ADC read path so a schedule-replay stub fails
+        # statically or at the swapped-order variant.
+        required_any_patterns:
+          - ["adc_read\\s*\\(", "adc_read_dt\\s*\\(", "adc_read_async\\s*\\("]
+    - family: stimulus_to_output
+      params:
+        channel: D0
+        # LED on when light is below threshold (dark phase).
+        active_windows_s: [[0.70, 0.95]]
+        inactive_windows_s: [[0.30, 0.55]]
+simulation: {timeout_ms: 1200}
+case: {id: photoresistor-nightlight-renode-nano33, sketch_name: photoresistor_nightlight}

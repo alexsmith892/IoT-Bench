@@ -1,0 +1,59 @@
+task_id: clap_switch
+name: Toggle relay on digital sound sensor clap events (Zephyr)
+platform: zephyr_nano33ble
+level: level2
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - signal: D0
+        pin: "P0.16"
+  components:
+    - type: button
+      id: sound1
+      pin: "P1.15"
+    - type: led
+      id: relay1
+      pin: "P0.16"
+scenario:
+  family: timeline
+  steps:
+    - delay_ms: 200
+    - set_control:
+        part_id: sound1
+        control: pressed
+        value: 1
+    - delay_ms: 120
+    - set_control:
+        part_id: sound1
+        control: pressed
+        value: 0
+    - delay_ms: 350
+    - set_control:
+        part_id: sound1
+        control: pressed
+        value: 1
+    - delay_ms: 120
+    - set_control:
+        part_id: sound1
+        control: pressed
+        value: 0
+    - delay_ms: 300
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_patterns:
+          - gpio_pin_get(?:_dt|_raw)?\s*\(
+          - gpio_pin_set(?:_dt|_raw)?\s*\(
+    - family: stimulus_to_output
+      params:
+        channel: D0
+        active_windows_s: [[0.38, 0.55]]
+        inactive_windows_s: [[0.85, 1.0]]
+simulation:
+  timeout_ms: 1300
+case:
+  id: clap-switch-renode-nano33
+  sketch_name: clap_switch

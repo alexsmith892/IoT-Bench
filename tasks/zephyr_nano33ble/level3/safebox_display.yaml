@@ -1,0 +1,110 @@
+task_id: safebox_display
+name: Unlock relay and display password/status on LCD (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level3
+# Keypad rows sit on P1.11/P1.02 and columns on P1.01/P1.08/P0.23 to stay
+# clear of the LCD pins. The scenario enters a wrong code then the correct
+# 1234; the LCD oracle checks the wrong-code echo (variant-specific) and the
+# final "Input: 1234" / "Status: Success" frame, and the two relay windows
+# enforce the lock/unlock behaviour.
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "P0.13"}
+      - {signal: D1, pin: "P1.12"}
+      - {signal: D2, pin: "P1.14"}
+      - {signal: D3, pin: "P1.15"}
+      - {signal: D4, pin: "P1.13"}
+      - {signal: D5, pin: "P0.21"}
+      - {signal: D6, pin: "P0.27"}
+  components:
+    - {type: matrix_key, id: k1, pins: {row: "P1.11", col: "P1.01"}}
+    - {type: matrix_key, id: k2, pins: {row: "P1.11", col: "P1.08"}}
+    - {type: matrix_key, id: k3, pins: {row: "P1.11", col: "P0.23"}}
+    - {type: matrix_key, id: k4, pins: {row: "P1.02", col: "P1.01"}}
+    - {type: matrix_key, id: k5, pins: {row: "P1.02", col: "P1.08"}}
+    - type: relay
+      id: relay1
+      pin: "P0.13"
+    - type: lcd1602
+      id: lcd1
+      pins: {rs: "P1.12", e: "P1.14", d4: "P1.15", d5: "P1.13", d6: "P0.21", d7: "P0.27"}
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+    # Wrong code 1-2-3-5 (relay LOW, LCD shows Fail).
+    - {part_id: k1, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k1, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k2, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k2, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k3, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k3, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k5, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k5, control: pressed, value: 0, duration_ms: 80}
+    # Correct code 1-2-3-4 (relay unlocks, LCD shows Success).
+    - {part_id: k1, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k1, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k2, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k2, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k3, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k3, control: pressed, value: 0, duration_ms: 80}
+    - {part_id: k4, control: pressed, value: 1, duration_ms: 120}
+    - {part_id: k4, control: pressed, value: 0, duration_ms: 80}
+# Variants differ in the wrong code typed first; the LCD must echo the actual
+# keys pressed (variant-specific wrong code) before the final Success frame,
+# so a display hardcoding "Input: 1234 / Status: Success" fails.
+simulation_variants:
+  - id: wrong_1235
+  - id: wrong_1325
+    scenario:
+      family: control_sequence
+      initial_delay_ms: 200
+      controls:
+        # Wrong code 1-3-2-5 (relay LOW), then the correct 1-2-3-4.
+        - {part_id: k1, control: pressed, value: 1, duration_ms: 120}
+        - {part_id: k1, control: pressed, value: 0, duration_ms: 80}
+        - {part_id: k3, control: pressed, value: 1, duration_ms: 120}
+        - {part_id: k3, control: pressed, value: 0, duration_ms: 80}
+        - {part_id: k2, control: pressed, value: 1, duration_ms: 120}
+        - {part_id: k2, control: pressed, value: 0, duration_ms: 80}
+        - {part_id: k5, control: pressed, value: 1, duration_ms: 120}
+        - {part_id: k5, control: pressed, value: 0, duration_ms: 80}
+        - {part_id: k1, control: pressed, value: 1, duration_ms: 120}
+        - {part_id: k1, control: pressed, value: 0, duration_ms: 80}
+        - {part_id: k2, control: pressed, value: 1, duration_ms: 120}
+        - {part_id: k2, control: pressed, value: 0, duration_ms: 80}
+        - {part_id: k3, control: pressed, value: 1, duration_ms: 120}
+        - {part_id: k3, control: pressed, value: 0, duration_ms: 80}
+        - {part_id: k4, control: pressed, value: 1, duration_ms: 120}
+        - {part_id: k4, control: pressed, value: 0, duration_ms: 80}
+    validator:
+      checks:
+        - {}
+        - params:
+            frames:
+              - expected_texts: ["Input: 1325"]
+              - expected_texts: ["Input: 1234", "Status: Success"]
+        - {}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_patterns:
+          ["gpio_pin_get(?:_dt|_raw)?\\s*\\(", "gpio_pin_set(?:_dt|_raw)?\\s*\\("]
+    - family: lcd_text_sequence
+      params:
+        signals: {rs: D1, e: D2, d4: D3, d5: D4, d6: D5, d7: D6}
+        frames:
+          - expected_texts: ["Input: 1235"]
+          - expected_texts: ["Input: 1234", "Status: Success"]
+    - family: window_ratios
+      params:
+        channel: D0
+        windows:
+          - {start_s: 0.30, end_s: 1.45, ratio_range: [0.0, 0.15]}
+          - {start_s: 1.95, end_s: 2.45, ratio_range: [0.85, 1.0]}
+simulation: {timeout_ms: 2600}
+case: {id: safebox-display-renode-nano33, sketch_name: safebox_display}

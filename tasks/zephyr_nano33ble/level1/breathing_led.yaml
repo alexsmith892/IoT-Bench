@@ -1,0 +1,31 @@
+task_id: breathing_led
+name: Breathing LED with 50 software-PWM duty levels (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level1
+# Renode has no nRF52840 PWM peripheral model, so the prompt mandates
+# software PWM on the GPIO (a ~500 Hz carrier toggled with k_busy_wait,
+# which Zephyr times off the 32768 Hz cycle counter: ~30.5 us granularity,
+# <1% duty error on a 2 ms period). The pwm_breathing validator measures
+# duty progression from the synthesized VCD exactly as it does for the
+# Wokwi analogWrite version.
+fixture:
+  family: single_led_output
+  pins:
+    led: "P0.24"
+  analyzer:
+    channels:
+      - signal: D0
+        pin: "P0.24"
+validator:
+  family: pwm_breathing
+  params:
+    channel: D0
+    levels: 50
+    step_interval_s: 0.01
+    full_period_range_s: [0.95, 1.05]
+    duty_tolerance: 0.03
+simulation:
+  timeout_ms: 2000
+case:
+  id: breathing-led-renode-nano33
+  sketch_name: breathing_led

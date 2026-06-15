@@ -1,0 +1,98 @@
+task_id: rotary_encoder
+name: Track rotary encoder position and direction on serial (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level2
+# Dual digital-pullup surrogate, same as the Arduino Mega fixture: CLK and DT
+# idle HIGH and are pulsed LOW through a clean Gray-code sequence (one bit per
+# step). One full quadrature cycle = one detent; CLK leads for CW, DT leads
+# for CCW. Unlike the Arduino task this one runs two stimulus variants with
+# different detent patterns, so a replayed position/direction transcript
+# cannot pass.
+fixture:
+  family: composite
+  components:
+    - {type: digital_pullup, id: enc_clk, pins: {signal: "P1.11"}}
+    - {type: digital_pullup, id: enc_dt, pins: {signal: "P1.12"}}
+scenario:
+  family: control_sequence
+  initial_delay_ms: 200
+  controls:
+    # 3 CW detents: idle(1,1) -> (0,1) -> (0,0) -> (1,0) -> (1,1), one bit per step.
+    - {part_id: enc_clk, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 0, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 0, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 0, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 0, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 0, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 0, duration_ms: 40}
+    # 2 CCW detents: idle(1,1) -> (1,0) -> (0,0) -> (0,1) -> (1,1) (DT leads).
+    - {part_id: enc_dt, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 0, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 0, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 1, duration_ms: 20}
+    - {part_id: enc_dt, control: pressed, value: 0, duration_ms: 20}
+    - {part_id: enc_clk, control: pressed, value: 0, duration_ms: 40}
+simulation_variants:
+  - id: three_cw_two_ccw
+  - id: one_cw_four_ccw
+    scenario:
+      family: control_sequence
+      initial_delay_ms: 200
+      controls:
+        # 1 CW detent.
+        - {part_id: enc_clk, control: pressed, value: 1, duration_ms: 20}
+        - {part_id: enc_dt, control: pressed, value: 1, duration_ms: 20}
+        - {part_id: enc_clk, control: pressed, value: 0, duration_ms: 20}
+        - {part_id: enc_dt, control: pressed, value: 0, duration_ms: 40}
+        # 4 CCW detents (five lines total: the base oracle has five
+        # observations and deep_merge merges them positionally, so every
+        # entry must be overridden explicitly).
+        - {part_id: enc_dt, control: pressed, value: 1, duration_ms: 20}
+        - {part_id: enc_clk, control: pressed, value: 1, duration_ms: 20}
+        - {part_id: enc_dt, control: pressed, value: 0, duration_ms: 20}
+        - {part_id: enc_clk, control: pressed, value: 0, duration_ms: 20}
+        - {part_id: enc_dt, control: pressed, value: 1, duration_ms: 20}
+        - {part_id: enc_clk, control: pressed, value: 1, duration_ms: 20}
+        - {part_id: enc_dt, control: pressed, value: 0, duration_ms: 20}
+        - {part_id: enc_clk, control: pressed, value: 0, duration_ms: 20}
+        - {part_id: enc_dt, control: pressed, value: 1, duration_ms: 20}
+        - {part_id: enc_clk, control: pressed, value: 1, duration_ms: 20}
+        - {part_id: enc_dt, control: pressed, value: 0, duration_ms: 20}
+        - {part_id: enc_clk, control: pressed, value: 0, duration_ms: 20}
+        - {part_id: enc_dt, control: pressed, value: 1, duration_ms: 20}
+        - {part_id: enc_clk, control: pressed, value: 1, duration_ms: 20}
+        - {part_id: enc_dt, control: pressed, value: 0, duration_ms: 20}
+        - {part_id: enc_clk, control: pressed, value: 0, duration_ms: 40}
+    validator:
+      checks:
+        - {}
+        - params:
+            observations:
+              - {label: cw1, patterns: ["Direction: CW"], numeric_ranges: [[1, 1]]}
+              - {label: ccw1, patterns: ["Direction: CCW"], numeric_ranges: [[0, 0]]}
+              - {label: ccw2, patterns: ["Direction: CCW"], numeric_ranges: [[-1, -1]]}
+              - {label: ccw3, patterns: ["Direction: CCW"], numeric_ranges: [[-2, -2]]}
+              - {label: ccw4, patterns: ["Direction: CCW"], numeric_ranges: [[-3, -3]]}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_patterns: ["gpio_pin_get(?:_dt|_raw)?\\s*\\(", "printk\\s*\\("]
+    - family: serial_observation_sequence
+      params:
+        observations:
+          - {label: cw1, patterns: ["Direction: CW"], numeric_ranges: [[1, 1]]}
+          - {label: cw2, patterns: ["Direction: CW"], numeric_ranges: [[2, 2]]}
+          - {label: cw3, patterns: ["Direction: CW"], numeric_ranges: [[3, 3]]}
+          - {label: ccw1, patterns: ["Direction: CCW"], numeric_ranges: [[2, 2]]}
+          - {label: ccw2, patterns: ["Direction: CCW"], numeric_ranges: [[1, 1]]}
+simulation: {timeout_ms: 1400, require_distinct_variant_outputs: true}
+case: {id: rotary-encoder-renode-nano33, sketch_name: rotary_encoder}

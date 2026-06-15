@@ -1,0 +1,61 @@
+task_id: tmp36_read
+name: Read TMP36-like analog temperature on AIN0 and print Celsius (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level1
+fixture:
+  family: analog_temperature_serial
+  analog_source:
+    # The analog voltage source is a channel of the IoT-Bench SAADC model
+    # (bench/chips/saadc/). TMP36 mapping: Celsius = (Vout - 0.5) * 100 at
+    # 3.3 V full scale / 4095 counts (board profile). initial_value is the
+    # raw count before the scenario runs.
+    initial_value: 620
+scenario:
+  family: analog_position_sequence
+  part_id: pot1
+  initial_delay_ms: 200
+  positions:
+    - value: 0.25
+      duration_ms: 350
+    - value: 0.40
+      duration_ms: 350
+# Two stimulus timelines: firmware that replays one variant's expected
+# temperatures fails the other, and require_distinct_variant_outputs rejects
+# identical outputs. Expected Celsius values derive from the 3.3 V / 4095
+# board profile: C = (position * 3.3 - 0.5) * 100.
+simulation_variants:
+  - id: rising
+  - id: falling
+    scenario:
+      family: analog_position_sequence
+      part_id: pot1
+      initial_delay_ms: 200
+      positions:
+        - value: 0.30
+          duration_ms: 350
+        - value: 0.20
+          duration_ms: 350
+    validator:
+      checks:
+        - {}
+        - params:
+            expected_celsius: [49.0, 16.0]
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        # Require the real ADC read path so a hard-coded print stub fails
+        # statically.
+        required_any_patterns:
+          - ["adc_read\\s*\\(", "adc_read_dt\\s*\\(", "adc_read_async\\s*\\("]
+    - family: analog_temperature_serial
+      params:
+        expected_celsius: [32.5, 82.0]
+        tolerance_celsius: 6.0
+simulation:
+  timeout_ms: 1200
+  require_distinct_variant_outputs: true
+case:
+  id: tmp36-read-renode-nano33
+  sketch_name: tmp36_read

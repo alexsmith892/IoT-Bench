@@ -1,0 +1,32 @@
+task_id: button_status_display
+name: Print Button Pressed! when a pull-down button is pressed (Zephyr)
+platform: zephyr_nano33ble
+level: level1
+fixture:
+  family: button_serial
+  pins:
+    button: "P1.11"
+scenario:
+  family: button_press_sequence
+  part_id: btn1
+  initial_delay_ms: 200
+  presses:
+    - duration_ms: 200
+      after_ms: 250
+    - duration_ms: 200
+      after_ms: 250
+static_checks:
+  required_patterns: ["gpio_pin_get(?:_dt|_raw)?\\s*\\("]
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+    - family: serial_contains_on_stimulus
+      params:
+        expected_texts: ["Button Pressed!"]
+        min_count: 2
+simulation:
+  timeout_ms: 1200
+case:
+  id: button-status-display-renode-nano33
+  sketch_name: button_status_display

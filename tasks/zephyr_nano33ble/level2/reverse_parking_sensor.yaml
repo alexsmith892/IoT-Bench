@@ -1,0 +1,34 @@
+task_id: reverse_parking_sensor
+name: Pulse passive buzzer faster as object approaches (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level2
+# Fixed 40 cm obstacle (IoT-Bench HC-SR04 model). The buzzer pitch must
+# follow the prompt's mapping (freq = 2500 - 20 * distance -> 1700 Hz at
+# 40 cm, inside the 1111-2000 Hz window).
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "P0.27"}
+  components:
+    - type: hcsr04
+      id: sonar1
+      pins: {trig: "P1.11", echo: "P1.10"}
+      attrs: {distance: "40"}
+    - type: buzzer
+      id: buzzer1
+      pin: "P0.27"
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_patterns:
+          ["gpio_pin_set(?:_dt|_raw)?\\s*\\(", "gpio_pin_get(?:_dt|_raw)?\\s*\\("]
+    - family: frequency_windows
+      params:
+        channel: D0
+        windows:
+          - {start_s: 0.20, end_s: 1.20, half_period_range_s: [0.00025, 0.00045], full_period_range_s: [0.00050, 0.00090]}
+simulation: {timeout_ms: 1400}
+case: {id: reverse-parking-sensor-renode-nano33, sketch_name: reverse_parking_sensor}
