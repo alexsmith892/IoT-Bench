@@ -50,3 +50,16 @@ cases/*/artifacts/variants/*/*
 
 # Renode CreateFileBackend rotates an existing log to <name>.1 instead of truncating.
 cases/*/artifacts/serial/*.serial.log.*
+
+# Local-only agent-context system (private project memory, not shipped docs).
+# Root agent guides and the .agent-context notes stay untracked on purpose;
+# the shipped overview is README.md, which remains tracked. If a nested
+# path-scoped AGENTS.md/CLAUDE.md is ever added, these patterns already cover it.
+/AGENTS.md
+/CLAUDE.md
+.agent-context/
+**/AGENTS.md
+**/CLAUDE.md
+
+# Local Zephyr flake investigation logs (not fixtures).
+zephyr-flakes*.jsonl
