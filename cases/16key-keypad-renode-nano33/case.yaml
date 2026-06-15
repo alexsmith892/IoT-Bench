@@ -1,0 +1,12 @@
+task_id: 16key_keypad
+case_id: 16key-keypad-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/keypad_16key
+  diagram: case.repl
+  build: artifacts/build
+  scenario: scenario.yaml
+  serial_log: artifacts/serial/serial.log
+  resc: case.resc

@@ -1,0 +1,27 @@
+{
+  "id": "blink-led-morse-code-renode-nano33",
+  "task": "blink_led_morse_code",
+  "name": "Blink SOS in Morse code on the Nano 33 BLE red LED (Zephyr)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/blink_led_morse_code",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/renode.vcd",
+    "resc": "case.resc"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO P0.24"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO P0.24"
+    }
+  ]
+}

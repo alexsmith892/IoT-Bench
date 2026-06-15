@@ -1,0 +1,12 @@
+task_id: mpu6050_read_button_display
+case_id: mpu6050-read-button-display-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/mpu6050_read_button_display
+  diagram: case.repl
+  build: artifacts/build
+  vcd: artifacts/logic/renode.vcd
+  scenario: scenario.yaml
+  resc: case.resc

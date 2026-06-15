@@ -1,0 +1,15 @@
+name: tmp36_read automation
+version: 1
+author: IoT-Bench
+steps:
+- delay: 200ms
+- set-control:
+    part-id: pot1
+    control: position
+    value: 0.25
+- delay: 350ms
+- set-control:
+    part-id: pot1
+    control: position
+    value: 0.4
+- delay: 350ms

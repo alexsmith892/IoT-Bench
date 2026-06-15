@@ -1,0 +1,50 @@
+name: buzzer_button automation
+version: 1
+author: IoT-Bench
+steps:
+- delay: 200ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 1ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 1ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 2ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 1ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 80ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 300ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 80ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 250ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 250ms

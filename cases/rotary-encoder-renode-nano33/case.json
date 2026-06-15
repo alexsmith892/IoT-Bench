@@ -1,0 +1,18 @@
+{
+  "id": "rotary-encoder-renode-nano33",
+  "task": "rotary_encoder",
+  "name": "Track rotary encoder position and direction on serial (Zephyr / Nano 33 BLE)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/rotary_encoder",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "scenario": "scenario.yaml",
+    "serial_log": "artifacts/serial/serial.log",
+    "resc": "case.resc"
+  }
+}

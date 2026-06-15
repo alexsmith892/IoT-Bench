@@ -1,0 +1,12 @@
+task_id: buzzer_button
+case_id: buzzer-button-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/buzzer_button
+  diagram: case.repl
+  build: artifacts/build
+  vcd: artifacts/logic/renode.vcd
+  scenario: scenario.yaml
+  resc: case.resc

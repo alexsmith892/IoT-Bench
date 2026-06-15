@@ -1,0 +1,18 @@
+{
+  "id": "16key-keypad-renode-nano33",
+  "task": "16key_keypad",
+  "name": "Scan 16 key keypad and print detected key (Zephyr / Nano 33 BLE)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/keypad_16key",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "scenario": "scenario.yaml",
+    "serial_log": "artifacts/serial/serial.log",
+    "resc": "case.resc"
+  }
+}

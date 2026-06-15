@@ -1,0 +1,28 @@
+{
+  "id": "photoresistor-nightlight-renode-nano33",
+  "task": "photoresistor_nightlight",
+  "name": "Turn on LED when photoresistor light level falls below threshold (Zephyr / Nano 33 BLE)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/photoresistor_nightlight",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/renode.vcd",
+    "scenario": "scenario.yaml",
+    "resc": "case.resc"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO P0.24"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO P0.24"
+    }
+  ]
+}

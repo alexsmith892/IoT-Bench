@@ -1,0 +1,15 @@
+name: tilt_detection_alarm automation
+version: 1
+author: IoT-Bench
+steps:
+- delay: 200ms
+- set-control:
+    part-id: tilt1
+    control: pressed
+    value: 1
+- delay: 500ms
+- set-control:
+    part-id: tilt1
+    control: pressed
+    value: 0
+- delay: 300ms

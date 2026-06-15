@@ -1,0 +1,32 @@
+{
+  "id": "buzzer-toggle-led-freq-renode-nano33",
+  "task": "buzzer_toggle_led_freq",
+  "name": "Cycle LED blink frequency on button press and beep buzzer (Zephyr)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/buzzer_toggle_led_freq",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/renode.vcd",
+    "scenario": "scenario.yaml",
+    "resc": "case.resc"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO P0.16"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO P0.16"
+    },
+    {
+      "vcd_name": "D1",
+      "expected_connection": "GPIO P1.12"
+    }
+  ]
+}

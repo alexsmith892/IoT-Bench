@@ -1,0 +1,25 @@
+name: clap_switch automation
+version: 1
+author: IoT-Bench
+steps:
+- delay: 200ms
+- set-control:
+    part-id: sound1
+    control: pressed
+    value: 1
+- delay: 120ms
+- set-control:
+    part-id: sound1
+    control: pressed
+    value: 0
+- delay: 350ms
+- set-control:
+    part-id: sound1
+    control: pressed
+    value: 1
+- delay: 120ms
+- set-control:
+    part-id: sound1
+    control: pressed
+    value: 0
+- delay: 300ms

@@ -1,0 +1,12 @@
+task_id: hcsr501_motion_alarm
+case_id: hcsr501-motion-alarm-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/hcsr501_motion_alarm
+  diagram: case.repl
+  build: artifacts/build
+  vcd: artifacts/logic/renode.vcd
+  scenario: scenario.yaml
+  resc: case.resc

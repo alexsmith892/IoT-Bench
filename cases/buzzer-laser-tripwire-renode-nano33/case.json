@@ -1,0 +1,32 @@
+{
+  "id": "buzzer-laser-tripwire-renode-nano33",
+  "task": "buzzer_laser_tripwire",
+  "name": "Trigger buzzer when laser beam to photoresistor is blocked (Zephyr / Nano 33 BLE)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/buzzer_laser_tripwire",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/renode.vcd",
+    "scenario": "scenario.yaml",
+    "resc": "case.resc"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO P0.21"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO P0.21"
+    },
+    {
+      "vcd_name": "D1",
+      "expected_connection": "GPIO P0.27"
+    }
+  ]
+}

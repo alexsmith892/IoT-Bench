@@ -1,0 +1,105 @@
+name: rotary_encoder automation
+version: 1
+author: IoT-Bench
+steps:
+- delay: 200ms
+- set-control:
+    part-id: enc_clk
+    control: pressed
+    value: 1
+- delay: 20ms
+- set-control:
+    part-id: enc_dt
+    control: pressed
+    value: 1
+- delay: 20ms
+- set-control:
+    part-id: enc_clk
+    control: pressed
+    value: 0
+- delay: 20ms
+- set-control:
+    part-id: enc_dt
+    control: pressed
+    value: 0
+- delay: 20ms
+- set-control:
+    part-id: enc_clk
+    control: pressed
+    value: 1
+- delay: 20ms
+- set-control:
+    part-id: enc_dt
+    control: pressed
+    value: 1
+- delay: 20ms
+- set-control:
+    part-id: enc_clk
+    control: pressed
+    value: 0
+- delay: 20ms
+- set-control:
+    part-id: enc_dt
+    control: pressed
+    value: 0
+- delay: 20ms
+- set-control:
+    part-id: enc_clk
+    control: pressed
+    value: 1
+- delay: 20ms
+- set-control:
+    part-id: enc_dt
+    control: pressed
+    value: 1
+- delay: 20ms
+- set-control:
+    part-id: enc_clk
+    control: pressed
+    value: 0
+- delay: 20ms
+- set-control:
+    part-id: enc_dt
+    control: pressed
+    value: 0
+- delay: 40ms
+- set-control:
+    part-id: enc_dt
+    control: pressed
+    value: 1
+- delay: 20ms
+- set-control:
+    part-id: enc_clk
+    control: pressed
+    value: 1
+- delay: 20ms
+- set-control:
+    part-id: enc_dt
+    control: pressed
+    value: 0
+- delay: 20ms
+- set-control:
+    part-id: enc_clk
+    control: pressed
+    value: 0
+- delay: 20ms
+- set-control:
+    part-id: enc_dt
+    control: pressed
+    value: 1
+- delay: 20ms
+- set-control:
+    part-id: enc_clk
+    control: pressed
+    value: 1
+- delay: 20ms
+- set-control:
+    part-id: enc_dt
+    control: pressed
+    value: 0
+- delay: 20ms
+- set-control:
+    part-id: enc_clk
+    control: pressed
+    value: 0
+- delay: 40ms

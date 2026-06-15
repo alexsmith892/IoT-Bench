@@ -1,0 +1,28 @@
+{
+  "id": "clap-switch-renode-nano33",
+  "task": "clap_switch",
+  "name": "Toggle relay on digital sound sensor clap events (Zephyr)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/clap_switch",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/renode.vcd",
+    "scenario": "scenario.yaml",
+    "resc": "case.resc"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO P0.16"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO P0.16"
+    }
+  ]
+}

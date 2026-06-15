@@ -1,0 +1,28 @@
+{
+  "id": "hcsr501-motion-alarm-renode-nano33",
+  "task": "hcsr501_motion_alarm",
+  "name": "Sound active buzzer when HC-SR501 detects motion (Zephyr)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/hcsr501_motion_alarm",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/renode.vcd",
+    "scenario": "scenario.yaml",
+    "resc": "case.resc"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO P1.12"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO P1.12"
+    }
+  ]
+}

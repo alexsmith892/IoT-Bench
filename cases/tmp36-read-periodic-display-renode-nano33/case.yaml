@@ -1,0 +1,12 @@
+task_id: tmp36_read_periodic_display
+case_id: tmp36-read-periodic-display-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/tmp36_read_periodic_display
+  diagram: case.repl
+  build: artifacts/build
+  vcd: artifacts/logic/renode.vcd
+  scenario: scenario.yaml
+  resc: case.resc

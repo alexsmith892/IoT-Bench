@@ -1,0 +1,12 @@
+task_id: photoresistor_nightlight
+case_id: photoresistor-nightlight-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/photoresistor_nightlight
+  diagram: case.repl
+  build: artifacts/build
+  vcd: artifacts/logic/renode.vcd
+  scenario: scenario.yaml
+  resc: case.resc

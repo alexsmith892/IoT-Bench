@@ -1,0 +1,11 @@
+task_id: breathing_led
+case_id: breathing-led-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/breathing_led
+  diagram: case.repl
+  build: artifacts/build
+  vcd: artifacts/logic/renode.vcd
+  resc: case.resc

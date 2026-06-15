@@ -1,0 +1,11 @@
+task_id: bme280_read_i2c
+case_id: bme280-read-i2c-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/bme280_read_i2c
+  diagram: case.repl
+  build: artifacts/build
+  serial_log: artifacts/serial/serial.log
+  resc: case.resc

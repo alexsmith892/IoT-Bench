@@ -1,0 +1,28 @@
+{
+  "id": "lcd1602-auto-brightness-control-renode-nano33",
+  "task": "lcd1602_auto_brightness_control",
+  "name": "Auto-adjust LCD backlight brightness from ambient light (Zephyr / Nano 33 BLE)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/lcd1602_auto_brightness_control",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/renode.vcd",
+    "scenario": "scenario.yaml",
+    "resc": "case.resc"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO P1.08"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO P1.08"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+task_id: blink_two_leds
+case_id: blink-two-leds-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/blink_two_leds
+  diagram: case.repl
+  build: artifacts/build
+  vcd: artifacts/logic/renode.vcd
+  resc: case.resc

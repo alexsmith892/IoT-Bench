@@ -1,0 +1,12 @@
+task_id: buzzer_laser_tripwire
+case_id: buzzer-laser-tripwire-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/buzzer_laser_tripwire
+  diagram: case.repl
+  build: artifacts/build
+  vcd: artifacts/logic/renode.vcd
+  scenario: scenario.yaml
+  resc: case.resc

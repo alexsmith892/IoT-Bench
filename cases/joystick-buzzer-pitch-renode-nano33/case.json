@@ -1,0 +1,28 @@
+{
+  "id": "joystick-buzzer-pitch-renode-nano33",
+  "task": "joystick_buzzer_pitch",
+  "name": "Map joystick Y-axis analog input to passive buzzer pitch (Zephyr / Nano 33 BLE)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/joystick_buzzer_pitch",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/renode.vcd",
+    "scenario": "scenario.yaml",
+    "resc": "case.resc"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO P0.27"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO P0.27"
+    }
+  ]
+}

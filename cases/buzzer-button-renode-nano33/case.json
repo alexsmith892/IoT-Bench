@@ -1,0 +1,28 @@
+{
+  "id": "buzzer-button-renode-nano33",
+  "task": "buzzer_button",
+  "name": "Debounced button-controlled buzzer on Nano 33 BLE (Zephyr)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/buzzer_button",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/renode.vcd",
+    "scenario": "scenario.yaml",
+    "resc": "case.resc"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO P1.12"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO P1.12"
+    }
+  ]
+}

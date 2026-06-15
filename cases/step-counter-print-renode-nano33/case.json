@@ -1,0 +1,18 @@
+{
+  "id": "step-counter-print-renode-nano33",
+  "task": "step_counter_print",
+  "name": "Count movement spikes from GY-521/MPU6050 and print steps (Zephyr / Nano 33 BLE)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/step_counter_print",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "scenario": "scenario.yaml",
+    "serial_log": "artifacts/serial/serial.log",
+    "resc": "case.resc"
+  }
+}

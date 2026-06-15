@@ -1,0 +1,17 @@
+{
+  "id": "mpu6050-read-i2c-renode-nano33",
+  "task": "mpu6050_read_i2c",
+  "name": "Read MPU6050 raw accelerometer and gyroscope values over I2C (Zephyr / Nano 33 BLE)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/mpu6050_read_i2c",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "serial_log": "artifacts/serial/serial.log",
+    "resc": "case.resc"
+  }
+}

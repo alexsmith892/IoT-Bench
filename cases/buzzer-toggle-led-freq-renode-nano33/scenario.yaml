@@ -1,0 +1,45 @@
+name: buzzer_toggle_led_freq automation
+version: 1
+author: IoT-Bench
+steps:
+- delay: 200ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 100ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 2500ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 100ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 1600ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 100ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 1000ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 100ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 500ms

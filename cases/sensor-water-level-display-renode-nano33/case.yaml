@@ -1,0 +1,12 @@
+task_id: sensor_water_level_display
+case_id: sensor-water-level-display-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/sensor_water_level_display
+  diagram: case.repl
+  build: artifacts/build
+  vcd: artifacts/logic/renode.vcd
+  scenario: scenario.yaml
+  resc: case.resc

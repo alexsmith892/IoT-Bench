@@ -1,0 +1,31 @@
+{
+  "id": "blink-two-leds-renode-nano33",
+  "task": "blink_two_leds",
+  "name": "Blink two Nano 33 BLE GPIO LEDs at 1 Hz and 2 Hz without blocking sleeps (Zephyr)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/blink_two_leds",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/renode.vcd",
+    "resc": "case.resc"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO P0.24"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO P0.24"
+    },
+    {
+      "vcd_name": "D1",
+      "expected_connection": "GPIO P0.16"
+    }
+  ]
+}

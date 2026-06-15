@@ -1,0 +1,18 @@
+{
+  "id": "tmp36-read-renode-nano33",
+  "task": "tmp36_read",
+  "name": "Read TMP36-like analog temperature on AIN0 and print Celsius (Zephyr / Nano 33 BLE)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/tmp36_read",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "scenario": "scenario.yaml",
+    "serial_log": "artifacts/serial/serial.log",
+    "resc": "case.resc"
+  }
+}

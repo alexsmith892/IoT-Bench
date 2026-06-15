@@ -1,0 +1,48 @@
+{
+  "id": "mpu6050-read-button-display-renode-nano33",
+  "task": "mpu6050_read_button_display",
+  "name": "Read MPU6050 on button interrupt and display accel/gyro on LCD (Zephyr / Nano 33 BLE)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/mpu6050_read_button_display",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/renode.vcd",
+    "scenario": "scenario.yaml",
+    "resc": "case.resc"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO P1.12"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO P1.12"
+    },
+    {
+      "vcd_name": "D1",
+      "expected_connection": "GPIO P1.14"
+    },
+    {
+      "vcd_name": "D2",
+      "expected_connection": "GPIO P1.15"
+    },
+    {
+      "vcd_name": "D3",
+      "expected_connection": "GPIO P1.13"
+    },
+    {
+      "vcd_name": "D4",
+      "expected_connection": "GPIO P0.21"
+    },
+    {
+      "vcd_name": "D5",
+      "expected_connection": "GPIO P0.27"
+    }
+  ]
+}

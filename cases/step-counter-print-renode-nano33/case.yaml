@@ -1,0 +1,12 @@
+task_id: step_counter_print
+case_id: step-counter-print-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/step_counter_print
+  diagram: case.repl
+  build: artifacts/build
+  scenario: scenario.yaml
+  serial_log: artifacts/serial/serial.log
+  resc: case.resc

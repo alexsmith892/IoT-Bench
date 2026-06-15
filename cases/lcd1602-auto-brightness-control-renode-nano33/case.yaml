@@ -1,0 +1,12 @@
+task_id: lcd1602_auto_brightness_control
+case_id: lcd1602-auto-brightness-control-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/lcd1602_auto_brightness_control
+  diagram: case.repl
+  build: artifacts/build
+  vcd: artifacts/logic/renode.vcd
+  scenario: scenario.yaml
+  resc: case.resc
