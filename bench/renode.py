@@ -48,8 +48,34 @@ NANO33BLE_VECTOR_TABLE_OFFSET = "0x10000"
 # Renode model's settable decimal properties below.
 RENODE_PERIPHERAL_CONTROLS: dict[str, set[str]] = {
     "button": {"pressed"},
+    # Wokwi digital_pullup surrogate semantics: idle HIGH, pressed=1 drives
+    # the pin LOW (an inverted Renode Button).
+    "digital_pullup": {"pressed"},
+    # Cross-point key of the 4x4 matrix keypad model
+    # (bench/chips/keypad/MatrixKeypad.cs), same vocabulary as the Wokwi
+    # matrix_key surrogate.
+    "matrix_key": {"pressed"},
+    # IoT-Bench HC-SR04 model (bench/chips/hcsr04/HCSR04.cs): same `distance`
+    # (cm) control as the Wokwi native part; echo width is 58 us/cm.
+    "hcsr04": {"distance"},
     "lsm9ds1": {"accelX", "accelY", "accelZ", "rotationX", "rotationY", "rotationZ", "temperature"},
     "ds1307": {"initTime"},
+    # Native Renode BME280 (Antmicro.Renode.Peripherals.I2C.BME280). Only the
+    # temperature and humidity channels are exposed: both round-trip exactly
+    # through the Bosch compensation math over the model's registers (verified
+    # live, Renode v1.16.1). The model's Pressure property is deliberately NOT
+    # mapped: its encoder is ~1056x off from the datasheet compensation
+    # formulas (setting 101325 Pa yields ~1.069e8 Pa from firmware-side Bosch
+    # math, with ~6.4 kPa of quantization per ADC count), so no pressure
+    # oracle over this model can be sound.
+    "bme280": {"temperatureC", "humidityRH"},
+    # IoT-Bench C# MPU6050 (bench/chips/mpu6050/MPU6050.cs): same control
+    # vocabulary as the Wokwi-native MPU6050 (accel in g, rotation in deg/s).
+    "mpu6050": {"accelX", "accelY", "accelZ", "rotationX", "rotationY", "rotationZ", "temperature"},
+    # Analog voltage source on a SAADC channel (the Renode counterpart of the
+    # Wokwi potentiometer surrogate): `position` is the Wokwi control
+    # vocabulary (0..1 of full scale), `value` the raw ADC count attr.
+    "analog_source": {"position", "value"},
 }
 
 # control name -> Renode model property for property-backed parts.
@@ -66,6 +92,22 @@ SENSOR_CONTROL_PROPERTIES: dict[str, dict[str, str]] = {
     "ds1307": {
         "initTime": "InitTime",
     },
+    "bme280": {
+        "temperatureC": "Temperature",
+        "humidityRH": "Humidity",
+    },
+    "mpu6050": {
+        "accelX": "AccelerationX",
+        "accelY": "AccelerationY",
+        "accelZ": "AccelerationZ",
+        "rotationX": "AngularRateX",
+        "rotationY": "AngularRateY",
+        "rotationZ": "AngularRateZ",
+        "temperature": "Temperature",
+    },
+    "hcsr04": {
+        "distance": "DistanceCm",
+    },
 }
 
 # Renode peripheral class per sensor part type, and which controls take a
@@ -73,6 +115,8 @@ SENSOR_CONTROL_PROPERTIES: dict[str, dict[str, str]] = {
 SENSOR_PART_CLASSES: dict[str, str] = {
     "lsm9ds1": "Sensors.LSM9DS1_IMU",
     "ds1307": "I2C.IoTBench_DS1307",
+    "bme280": "I2C.BME280",
+    "mpu6050": "I2C.IoTBench_MPU6050",
 }
 STRING_VALUED_CONTROLS: dict[str, set[str]] = {
     "ds1307": {"initTime"},
@@ -81,11 +125,39 @@ STRING_VALUED_CONTROLS: dict[str, set[str]] = {
 # at include time, mapped to the source file under bench/chips/.
 SENSOR_PLUGIN_SOURCES: dict[str, str] = {
     "ds1307": "ds1307/DS1307.cs",
+    "mpu6050": "mpu6050/MPU6050.cs",
+    "analog_source": "saadc/NRF52840_SAADC.cs",
+    "matrix_key": "keypad/MatrixKeypad.cs",
+    "hcsr04": "hcsr04/HCSR04.cs",
 }
 DEFAULT_I2C_ADDRESSES: dict[str, int] = {
     "lsm9ds1": 0x6B,
     "ds1307": 0x68,
+    "bme280": 0x76,
+    "mpu6050": 0x68,
 }
+
+# Analog parts are not bus peripherals: they are channels of a single custom
+# SAADC model mapped at the nRF52840 SAADC base address (the stock
+# nrf52840.repl has nothing at 0x40007000 - verified live). All analog parts
+# in a fixture share this one peripheral.
+SAADC_MONITOR_NAME = "saadc0"
+SAADC_REPL_CLASS = "Analog.IoTBench_NRF52840_SAADC"
+SAADC_BASE_ADDRESS = "0x40007000"
+SAADC_IRQ = 7
+
+# All matrix_key parts in a fixture are cross-points of a single 4x4 keypad
+# model, sysbus-mapped at an unused address purely for a monitor name; rows
+# and columns are wired through GPIO connections in the generated repl.
+KEYPAD_MONITOR_NAME = "keypad0"
+KEYPAD_REPL_CLASS = "Miscellaneous.IoTBench_MatrixKeypad"
+KEYPAD_BASE_ADDRESS = "0x5F000000"
+
+# HC-SR04 models are sysbus-mapped at consecutive unused addresses (one per
+# part, monitor name = part id); echo drives the configured pin, trigger is
+# wired from its port into GPIO input 0.
+HCSR04_REPL_CLASS = "Miscellaneous.IoTBench_HCSR04"
+HCSR04_BASE_ADDRESS = 0x5F001000
 
 # Peripheral names already declared by platforms/cpus/nrf52840.repl; a part
 # id reusing one fails at repl load with "Variable already declared".
@@ -93,7 +165,9 @@ RESERVED_PART_IDS = {
     "cpu", "nvic", "clock", "flash", "ram", "ppi", "gpiote",
     "gpio0", "gpio1", "uart0", "uart1", "twi0", "twi1", "spi2",
     "rtc0", "rtc1", "rtc2", "timer0", "timer1", "timer2", "timer3", "timer4",
-    "wdt", "rng", "radio", "ficr", "temperature", "ecb", "sysbus",
+    "wdt", "rng", "radio", "ficr", "temperature", "ecb", "sysbus", "i2s",
+    # Declared by the backend itself when the fixture has analog/matrix parts.
+    "saadc0", "keypad0",
 }
 
 
@@ -121,9 +195,10 @@ def renode_parts(task: TaskConfig) -> dict[str, dict[str, Any]]:
 
     Probes for analyzer channels are handled separately; this maps the
     scenario-controllable inputs. Fixture families reuse the Wokwi component
-    vocabulary where it is digital-input shaped; anything that needs a
-    peripheral model Renode lacks (ADC sources, etc.) is rejected here so it
-    fails at lint/generate time rather than producing a silent IF.
+    vocabulary where it is digital-input or analog-source shaped (analog
+    sources are channels of the custom SAADC model); anything that needs a
+    peripheral model the backend lacks is rejected here so it fails at
+    lint/generate time rather than producing a silent IF.
     """
 
     parts: dict[str, dict[str, Any]] = {}
@@ -137,10 +212,29 @@ def renode_parts(task: TaskConfig) -> dict[str, dict[str, Any]]:
                 "declared by the nRF52840 platform; pick another id"
             )
 
-    def add_button(part_id: str, pin: str) -> None:
+    def add_button(part_id: str, pin: str, part_type: str = "button") -> None:
         require_usable_id(part_id)
         port, index = parse_gpio_pin(pin)
-        parts[part_id] = {"type": "button", "port": port, "pin": index}
+        parts[part_id] = {"type": part_type, "port": port, "pin": index}
+
+    analog_channels_used = 0
+
+    def add_analog(part_id: str, component: dict[str, Any]) -> None:
+        nonlocal analog_channels_used
+        require_usable_id(part_id)
+        channel = component.get("channel")
+        if channel is None:
+            channel = analog_channels_used
+        channel = int(channel)
+        analog_channels_used = max(analog_channels_used, channel + 1)
+        if not 0 <= channel <= 7:
+            raise RenodeConfigError(
+                f"{task.task_id}: analog component {part_id!r} channel {channel} outside SAADC 0..7"
+            )
+        attrs = dict(component.get("attrs") or {})
+        for control in attrs:
+            require_known_control(task, "analog_source", part_id, control)
+        parts[part_id] = {"type": "analog_source", "channel": channel, "attrs": attrs}
 
     if family == "button_serial":
         add_button("btn1", pins.get("button", task.board_profile.default_pins["button"]))
@@ -150,13 +244,27 @@ def renode_parts(task: TaskConfig) -> dict[str, dict[str, Any]]:
         for component in task.fixture.get("components", []) or []:
             ctype = str(component.get("type", ""))
             part_id = str(component.get("id", ""))
-            if ctype in {"button", "wokwi-pushbutton", "digital_pullup", "pir"}:
+            if ctype in {"button", "wokwi-pushbutton", "digital_pullup", "pir", "shock_sensor"}:
                 pin = str(component.get("pin") or component.get("pins", {}).get("signal", ""))
                 if not pin:
                     raise RenodeConfigError(
                         f"{task.task_id}: composite component {part_id!r} needs a pin"
                     )
-                add_button(part_id, pin)
+                add_button(part_id, pin, "digital_pullup" if ctype == "digital_pullup" else "button")
+            elif ctype == "matrix_key":
+                require_usable_id(part_id)
+                key_pins = component.get("pins") or {}
+                row = key_pins.get("row")
+                col = key_pins.get("col")
+                if not row or not col:
+                    raise RenodeConfigError(
+                        f"{task.task_id}: matrix_key {part_id!r} needs pins.row and pins.col"
+                    )
+                parts[part_id] = {
+                    "type": "matrix_key",
+                    "row_pin": parse_gpio_pin(str(row)),
+                    "col_pin": parse_gpio_pin(str(col)),
+                }
             elif ctype in SENSOR_PART_CLASSES:
                 require_usable_id(part_id)
                 address = int(str(component.get("address", DEFAULT_I2C_ADDRESSES[ctype])), 0)
@@ -169,7 +277,30 @@ def renode_parts(task: TaskConfig) -> dict[str, dict[str, Any]]:
                     "address": address,
                     "attrs": attrs,
                 }
-            elif ctype in {"led", "buzzer", "lcd1602"}:
+            elif ctype == "hcsr04":
+                require_usable_id(part_id)
+                sonar_pins = component.get("pins") or {}
+                trig = sonar_pins.get("trig")
+                echo = sonar_pins.get("echo")
+                if not trig or not echo:
+                    raise RenodeConfigError(
+                        f"{task.task_id}: hcsr04 {part_id!r} needs pins.trig and pins.echo"
+                    )
+                attrs = dict(component.get("attrs") or {})
+                for control in attrs:
+                    require_known_control(task, ctype, part_id, control)
+                parts[part_id] = {
+                    "type": "hcsr04",
+                    "trig_pin": parse_gpio_pin(str(trig)),
+                    "echo_pin": parse_gpio_pin(str(echo)),
+                    "attrs": attrs,
+                }
+            elif ctype in {"analog_source", "photoresistor", "potentiometer", "water_level", "joystick_axis"}:
+                # Analog voltage sources are channels of the shared SAADC
+                # model regardless of the physical part they stand in for;
+                # the task YAML states the volts/counts mapping it assumes.
+                add_analog(part_id, component)
+            elif ctype in {"led", "buzzer", "lcd1602", "relay"}:
                 # Outputs are observed via analyzer probes, not parts; the
                 # LCD1602 in particular is decoded from the synthesized VCD
                 # (bench/lcd1602.py), so no peripheral model is needed.
@@ -178,6 +309,17 @@ def renode_parts(task: TaskConfig) -> dict[str, dict[str, Any]]:
                 raise RenodeConfigError(
                     f"{task.task_id}: component type {ctype!r} is not supported by the Renode backend"
                 )
+    elif family == "analog_temperature_serial":
+        # Mirrors bench.diagrams.analog_temperature_serial: one potentiometer
+        # surrogate ("pot1") as the analog voltage source, here a channel of
+        # the custom SAADC model. initial_value is a raw ADC count.
+        initial = task.fixture.get("analog_source", {}).get("initial_value", 153)
+        require_usable_id("pot1")
+        parts["pot1"] = {
+            "type": "analog_source",
+            "channel": 0,
+            "attrs": {"value": initial},
+        }
     elif family in {"single_led_output", "dual_led_output", "button_to_buzzer"}:
         if family == "button_to_buzzer":
             add_button("btn1", pins.get("button", task.board_profile.default_pins["button"]))
@@ -186,6 +328,34 @@ def renode_parts(task: TaskConfig) -> dict[str, dict[str, Any]]:
             f"{task.task_id}: fixture family {family!r} is not supported by the Renode backend"
         )
     return parts
+
+
+def keypad_layout(
+    parts: dict[str, dict[str, Any]],
+) -> tuple[list[tuple[str, int]], list[tuple[str, int]], dict[str, tuple[int, int]]]:
+    """Row/column index assignment for matrix_key parts.
+
+    Rows and columns are indexed in order of first appearance in the fixture
+    (deterministic: fixture YAML order), so the generated wiring and the
+    PressKey coordinates always agree with the task prompt's pin listing.
+    """
+
+    rows: list[tuple[str, int]] = []
+    cols: list[tuple[str, int]] = []
+    placement: dict[str, tuple[int, int]] = {}
+    for part_id, part in parts.items():
+        if part["type"] != "matrix_key":
+            continue
+        if part["row_pin"] not in rows:
+            rows.append(part["row_pin"])
+        if part["col_pin"] not in cols:
+            cols.append(part["col_pin"])
+        placement[part_id] = (rows.index(part["row_pin"]), cols.index(part["col_pin"]))
+    if len(rows) > 4 or len(cols) > 4:
+        raise RenodeConfigError(
+            f"matrix keypad supports at most 4 rows and 4 columns (got {len(rows)}x{len(cols)})"
+        )
+    return rows, cols, placement
 
 
 def require_known_control(task: TaskConfig, part_type: str, part_id: str, control: str) -> None:
@@ -198,9 +368,42 @@ def require_known_control(task: TaskConfig, part_type: str, part_id: str, contro
 
 
 def part_monitor_name(part: dict[str, Any], part_id: str) -> str:
+    if part["type"] == "analog_source":
+        # Analog parts are channels of the shared SAADC peripheral, which is
+        # sysbus-mapped (monitor name is not parent-qualified under sysbus).
+        return SAADC_MONITOR_NAME
+    if part["type"] == "matrix_key":
+        # Matrix keys are cross-points of the shared keypad peripheral.
+        return KEYPAD_MONITOR_NAME
+    if part["type"] == "hcsr04":
+        # Sysbus-mapped under the part's own id (monitor name unqualified).
+        return part_id
     if "bus" in part:
         return f"{part['bus']}.{part_id}"
     return f"{part['port']}.{part_id}"
+
+
+def analog_raw_count(task: TaskConfig, part_id: str, control: str, value: Any) -> int:
+    """Wokwi-vocabulary analog control -> raw ADC count.
+
+    `position` is 0..1 of full scale (potentiometer control), `value` a raw
+    count directly (the diagram attr). Out-of-range values fail at lint time.
+    """
+
+    adc_max = int(task.board_profile.adc_max)
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        raise RenodeConfigError(
+            f"{task.task_id}: control {control!r} on {part_id!r} needs a numeric value, got {value!r}"
+        ) from None
+    raw = round(number * adc_max) if control == "position" else round(number)
+    if not 0 <= raw <= adc_max:
+        raise RenodeConfigError(
+            f"{task.task_id}: control {control!r} value {value!r} on {part_id!r} "
+            f"maps to raw count {raw}, outside 0..{adc_max}"
+        )
+    return raw
 
 
 def control_set_command(
@@ -209,8 +412,19 @@ def control_set_command(
     """One monitor command applying a control value to a part."""
 
     require_known_control(task, part["type"], part_id, control)
-    if part["type"] == "button" and control == "pressed":
+    if part["type"] in {"button", "digital_pullup"} and control == "pressed":
+        # Press/Release semantics follow the part's polarity declared in the
+        # repl (a digital_pullup is an inverted Button: Press drives LOW).
         return f"{part_monitor_name(part, part_id)} {'Press' if truthy_control(value) else 'Release'}"
+    if part["type"] == "matrix_key" and control == "pressed":
+        _, _, placement = keypad_layout(renode_parts(task))
+        row, col = placement[part_id]
+        verb = "PressKey" if truthy_control(value) else "ReleaseKey"
+        return f"{KEYPAD_MONITOR_NAME} {verb} {row} {col}"
+    if part["type"] == "analog_source":
+        raw = analog_raw_count(task, part_id, control, value)
+        channel = int(part.get("channel", 0))
+        return f"{SAADC_MONITOR_NAME} Channel{channel}Value {raw}"
     prop = SENSOR_CONTROL_PROPERTIES[part["type"]][control]
     if control in STRING_VALUED_CONTROLS.get(part["type"], set()):
         return f'{part_monitor_name(part, part_id)} {prop} "{value}"'
@@ -311,16 +525,76 @@ def generate_repl(task: TaskConfig) -> str:
         for index, name in sorted(probes_by_port[port]):
             lines.append(f"    {index} -> {name}@0")
         lines.append("")
-    for part_id, part in renode_parts(task).items():
-        if part["type"] == "button":
+    saadc_declared = False
+    parts = renode_parts(task)
+    matrix_parts = {pid: p for pid, p in parts.items() if p["type"] == "matrix_key"}
+    if matrix_parts:
+        rows, cols, _ = keypad_layout(parts)
+        for kind, pin_list in (("row", rows), ("column", cols)):
+            for port, index in pin_list:
+                if (port, index) in seen_pins:
+                    raise RenodeConfigError(
+                        f"{task.task_id}: keypad {kind} pin {port} {index} collides with probe "
+                        f"{seen_pins[(port, index)]!r}"
+                    )
+        # One keypad peripheral; columns drive the column pins, row levels
+        # are wired into the keypad's numbered inputs below.
+        lines.append(f"{KEYPAD_MONITOR_NAME}: {KEYPAD_REPL_CLASS} @ sysbus {KEYPAD_BASE_ADDRESS}")
+        for col_index, (port, index) in enumerate(cols):
+            lines.append(f"    {col_index} -> {port}@{index}")
+        lines.append("")
+        rows_by_port: dict[str, list[tuple[int, int]]] = {}
+        for row_index, (port, index) in enumerate(rows):
+            rows_by_port.setdefault(port, []).append((index, row_index))
+        for port in sorted(rows_by_port):
+            lines.append(f"{port}:")
+            for index, row_index in sorted(rows_by_port[port]):
+                lines.append(f"    {index} -> {KEYPAD_MONITOR_NAME}@{row_index}")
+            lines.append("")
+    hcsr04_index = 0
+    for part_id, part in parts.items():
+        if part["type"] == "matrix_key":
+            continue
+        if part["type"] == "hcsr04":
+            trig_port, trig_index = part["trig_pin"]
+            echo_port, echo_index = part["echo_pin"]
+            for kind, port, index in (("trig", trig_port, trig_index), ("echo", echo_port, echo_index)):
+                if (port, index) in seen_pins:
+                    raise RenodeConfigError(
+                        f"{task.task_id}: hcsr04 {part_id!r} {kind} pin {port} {index} collides "
+                        f"with probe {seen_pins[(port, index)]!r}"
+                    )
+            address = HCSR04_BASE_ADDRESS + hcsr04_index * 0x1000
+            hcsr04_index += 1
+            lines.append(f"{part_id}: {HCSR04_REPL_CLASS} @ sysbus {address:#x}")
+            lines.append(f"    Echo -> {echo_port}@{echo_index}")
+            lines.append("")
+            lines.append(f"{trig_port}:")
+            lines.append(f"    {trig_index} -> {part_id}@0")
+            lines.append("")
+            continue
+        if part["type"] in {"button", "digital_pullup"}:
             port, index = part["port"], part["pin"]
             if (port, index) in seen_pins:
                 raise RenodeConfigError(
                     f"{task.task_id}: part {part_id!r} and probe {seen_pins[(port, index)]!r} share pin {port} {index}"
                 )
             lines.append(f"{part_id}: Miscellaneous.Button @ {port} {index}")
+            if part["type"] == "digital_pullup":
+                # Wokwi digital_pullup semantics: idle HIGH, Press drives LOW.
+                lines.append("    invert: true")
             lines.append(f"    -> {port}@{index}")
             lines.append("")
+        elif part["type"] == "analog_source":
+            # All analog parts are channels of one SAADC instance; declare it
+            # once. The model source is included by the generated .resc.
+            if not saadc_declared:
+                lines.append(
+                    f"{SAADC_MONITOR_NAME}: {SAADC_REPL_CLASS} @ sysbus {SAADC_BASE_ADDRESS}"
+                )
+                lines.append(f"    -> nvic@{SAADC_IRQ}")
+                lines.append("")
+                saadc_declared = True
         else:
             lines.append(
                 f"{part_id}: {SENSOR_PART_CLASSES[part['type']]} @ {part['bus']} {part['address']:#x}"

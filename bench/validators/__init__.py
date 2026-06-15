@@ -669,6 +669,7 @@ def validate_pwm_breathing(task: TaskConfig, paths: CasePaths) -> ValidationResu
     step_interval_s = float(params.get("step_interval_s", 0.010))
     full_range = params.get("full_period_range_s", [0.95, 1.05])
     duty_tolerance = float(params.get("duty_tolerance", 0.03))
+    alignment_search_s = float(params.get("alignment_search_s", 0.300))
 
     if len(events) < 100:
         return ValidationResult(FAIL, f"too few {signal} transitions for PWM breathing analysis", metrics)
@@ -684,8 +685,9 @@ def validate_pwm_breathing(task: TaskConfig, paths: CasePaths) -> ValidationResu
 
     best_metrics: dict[str, Any] | None = None
     best_score = float("inf")
+    best_key: tuple[int, float] | None = None
     start = events[0].timestamp_s
-    while start <= min(events[0].timestamp_s + 0.100, last_start):
+    while start <= min(events[0].timestamp_s + alignment_search_s, last_start):
         measured = [
             value_ratio(
                 segments,
@@ -695,7 +697,11 @@ def validate_pwm_breathing(task: TaskConfig, paths: CasePaths) -> ValidationResu
             for index in range(len(expected))
         ]
         score = sum(abs(actual - wanted) for actual, wanted in zip(measured, expected))
-        if score < best_score:
+        max_duty_error = max(abs(actual - wanted) for actual, wanted in zip(measured, expected))
+        monotonicity_passed = is_monotonic_breath(measured, levels, duty_tolerance)
+        candidate_key = (0 if monotonicity_passed and max_duty_error <= duty_tolerance else 1, score)
+        if best_key is None or candidate_key < best_key:
+            best_key = candidate_key
             best_score = score
             best_metrics = {
                 "match_start_s": rounded_scalar(start),
@@ -704,7 +710,9 @@ def validate_pwm_breathing(task: TaskConfig, paths: CasePaths) -> ValidationResu
                 "step_intervals_s": rounded([step_interval_s for _ in range(len(expected) - 1)]),
                 "average_pwm_period_s": rounded_scalar(average_pwm_period(events)),
                 "breathing_period_s": rounded_scalar(step_interval_s * len(expected)),
-                "monotonicity_passed": is_monotonic_breath(measured, levels, duty_tolerance),
+                "alignment_search_s": alignment_search_s,
+                "max_duty_error": rounded_scalar(max_duty_error, digits=5),
+                "monotonicity_passed": monotonicity_passed,
             }
         start += 0.001
 
@@ -861,8 +869,11 @@ def validate_serial_count_sequence(task: TaskConfig, paths: CasePaths) -> Valida
     expected_count = int(params.get("expected_count", 3))
     match_mode = str(params.get("match_mode", "monotonic_reaches"))
     allow_repeats = bool(params.get("allow_repeats", False))
-    values = extract_ints(text)
+    values, matching_lines = serial_count_values(text, params)
     metrics = {"integers": values, "expected_count": expected_count, "match_mode": match_mode}
+    if params.get("line_pattern"):
+        metrics["line_pattern"] = params.get("line_pattern")
+        metrics["matching_lines"] = matching_lines
     if match_mode == "exact_sequence":
         if not exact_count_sequence(values, expected_count, allow_repeats=allow_repeats):
             return ValidationResult(
@@ -878,6 +889,26 @@ def validate_serial_count_sequence(task: TaskConfig, paths: CasePaths) -> Valida
             metrics,
         )
     return ValidationResult(PASS, "serial log shows a monotonic count sequence", metrics)
+
+
+def serial_count_values(text: str, params: dict[str, Any]) -> tuple[list[int], list[str]]:
+    line_pattern = params.get("line_pattern")
+    if not line_pattern:
+        return extract_ints(text), []
+    regex = re.compile(str(line_pattern), flags=re.IGNORECASE)
+    values: list[int] = []
+    matching_lines: list[str] = []
+    for line in nonempty_lines(text):
+        match = regex.search(line)
+        if not match:
+            continue
+        source = match.group(1) if match.groups() else match.group(0)
+        integers = extract_ints(source)
+        if len(integers) != 1:
+            continue
+        values.append(integers[0])
+        matching_lines.append(line)
+    return values, matching_lines
 
 
 def validate_debounce_serial(task: TaskConfig, paths: CasePaths) -> ValidationResult:

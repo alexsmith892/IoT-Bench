@@ -114,7 +114,7 @@ def parse_vcd_signals(
     if invalid:
         raise VcdParseError(f"non-binary values found for signal(s): {', '.join(invalid)}")
 
-    return {name: dedupe_same_value_events(signal_events) for name, signal_events in events.items()}
+    return {name: normalize_events(signal_events) for name, signal_events in events.items()}
 
 
 def parse_scalar_value(
@@ -144,13 +144,27 @@ def parse_scalar_value(
     return None
 
 
-def dedupe_same_value_events(events: Iterable[VcdEvent]) -> list[VcdEvent]:
-    deduped: list[VcdEvent] = []
+def normalize_events(events: Iterable[VcdEvent]) -> list[VcdEvent]:
+    normalized: list[VcdEvent] = []
+    last_timestamp: float | None = None
     for event in events:
-        if deduped and deduped[-1].value == event.value:
+        if last_timestamp is not None and event.timestamp_s < last_timestamp:
+            raise VcdParseError("VCD timestamps decrease")
+        last_timestamp = event.timestamp_s
+        if normalized and event.timestamp_s == normalized[-1].timestamp_s:
+            if len(normalized) >= 2 and normalized[-2].value == event.value:
+                normalized.pop()
+            else:
+                normalized[-1] = event
             continue
-        deduped.append(event)
-    return deduped
+        if normalized and normalized[-1].value == event.value:
+            continue
+        normalized.append(event)
+    return normalized
+
+
+def dedupe_same_value_events(events: Iterable[VcdEvent]) -> list[VcdEvent]:
+    return normalize_events(events)
 
 
 def build_segments(events: list[VcdEvent]) -> list[Segment]:

@@ -169,6 +169,7 @@ def write_case_resc(
 
 
 def ensure_custom_chip_artifacts(task: TaskConfig, paths: CasePaths, root: Path) -> None:
+    prune_stale_custom_chip_artifacts(task, paths)
     if not task.custom_chips:
         return
     source_case_dir = case_dir_for_task(task, repo_root())
@@ -182,6 +183,8 @@ def ensure_custom_chip_artifacts(task: TaskConfig, paths: CasePaths, root: Path)
             source = source_case_dir / relative
             if not source.exists():
                 source = root / "bench" / "chips" / str(chip["name"]) / relative.name
+            if not source.exists() and root != repo_root():
+                source = repo_root() / "bench" / "chips" / str(chip["name"]) / relative.name
             if not source.exists():
                 matches = sorted((root / "cases").glob(f"*/chips/{relative.name}"))
                 if matches:
@@ -193,6 +196,21 @@ def ensure_custom_chip_artifacts(task: TaskConfig, paths: CasePaths, root: Path)
             if source.exists():
                 destination.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source, destination)
+
+
+def prune_stale_custom_chip_artifacts(task: TaskConfig, paths: CasePaths) -> None:
+    chip_dir = paths.case_dir / "chips"
+    if not chip_dir.exists():
+        return
+    expected: set[str] = set()
+    for chip in task.custom_chips:
+        binary = Path(str(chip["binary"]).replace("\\", "/"))
+        expected.add(binary.as_posix())
+        expected.add(binary.with_suffix(".json").as_posix())
+    for artifact in chip_dir.glob("*.chip.*"):
+        relative = artifact.relative_to(paths.case_dir).as_posix()
+        if relative not in expected:
+            artifact.unlink()
 
 
 def ensure_artifact_dirs(paths: CasePaths) -> None:
@@ -392,9 +410,18 @@ def ensure_espidf_project_files(task: TaskConfig, project_dir: Path) -> None:
     sdkconfig_text = espidf_sdkconfig_defaults()
     if not sdkconfig_defaults.exists() or sdkconfig_defaults.read_text(encoding="utf-8") != sdkconfig_text:
         sdkconfig_defaults.write_text(sdkconfig_text, encoding="utf-8")
+    reset_espidf_sdkconfig(project_dir)
     main_source = main_dir / "main.c"
-    if not main_source.exists() or task.level in {"level2", "level3"}:
-        main_source.write_text(example_sketch(task), encoding="utf-8")
+    main_source.write_text(example_sketch(task), encoding="utf-8")
+
+
+def reset_espidf_sdkconfig(project_dir: Path) -> None:
+    """Force ESP-IDF to derive sdkconfig from harness-owned defaults."""
+
+    for name in ("sdkconfig", "sdkconfig.old"):
+        path = project_dir / name
+        if path.exists():
+            path.unlink()
 
 
 def ensure_zephyr_project_files(task: TaskConfig, project_dir: Path) -> None:
@@ -415,23 +442,32 @@ def ensure_zephyr_project_files(task: TaskConfig, project_dir: Path) -> None:
 
 
 def zephyr_root_cmake(task: TaskConfig) -> str:
+    # Every src/*.c is compiled (not just main.c) so the static gates only
+    # ever scan code that must survive the compiler - the same bar Arduino
+    # submissions face, where arduino-cli compiles the whole sketch dir. A
+    # pattern-stuffed decoy file that does not compile is a CF, not a pass.
     return f"""\
 cmake_minimum_required(VERSION 3.20.0)
 find_package(Zephyr REQUIRED HINTS $ENV{{ZEPHYR_BASE}})
 project({task.sketch_name})
 
-target_sources(app PRIVATE src/main.c)
+file(GLOB app_sources CONFIGURE_DEPENDS src/*.c)
+target_sources(app PRIVATE ${{app_sources}})
 """
 
 
 def zephyr_prj_conf() -> str:
     # The boot banner contains version integers that would pollute numeric
     # serial oracles (extract_ints over the whole serial log), so it is off.
-    # GPIO and I2C cover the current task families; the config is shared by
-    # all tasks so submissions never need (or get to) change it.
+    # GPIO, I2C, and ADC cover the current task families; the config is shared
+    # by all tasks so submissions never need (or get to) change it. Float
+    # formatting support is on because analog tasks print Celsius values and
+    # printk/printf would otherwise emit a literal "%f".
     return """\
 CONFIG_GPIO=y
 CONFIG_I2C=y
+CONFIG_ADC=y
+CONFIG_CBPRINTF_FP_SUPPORT=y
 CONFIG_BOOT_BANNER=n
 """
 
@@ -464,9 +500,27 @@ idf_component_register(SRCS "main.c" INCLUDE_DIRS ".")
 def espidf_sdkconfig_defaults() -> str:
     return """\
 CONFIG_ESPTOOLPY_FLASHSIZE_4MB=y
-CONFIG_ESP_CONSOLE_UART_DEFAULT=n
+# CONFIG_ESP_CONSOLE_UART_DEFAULT is not set
+# CONFIG_ESP_CONSOLE_USB_CDC is not set
 CONFIG_ESP_CONSOLE_USB_SERIAL_JTAG=y
+# CONFIG_ESP_CONSOLE_UART_CUSTOM is not set
+# CONFIG_ESP_CONSOLE_NONE is not set
 CONFIG_ESP_CONSOLE_SECONDARY_NONE=y
+# CONFIG_ESP_CONSOLE_SECONDARY_USB_SERIAL_JTAG is not set
+CONFIG_BOOTLOADER_LOG_LEVEL_NONE=y
+# CONFIG_BOOTLOADER_LOG_LEVEL_ERROR is not set
+# CONFIG_BOOTLOADER_LOG_LEVEL_WARN is not set
+# CONFIG_BOOTLOADER_LOG_LEVEL_INFO is not set
+# CONFIG_BOOTLOADER_LOG_LEVEL_DEBUG is not set
+# CONFIG_BOOTLOADER_LOG_LEVEL_VERBOSE is not set
+CONFIG_LOG_DEFAULT_LEVEL_NONE=y
+# CONFIG_LOG_DEFAULT_LEVEL_ERROR is not set
+# CONFIG_LOG_DEFAULT_LEVEL_WARN is not set
+# CONFIG_LOG_DEFAULT_LEVEL_INFO is not set
+# CONFIG_LOG_DEFAULT_LEVEL_DEBUG is not set
+# CONFIG_LOG_DEFAULT_LEVEL_VERBOSE is not set
+CONFIG_LOG_MAXIMUM_EQUALS_DEFAULT=y
+CONFIG_LOG_COLORS=n
 """
 
 
@@ -620,7 +674,14 @@ def normalize_espidf_submission(task: TaskConfig, source: Path, destination: Pat
 def normalize_zephyr_submission(task: TaskConfig, source: Path, destination: Path) -> Path:
     """Zephyr submissions are a single C source file (the harness owns
     CMakeLists.txt and prj.conf) or a full app directory matching the
-    skeleton layout."""
+    skeleton layout.
+
+    Only ``src/`` is taken from a project submission. Zephyr's build system
+    auto-includes other application files (``boards/<BOARD>.overlay`` replaces
+    the harness app.overlay, ``boards/<BOARD>.conf`` merges into the Kconfig,
+    app-dir ``Kconfig``/``CMakePresets.json``/``sysbuild`` shape the build), so
+    copying anything beyond ``src/`` would let a submission alter the
+    harness-owned build configuration."""
 
     if source.is_file():
         if source.suffix.lower() != ".c":
@@ -634,20 +695,19 @@ def normalize_zephyr_submission(task: TaskConfig, source: Path, destination: Pat
         shutil.copy2(source, destination / "src" / "main.c")
         return destination
 
-    sources = sorted((source / "src").glob("*.c"))
-    if not sources:
+    if not (source / "src" / "main.c").exists():
         raise BuildSimulationError(
-            f"submitted Zephyr project must contain src/*.c: {source}",
+            f"submitted Zephyr project must contain src/main.c: {source}",
             classification=COMPILE_FAIL,
             failure_stage=STAGE_COMPILE,
             failure_source=SOURCE_USER_CODE,
         )
-    shutil.copytree(source, destination)
     # The build configuration is part of the benchmark fixture, not the
-    # submission: always use the harness CMakeLists.txt, prj.conf, overlay.
-    (destination / "CMakeLists.txt").write_text(zephyr_root_cmake(task), encoding="utf-8")
-    (destination / "prj.conf").write_text(zephyr_prj_conf(), encoding="utf-8")
-    (destination / "app.overlay").write_text(zephyr_app_overlay(), encoding="utf-8")
+    # submission: build the harness skeleton (CMakeLists.txt, prj.conf,
+    # app.overlay) and copy only the submitted src/ tree into it.
+    ensure_zephyr_project_files(task, destination)
+    shutil.rmtree(destination / "src")
+    shutil.copytree(source / "src", destination / "src")
     return destination
 
 
@@ -801,6 +861,7 @@ def build_arduino_case(paths: CasePaths, *, arduino_cli: str) -> None:
 
 
 def build_espidf_case(task: TaskConfig, paths: CasePaths, *, idf_py: str) -> None:
+    reset_espidf_sdkconfig(paths.sketch)
     target = task.board_profile.idf_target
     sketch_arg = relative_to(paths.sketch, paths.case_dir)
     build_arg = relative_to(paths.build_dir, paths.case_dir)
@@ -924,10 +985,18 @@ def build_zephyr_case(task: TaskConfig, paths: CasePaths, *, west: str = "west")
 
 
 def command_with_windows_batch_wrapper(command: str, args: list[str]) -> list[str]:
-    if sys.platform == "win32" and Path(command).suffix.lower() in {".cmd", ".bat"}:
-        powershell_command = " ".join([powershell_quote(command), *(powershell_quote(arg) for arg in args)])
-        return ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", f"& {powershell_command}"]
-    return [command, *args]
+    resolved = shutil.which(command) or command
+    if sys.platform == "win32" and Path(resolved).suffix.lower() in {".cmd", ".bat"}:
+        powershell_command = " ".join([powershell_quote(resolved), *(powershell_quote(arg) for arg in args)])
+        return [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            f"& {powershell_command}; exit $LASTEXITCODE",
+        ]
+    return [resolved, *args]
 
 
 def powershell_quote(value: str) -> str:
@@ -1133,9 +1202,19 @@ def run_case(
 def validate_case(task: TaskConfig, paths: CasePaths) -> dict[str, Any]:
     if task.simulation_variants:
         return validate_variants(task, paths)
+    from .serial import SerialLogError
     from .validators import validate_task
+    from .vcd import VcdParseError
 
-    return validate_task(task, paths).payload()
+    try:
+        return validate_task(task, paths).payload()
+    except (SerialLogError, VcdParseError) as exc:
+        return result_payload(
+            SIM_OUTPUT_FAIL,
+            str(exc),
+            failure_stage=STAGE_SIM_OUTPUT,
+            failure_source=SOURCE_ARTIFACT,
+        )
 
 
 def simulate_variants(
@@ -1229,19 +1308,27 @@ def validate_variants(task: TaskConfig, paths: CasePaths) -> dict[str, Any]:
             )
 
     if task.simulation.get("require_distinct_variant_outputs") and len(serial_outputs) > 1:
-        unique = {text for text in serial_outputs.values()}
+        payload_outputs = {
+            current_id: serial_payload_text(text) for current_id, text in serial_outputs.items()
+        }
+        unique = {text for text in payload_outputs.values()}
         if len(unique) == 1:
             return result_payload(
                 FAIL,
                 "all simulation variants produced identical serial output",
-                {**metrics, "normalized_serial_outputs": serial_outputs},
+                {
+                    **metrics,
+                    "normalized_serial_outputs": serial_outputs,
+                    "serial_payload_outputs": payload_outputs,
+                },
             )
         # Cosmetic text differences are not enough: the measured values must
         # differ across variants, or the firmware is not reading the sensor.
         from .serial import extract_floats
 
         numeric_signatures = {
-            current_id: tuple(extract_floats(text)) for current_id, text in serial_outputs.items()
+            current_id: tuple(extract_floats(text))
+            for current_id, text in payload_outputs.items()
         }
         # Text-only outputs (no numbers in any variant) are already covered by
         # the text comparison above; the numeric backstop only applies when at
@@ -1346,6 +1433,28 @@ def deep_merge(base: Any, override: Any) -> Any:
 
 def normalize_serial_text(text: str) -> str:
     return "\n".join(line.strip() for line in text.splitlines() if line.strip())
+
+
+ESP32_BOOT_PREFIXES = (
+    "ESP-ROM:",
+    "Build:",
+    "rst:",
+    "SPIWP:",
+    "mode:",
+    "load:",
+    "entry ",
+)
+
+
+def serial_payload_text(text: str) -> str:
+    """Strip unavoidable ESP ROM boot lines before variant distinctness checks."""
+
+    lines = []
+    for line in normalize_serial_text(text).splitlines():
+        if any(line.startswith(prefix) for prefix in ESP32_BOOT_PREFIXES):
+            continue
+        lines.append(line)
+    return "\n".join(lines)
 
 
 def clean_build_dir(paths: CasePaths) -> None:
@@ -2104,12 +2213,43 @@ def zephyr_gpio_parts(pin_spec: str) -> tuple[str, int]:
 def zephyr_example_source(task: TaskConfig) -> str:
     examples = {
         "blink_led_1hz": zephyr_blink_1hz,
+        "blink_led_morse_code": zephyr_morse_sos,
         "blink_led_no_delay": zephyr_blink_no_delay,
+        "blink_two_leds": zephyr_blink_two_leds,
+        "buzzer_doorbell": zephyr_buzzer_doorbell,
+        "buzzer_button": zephyr_buzzer_button,
+        "buzzer_toggle_led_freq": zephyr_buzzer_toggle_led_freq,
+        "button_status_display": zephyr_button_status_display,
         "button_status_count": zephyr_button_status_count,
         "button_press_debounce": zephyr_button_press_debounce,
+        "clap_switch": zephyr_clap_switch,
         "sensor_pir_human_motion": zephyr_pir_serial,
+        "hcsr501_motion_alarm": zephyr_digital_follow,
+        "tilt_detection_alarm": zephyr_digital_follow,
+        "tmp36_read": zephyr_tmp36_read,
+        "photoresistor_nightlight": zephyr_adc_threshold_output,
+        "buzzer_laser_tripwire": zephyr_adc_threshold_output,
+        "rotary_encoder": zephyr_rotary_encoder,
+        "16key_keypad": zephyr_16key_keypad,
+        "hcsr04_find_distance": zephyr_hcsr04_find_distance,
+        "parking_sensor": zephyr_parking_sensor,
+        "reverse_parking_sensor": zephyr_parking_sensor,
+        "safebox": zephyr_safebox,
+        "safebox_display": zephyr_safebox_display,
+        "step_counter_print": zephyr_step_counter_print,
+        "reaction_timer_display": zephyr_reaction_timer_display,
+        "sensor_water_level_display": zephyr_water_level_display,
+        "mpu6050_read_button_display": zephyr_mpu6050_button_display,
+        "mpu6050_read_periodic_display": zephyr_mpu6050_periodic_display,
+        "tmp36_read_button_display": zephyr_tmp36_button_display,
+        "tmp36_read_periodic_display": zephyr_tmp36_periodic_display,
+        "joystick_buzzer_pitch": zephyr_joystick_buzzer_pitch,
+        "breathing_led": zephyr_breathing_led,
+        "lcd1602_auto_brightness_control": zephyr_lcd_auto_brightness,
         "ds1307_rtc": zephyr_ds1307_rtc,
         "lsm9ds1_read_i2c": zephyr_lsm9ds1_read_i2c,
+        "bme280_read_i2c": zephyr_bme280_read_i2c,
+        "mpu6050_read_i2c": zephyr_mpu6050_read_i2c,
         "lcd1602_display_hello_world": zephyr_lcd1602_hello,
     }
     factory = examples.get(task.task_id)
@@ -2119,6 +2259,96 @@ def zephyr_example_source(task: TaskConfig) -> str:
 def zephyr_lcd_pin_define(name: str, pin_spec: str) -> str:
     port, index = zephyr_gpio_parts(pin_spec)
     return f"#define {name}_PORT {port}_dev\n#define {name}_PIN {index}\n"
+
+
+def zephyr_component_pin(task: TaskConfig, component_id: str, default_key: str) -> str:
+    for component in task.fixture.get("components", []) or []:
+        if str(component.get("id", "")) != component_id:
+            continue
+        pin = component.get("pin") or component.get("pins", {}).get("signal")
+        if pin:
+            return str(pin)
+    return fixture_pin(task, default_key)
+
+
+ZEPHYR_LCD_PINS = {"rs": "P1.12", "e": "P1.14", "d4": "P1.15", "d5": "P1.13", "d6": "P0.21", "d7": "P0.27"}
+
+
+def zephyr_lcd_driver_block(pins: dict[str, str] | None = None) -> str:
+    """Shared HD44780 4-bit driver block for Zephyr references: pin defines,
+    nibble/byte writers, init, cursor addressing, and string output. Assumes
+    gpio0_dev/gpio1_dev device handles are declared by the caller."""
+
+    pins = pins or ZEPHYR_LCD_PINS
+    defines = "".join(
+        zephyr_lcd_pin_define(name.upper(), str(pins[name]))
+        for name in ("rs", "e", "d4", "d5", "d6", "d7")
+    )
+    return f"""\
+{defines}
+static void lcd_write_nibble(int rs, int value)
+{{
+\tgpio_pin_set(RS_PORT, RS_PIN, rs);
+\tgpio_pin_set(D4_PORT, D4_PIN, (value >> 0) & 1);
+\tgpio_pin_set(D5_PORT, D5_PIN, (value >> 1) & 1);
+\tgpio_pin_set(D6_PORT, D6_PIN, (value >> 2) & 1);
+\tgpio_pin_set(D7_PORT, D7_PIN, (value >> 3) & 1);
+\tk_busy_wait(20);
+\tgpio_pin_set(E_PORT, E_PIN, 1);
+\tk_busy_wait(40);
+\tgpio_pin_set(E_PORT, E_PIN, 0);
+\tk_busy_wait(60);
+}}
+
+static void lcd_write_byte(int rs, int value)
+{{
+\tlcd_write_nibble(rs, value >> 4);
+\tlcd_write_nibble(rs, value & 0x0F);
+\tk_msleep(1);
+}}
+
+static void lcd_init(void)
+{{
+\tgpio_pin_configure(RS_PORT, RS_PIN, GPIO_OUTPUT_LOW);
+\tgpio_pin_configure(E_PORT, E_PIN, GPIO_OUTPUT_LOW);
+\tgpio_pin_configure(D4_PORT, D4_PIN, GPIO_OUTPUT_LOW);
+\tgpio_pin_configure(D5_PORT, D5_PIN, GPIO_OUTPUT_LOW);
+\tgpio_pin_configure(D6_PORT, D6_PIN, GPIO_OUTPUT_LOW);
+\tgpio_pin_configure(D7_PORT, D7_PIN, GPIO_OUTPUT_LOW);
+\tk_msleep(50);
+\tlcd_write_nibble(0, 0x3);
+\tk_msleep(5);
+\tlcd_write_nibble(0, 0x3);
+\tk_msleep(1);
+\tlcd_write_nibble(0, 0x3);
+\tk_msleep(1);
+\tlcd_write_nibble(0, 0x2);
+\tk_msleep(1);
+\tlcd_write_byte(0, 0x28); /* 4-bit, 2 lines */
+\tlcd_write_byte(0, 0x0C); /* display on */
+\tlcd_write_byte(0, 0x01); /* clear */
+\tk_msleep(2);
+\tlcd_write_byte(0, 0x06); /* entry mode */
+}}
+
+static void lcd_clear(void)
+{{
+\tlcd_write_byte(0, 0x01);
+\tk_msleep(2);
+}}
+
+static void lcd_goto(int row, int col)
+{{
+\tlcd_write_byte(0, 0x80 | (row ? 0x40 : 0x00) | col);
+}}
+
+static void lcd_print(const char *text)
+{{
+\twhile (*text) {{
+\t\tlcd_write_byte(1, (unsigned char)*text++);
+\t}}
+}}
+"""
 
 
 def zephyr_lcd1602_hello(task: TaskConfig) -> str:
@@ -2240,6 +2470,1036 @@ int main(void)
 """
 
 
+def zephyr_adc_threshold_output(task: TaskConfig) -> str:
+    """Shared reference for the dark-detector tasks: SAADC channel 0 above
+    half scale (dark / beam blocked) drives the output pin high. The laser
+    tripwire variant also holds the emitter pin on for the whole run."""
+
+    if task.task_id == "buzzer_laser_tripwire":
+        out_port, out_pin = zephyr_gpio_parts("P0.27")
+        emitter = (
+            "\tgpio_pin_configure(gpio0_dev, 21, GPIO_OUTPUT_HIGH); /* laser emitter on */\n"
+        )
+    else:
+        out_port, out_pin = zephyr_gpio_parts("P0.24")
+        emitter = ""
+    return f"""\
+#include <zephyr/kernel.h>
+#include <zephyr/device.h>
+#include <zephyr/drivers/adc.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/dt-bindings/adc/nrf-saadc.h>
+
+#define OUT_PIN {out_pin}
+
+static const struct device *const adc_dev = DEVICE_DT_GET(DT_NODELABEL(adc));
+static const struct device *const gpio0_dev = DEVICE_DT_GET(DT_NODELABEL(gpio0));
+
+int main(void)
+{{
+\tint16_t sample;
+\tstruct adc_channel_cfg channel_cfg = {{
+\t\t.gain = ADC_GAIN_1,
+\t\t.reference = ADC_REF_INTERNAL,
+\t\t.acquisition_time = ADC_ACQ_TIME_DEFAULT,
+\t\t.channel_id = 0,
+\t\t.input_positive = NRF_SAADC_AIN0,
+\t}};
+\tstruct adc_sequence sequence = {{
+\t\t.channels = BIT(0),
+\t\t.buffer = &sample,
+\t\t.buffer_size = sizeof(sample),
+\t\t.resolution = 12,
+\t}};
+
+\tgpio_pin_configure(gpio0_dev, OUT_PIN, GPIO_OUTPUT_LOW);
+{emitter}\tadc_channel_setup(adc_dev, &channel_cfg);
+\twhile (1) {{
+\t\tif (adc_read(adc_dev, &sequence) == 0) {{
+\t\t\tgpio_pin_set(gpio0_dev, OUT_PIN, sample > 2048 ? 1 : 0);
+\t\t}}
+\t\tk_msleep(20);
+\t}}
+\treturn 0;
+}}
+"""
+
+
+def zephyr_16key_keypad(task: TaskConfig) -> str:
+    """Row-drive / column-read scan with per-key edge detection: one row is
+    driven LOW at a time and the four column levels are sampled; a key prints
+    once when it becomes pressed."""
+
+    return """\
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/sys/printk.h>
+
+static const struct device *const gpio0_dev = DEVICE_DT_GET(DT_NODELABEL(gpio0));
+static const struct device *const gpio1_dev = DEVICE_DT_GET(DT_NODELABEL(gpio1));
+
+struct line {
+\tconst struct device *port;
+\tint pin;
+};
+
+static const struct line rows[4] = {
+\t{NULL, 11}, {NULL, 12}, {NULL, 15}, {NULL, 13},
+};
+static const struct line cols[4] = {
+\t{NULL, 14}, {NULL, 23}, {NULL, 21}, {NULL, 27},
+};
+static const char legend[4][4] = {
+\t{'1', '2', '3', 'A'},
+\t{'4', '5', '6', 'B'},
+\t{'7', '8', '9', 'C'},
+\t{'*', '0', '#', 'D'},
+};
+
+int main(void)
+{
+\tstruct line row_lines[4], col_lines[4];
+\tbool held[4][4] = {0};
+
+\tfor (int r = 0; r < 4; ++r) {
+\t\trow_lines[r] = rows[r];
+\t\trow_lines[r].port = gpio1_dev;
+\t\tgpio_pin_configure(row_lines[r].port, row_lines[r].pin, GPIO_OUTPUT_HIGH);
+\t}
+\tfor (int c = 0; c < 4; ++c) {
+\t\tcol_lines[c] = cols[c];
+\t\tcol_lines[c].port = (c == 0) ? gpio1_dev : gpio0_dev;
+\t\tgpio_pin_configure(col_lines[c].port, col_lines[c].pin, GPIO_INPUT);
+\t}
+
+\twhile (1) {
+\t\tfor (int r = 0; r < 4; ++r) {
+\t\t\tgpio_pin_set_raw(row_lines[r].port, row_lines[r].pin, 0);
+\t\t\tk_msleep(1);
+\t\t\tfor (int c = 0; c < 4; ++c) {
+\t\t\t\tbool pressed = gpio_pin_get_raw(col_lines[c].port, col_lines[c].pin) == 0;
+
+\t\t\t\tif (pressed && !held[r][c]) {
+\t\t\t\t\tprintk("Key: %c\\n", legend[r][c]);
+\t\t\t\t}
+\t\t\t\theld[r][c] = pressed;
+\t\t\t}
+\t\t\tgpio_pin_set_raw(row_lines[r].port, row_lines[r].pin, 1);
+\t\t}
+\t\tk_msleep(5);
+\t}
+\treturn 0;
+}
+"""
+
+
+ZEPHYR_GPIO_HEADER = """\
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/gpio.h>
+#include <stdio.h>
+
+static const struct device *const gpio0_dev = DEVICE_DT_GET(DT_NODELABEL(gpio0));
+static const struct device *const gpio1_dev = DEVICE_DT_GET(DT_NODELABEL(gpio1));
+
+"""
+
+ZEPHYR_ADC_HEADER = """\
+#include <zephyr/device.h>
+#include <zephyr/drivers/adc.h>
+#include <zephyr/dt-bindings/adc/nrf-saadc.h>
+
+static const struct device *const adc_dev = DEVICE_DT_GET(DT_NODELABEL(adc));
+static int16_t adc_sample;
+static struct adc_sequence adc_seq;
+
+static int adc_setup(int channel, int input)
+{
+	struct adc_channel_cfg cfg = {
+		.gain = ADC_GAIN_1,
+		.reference = ADC_REF_INTERNAL,
+		.acquisition_time = ADC_ACQ_TIME_DEFAULT,
+	};
+
+	cfg.channel_id = channel;
+	cfg.input_positive = input;
+	adc_seq.channels = BIT(channel);
+	adc_seq.buffer = &adc_sample;
+	adc_seq.buffer_size = sizeof(adc_sample);
+	adc_seq.resolution = 12;
+	return adc_channel_setup(adc_dev, &cfg);
+}
+
+"""
+
+
+ZEPHYR_HCSR04_BLOCK = """\
+#define TRIG_PIN 11
+#define ECHO_PIN 10
+
+/* One HC-SR04 measurement: 10 us trigger pulse, then time the echo pulse
+ * (58 us/cm). Returns centimeters or -1 on timeout. */
+static int hcsr04_measure(void)
+{
+	uint32_t start, deadline;
+
+	gpio_pin_set_raw(gpio1_dev, TRIG_PIN, 1);
+	k_busy_wait(12);
+	gpio_pin_set_raw(gpio1_dev, TRIG_PIN, 0);
+
+	deadline = k_cycle_get_32() + k_us_to_cyc_ceil32(30000);
+	while (gpio_pin_get_raw(gpio1_dev, ECHO_PIN) == 0) {
+		if ((int32_t)(k_cycle_get_32() - deadline) > 0) {
+			return -1;
+		}
+	}
+	start = k_cycle_get_32();
+	while (gpio_pin_get_raw(gpio1_dev, ECHO_PIN) == 1) {
+		if ((int32_t)(k_cycle_get_32() - deadline) > 0) {
+			return -1;
+		}
+	}
+	return (int)(k_cyc_to_us_floor32(k_cycle_get_32() - start) / 58);
+}
+
+"""
+
+
+def zephyr_hcsr04_find_distance(task: TaskConfig) -> str:
+    return ZEPHYR_GPIO_HEADER + "#include <zephyr/sys/printk.h>\n\n" + ZEPHYR_HCSR04_BLOCK + """
+int main(void)
+{
+	gpio_pin_configure(gpio1_dev, TRIG_PIN, GPIO_OUTPUT_LOW);
+	gpio_pin_configure(gpio1_dev, ECHO_PIN, GPIO_INPUT);
+
+	while (1) {
+		int cm = hcsr04_measure();
+
+		if (cm >= 0) {
+			printk("Distance: %d cm\\n", cm);
+		}
+		k_msleep(100);
+	}
+	return 0;
+}
+"""
+
+
+def zephyr_parking_sensor(task: TaskConfig) -> str:
+    """Shared reference for parking_sensor / reverse_parking_sensor: buzzer
+    square wave at 2500 - 20*distance Hz (per the prompt's mapping); the
+    parking_sensor variant also holds the LED on below 100 cm."""
+
+    with_led = task.task_id == "parking_sensor"
+    led_setup = (
+        "\tgpio_pin_configure(gpio0_dev, LED_PIN, GPIO_OUTPUT_LOW);\n" if with_led else ""
+    )
+    led_update = (
+        "\t\t\tgpio_pin_set(gpio0_dev, LED_PIN, cm < 100 ? 1 : 0);\n" if with_led else ""
+    )
+    return ZEPHYR_GPIO_HEADER + ZEPHYR_HCSR04_BLOCK + f"""
+#define BUZZER_PIN 27
+#define LED_PIN 24
+
+int main(void)
+{{
+	int half_us = 500;
+
+	gpio_pin_configure(gpio1_dev, TRIG_PIN, GPIO_OUTPUT_LOW);
+	gpio_pin_configure(gpio1_dev, ECHO_PIN, GPIO_INPUT);
+	gpio_pin_configure(gpio0_dev, BUZZER_PIN, GPIO_OUTPUT_LOW);
+{led_setup}
+	while (1) {{
+		int cm = hcsr04_measure();
+
+		if (cm >= 0) {{
+			int freq = 2500 - 20 * cm;
+
+			if (freq < 100) {{
+				freq = 100;
+			}}
+			half_us = 500000 / freq;
+{led_update}\t\t}}
+		/* ~40 carrier periods between measurements */
+		for (int i = 0; i < 40; ++i) {{
+			gpio_pin_set(gpio0_dev, BUZZER_PIN, 1);
+			k_busy_wait(half_us);
+			gpio_pin_set(gpio0_dev, BUZZER_PIN, 0);
+			k_busy_wait(half_us);
+		}}
+	}}
+	return 0;
+}}
+"""
+
+
+def zephyr_safebox_display(task: TaskConfig) -> str:
+    return ZEPHYR_GPIO_HEADER + zephyr_lcd_driver_block() + """
+#define RELAY_PIN 13
+
+static const int row_pins[2] = {11, 2};
+static const char legend[2][3] = {{'1', '2', '3'}, {'4', '5', '6'}};
+
+int main(void)
+{
+	const struct device *col_ports[3] = {gpio1_dev, gpio1_dev, gpio0_dev};
+	const int col_pins[3] = {1, 8, 23};
+	bool held[2][3] = {0};
+	char entered[5] = {0};
+	int count = 0;
+	bool unlocked = false;
+	char line[17];
+
+	gpio_pin_configure(gpio0_dev, RELAY_PIN, GPIO_OUTPUT_LOW);
+	for (int r = 0; r < 2; ++r) {
+		gpio_pin_configure(gpio1_dev, row_pins[r], GPIO_OUTPUT_HIGH);
+	}
+	for (int c = 0; c < 3; ++c) {
+		gpio_pin_configure(col_ports[c], col_pins[c], GPIO_INPUT);
+	}
+	lcd_init();
+
+	while (1) {
+		for (int r = 0; r < 2; ++r) {
+			gpio_pin_set_raw(gpio1_dev, row_pins[r], 0);
+			k_msleep(1);
+			for (int c = 0; c < 3; ++c) {
+				bool pressed = gpio_pin_get_raw(col_ports[c], col_pins[c]) == 0;
+
+				if (pressed && !held[r][c] && !unlocked && count < 4) {
+					entered[count++] = legend[r][c];
+				}
+				held[r][c] = pressed;
+			}
+			gpio_pin_set_raw(gpio1_dev, row_pins[r], 1);
+		}
+		if (count == 4) {
+			bool match = entered[0] == '1' && entered[1] == '2' &&
+				     entered[2] == '3' && entered[3] == '4';
+
+			lcd_clear();
+			lcd_goto(0, 0);
+			snprintf(line, sizeof(line), "Input: %s", entered);
+			lcd_print(line);
+			lcd_goto(1, 0);
+			lcd_print(match ? "Status: Success" : "Status: Fail");
+			if (match) {
+				unlocked = true;
+				gpio_pin_set(gpio0_dev, RELAY_PIN, 1);
+			}
+			count = 0;
+		}
+		k_msleep(5);
+	}
+	return 0;
+}
+"""
+
+
+def zephyr_reaction_timer_display(task: TaskConfig) -> str:
+    return ZEPHYR_GPIO_HEADER + zephyr_lcd_driver_block() + """
+#define BTN_PIN 11
+#define SHOCK_PIN 10
+
+int main(void)
+{
+	char line[17];
+
+	gpio_pin_configure(gpio1_dev, BTN_PIN, GPIO_INPUT);
+	gpio_pin_configure(gpio1_dev, SHOCK_PIN, GPIO_INPUT);
+	lcd_init();
+	lcd_print("Ready");
+
+	while (gpio_pin_get_raw(gpio1_dev, BTN_PIN) == 0) {
+		k_msleep(1);
+	}
+	int64_t start = k_uptime_get();
+
+	while (gpio_pin_get_raw(gpio1_dev, SHOCK_PIN) == 0) {
+		k_msleep(1);
+	}
+	int64_t elapsed = k_uptime_get() - start;
+
+	lcd_clear();
+	lcd_goto(0, 0);
+	snprintf(line, sizeof(line), "%lld ms", (long long)elapsed);
+	lcd_print(line);
+	while (1) {
+		k_msleep(1000);
+	}
+	return 0;
+}
+"""
+
+
+def zephyr_water_level_display(task: TaskConfig) -> str:
+    return ZEPHYR_GPIO_HEADER + ZEPHYR_ADC_HEADER + zephyr_lcd_driver_block() + """
+int main(void)
+{
+	int last_bar = -1;
+
+	adc_setup(0, NRF_SAADC_AIN0);
+	lcd_init();
+	lcd_goto(0, 0);
+	lcd_print("Water Level");
+
+	while (1) {
+		if (adc_read(adc_dev, &adc_seq) == 0) {
+			int bar = (int)adc_sample * 16 / 4096;
+
+			if (adc_sample > 0 && bar == 0) {
+				bar = 1;
+			}
+			if (bar != last_bar) {
+				lcd_goto(1, 0);
+				for (int i = 0; i < 16; ++i) {
+					lcd_write_byte(1, i < bar ? '#' : ' ');
+				}
+				last_bar = bar;
+			}
+		}
+		k_msleep(50);
+	}
+	return 0;
+}
+"""
+
+
+ZEPHYR_MPU6050_READ_BLOCK = """\
+#include <zephyr/drivers/i2c.h>
+
+#define MPU6050_ADDR 0x68
+
+static const struct device *const i2c_dev = DEVICE_DT_GET(DT_NODELABEL(i2c0));
+
+static int mpu_read(int16_t accel[3], int16_t gyro[3])
+{
+	uint8_t raw[14];
+
+	if (i2c_burst_read(i2c_dev, MPU6050_ADDR, 0x3B, raw, sizeof(raw)) != 0) {
+		return -1;
+	}
+	for (int i = 0; i < 3; ++i) {
+		accel[i] = (int16_t)((raw[2 * i] << 8) | raw[2 * i + 1]);
+		gyro[i] = (int16_t)((raw[8 + 2 * i] << 8) | raw[9 + 2 * i]);
+	}
+	return 0;
+}
+
+static void lcd_show_imu(int ax, int ay, int az, int gx, int gy, int gz)
+{
+	char line[17];
+
+	lcd_clear();
+	lcd_goto(0, 0);
+	snprintf(line, sizeof(line), "Accel: %d %d %d", ax, ay, az);
+	lcd_print(line);
+	lcd_goto(1, 0);
+	snprintf(line, sizeof(line), "Gyro: %d %d %d", gx, gy, gz);
+	lcd_print(line);
+}
+
+"""
+
+
+def zephyr_mpu6050_button_display(task: TaskConfig) -> str:
+    return ZEPHYR_GPIO_HEADER + zephyr_lcd_driver_block() + ZEPHYR_MPU6050_READ_BLOCK + """
+#define BTN_PIN 11
+
+static struct gpio_callback btn_cb;
+static volatile int presses;
+
+static void on_press(const struct device *port, struct gpio_callback *cb, uint32_t pins)
+{
+	presses++;
+}
+
+int main(void)
+{
+	int16_t accel[3], gyro[3];
+	int handled = 0;
+
+	(void)i2c_reg_write_byte(i2c_dev, MPU6050_ADDR, 0x6B, 0x00);
+	gpio_pin_configure(gpio1_dev, BTN_PIN, GPIO_INPUT);
+	gpio_init_callback(&btn_cb, on_press, BIT(BTN_PIN));
+	gpio_add_callback(gpio1_dev, &btn_cb);
+	gpio_pin_interrupt_configure(gpio1_dev, BTN_PIN, GPIO_INT_EDGE_RISING);
+	lcd_init();
+
+	while (1) {
+		if (presses != handled) {
+			handled = presses;
+			if (mpu_read(accel, gyro) == 0) {
+				lcd_show_imu(accel[0], accel[1], accel[2],
+					     gyro[0], gyro[1], gyro[2]);
+			}
+		}
+		k_msleep(5);
+	}
+	return 0;
+}
+"""
+
+
+def zephyr_mpu6050_periodic_display(task: TaskConfig) -> str:
+    return ZEPHYR_GPIO_HEADER + zephyr_lcd_driver_block() + ZEPHYR_MPU6050_READ_BLOCK + """
+#define SAMPLES 10
+
+int main(void)
+{
+	int16_t accel[3], gyro[3];
+	int32_t acc_hist[SAMPLES][3] = {0};
+	int32_t gyr_hist[SAMPLES][3] = {0};
+	int filled = 0, index = 0;
+
+	(void)i2c_reg_write_byte(i2c_dev, MPU6050_ADDR, 0x6B, 0x00);
+	lcd_init();
+
+	while (1) {
+		if (mpu_read(accel, gyro) == 0) {
+			for (int i = 0; i < 3; ++i) {
+				acc_hist[index][i] = accel[i];
+				gyr_hist[index][i] = gyro[i];
+			}
+			index = (index + 1) % SAMPLES;
+			if (filled < SAMPLES) {
+				filled++;
+			}
+			int32_t a[3] = {0}, g[3] = {0};
+
+			for (int s = 0; s < filled; ++s) {
+				for (int i = 0; i < 3; ++i) {
+					a[i] += acc_hist[s][i];
+					g[i] += gyr_hist[s][i];
+				}
+			}
+			lcd_show_imu(a[0] / filled, a[1] / filled, a[2] / filled,
+				     g[0] / filled, g[1] / filled, g[2] / filled);
+		}
+		k_msleep(100);
+	}
+	return 0;
+}
+"""
+
+
+def zephyr_tmp36_button_display(task: TaskConfig) -> str:
+    return ZEPHYR_GPIO_HEADER + ZEPHYR_ADC_HEADER + zephyr_lcd_driver_block() + """
+#define BTN_PIN 11
+
+static struct gpio_callback btn_cb;
+static volatile int presses;
+
+static void on_press(const struct device *port, struct gpio_callback *cb, uint32_t pins)
+{
+	presses++;
+}
+
+int main(void)
+{
+	char line[17];
+	int handled = 0;
+
+	adc_setup(0, NRF_SAADC_AIN0);
+	gpio_pin_configure(gpio1_dev, BTN_PIN, GPIO_INPUT);
+	gpio_init_callback(&btn_cb, on_press, BIT(BTN_PIN));
+	gpio_add_callback(gpio1_dev, &btn_cb);
+	gpio_pin_interrupt_configure(gpio1_dev, BTN_PIN, GPIO_INT_EDGE_RISING);
+	lcd_init();
+
+	while (1) {
+		if (presses != handled) {
+			handled = presses;
+			if (adc_read(adc_dev, &adc_seq) == 0) {
+				/* C*10 = (mV - 500); F*10 = C*10 * 9/5 + 320 */
+				int mv = (int)adc_sample * 3300 / 4095;
+				int f10 = (mv - 500) * 9 / 5 + 320;
+
+				lcd_clear();
+				lcd_goto(0, 0);
+				snprintf(line, sizeof(line), "Temp: %d.%d F", f10 / 10, f10 % 10);
+				lcd_print(line);
+			}
+		}
+		k_msleep(5);
+	}
+	return 0;
+}
+"""
+
+
+def zephyr_tmp36_periodic_display(task: TaskConfig) -> str:
+    return ZEPHYR_GPIO_HEADER + ZEPHYR_ADC_HEADER + zephyr_lcd_driver_block() + """
+#define BTN_PIN 11
+
+static struct gpio_callback btn_cb;
+static volatile bool reset_requested;
+
+static void on_press(const struct device *port, struct gpio_callback *cb, uint32_t pins)
+{
+	reset_requested = true;
+}
+
+int main(void)
+{
+	char prev[17] = "";
+	char line[17];
+	int counter = 0;
+
+	adc_setup(0, NRF_SAADC_AIN0);
+	gpio_pin_configure(gpio1_dev, BTN_PIN, GPIO_INPUT);
+	gpio_init_callback(&btn_cb, on_press, BIT(BTN_PIN));
+	gpio_add_callback(gpio1_dev, &btn_cb);
+	gpio_pin_interrupt_configure(gpio1_dev, BTN_PIN, GPIO_INT_EDGE_RISING);
+	lcd_init();
+
+	while (1) {
+		k_msleep(1000);
+		if (reset_requested) {
+			reset_requested = false;
+			counter = 0;
+			prev[0] = '\\0';
+			lcd_clear();
+		}
+		if (adc_read(adc_dev, &adc_seq) == 0) {
+			counter++;
+			snprintf(line, sizeof(line), "Temp #%d: %d F", counter, (int)adc_sample);
+			lcd_clear();
+			if (prev[0] != '\\0') {
+				lcd_goto(0, 0);
+				lcd_print(prev);
+				lcd_goto(1, 0);
+			} else {
+				lcd_goto(1, 0);
+			}
+			lcd_print(line);
+			snprintf(prev, sizeof(prev), "%s", line);
+		}
+	}
+	return 0;
+}
+"""
+
+
+def zephyr_joystick_buzzer_pitch(task: TaskConfig) -> str:
+    return ZEPHYR_GPIO_HEADER + ZEPHYR_ADC_HEADER + """
+#define BUZZER_PIN 27
+
+int main(void)
+{
+	int half_us = 1000;
+
+	adc_setup(1, NRF_SAADC_AIN1);
+	gpio_pin_configure(gpio0_dev, BUZZER_PIN, GPIO_OUTPUT_LOW);
+
+	while (1) {
+		if (adc_read(adc_dev, &adc_seq) == 0) {
+			int freq = 100 + (int)adc_sample * 1900 / 4096;
+
+			half_us = 500000 / freq;
+		}
+		/* ~20 carrier periods between ADC reads (<70 ms even at 290 Hz) */
+		for (int i = 0; i < 20; ++i) {
+			gpio_pin_set(gpio0_dev, BUZZER_PIN, 1);
+			k_busy_wait(half_us);
+			gpio_pin_set(gpio0_dev, BUZZER_PIN, 0);
+			k_busy_wait(half_us);
+		}
+	}
+	return 0;
+}
+"""
+
+
+def zephyr_breathing_led(task: TaskConfig) -> str:
+    return ZEPHYR_GPIO_HEADER + """
+#define LED_PIN 24
+#define CARRIER_US 2000
+#define STEP_PERIODS 5 /* 5 x 2 ms carrier = one 10 ms duty step */
+
+static void pwm_step(int duty_percent)
+{
+	int on_us = CARRIER_US * duty_percent / 100;
+
+	for (int i = 0; i < STEP_PERIODS; ++i) {
+		if (on_us > 0) {
+			gpio_pin_set(gpio0_dev, LED_PIN, 1);
+			k_busy_wait(on_us);
+		}
+		if (on_us < CARRIER_US) {
+			gpio_pin_set(gpio0_dev, LED_PIN, 0);
+			k_busy_wait(CARRIER_US - on_us);
+		}
+	}
+}
+
+int main(void)
+{
+	gpio_pin_configure(gpio0_dev, LED_PIN, GPIO_OUTPUT_LOW);
+	while (1) {
+		for (int level = 1; level <= 50; ++level) {
+			pwm_step(level * 2);
+		}
+		for (int level = 50; level >= 1; --level) {
+			pwm_step(level * 2);
+		}
+	}
+	return 0;
+}
+"""
+
+
+def zephyr_lcd_auto_brightness(task: TaskConfig) -> str:
+    return ZEPHYR_GPIO_HEADER + ZEPHYR_ADC_HEADER + zephyr_lcd_driver_block() + """
+#define K_PIN 8
+#define CARRIER_US 2000
+
+int main(void)
+{
+	int duty = 50;
+
+	adc_setup(0, NRF_SAADC_AIN0);
+	gpio_pin_configure(gpio1_dev, K_PIN, GPIO_OUTPUT_LOW);
+	lcd_init();
+	lcd_print("Backlight auto");
+
+	while (1) {
+		if (adc_read(adc_dev, &adc_seq) == 0) {
+			duty = (int)adc_sample * 100 / 4096;
+		}
+		/* ~10 carrier periods (20 ms) between ADC reads */
+		for (int i = 0; i < 10; ++i) {
+			int on_us = CARRIER_US * duty / 100;
+
+			if (on_us > 0) {
+				gpio_pin_set(gpio1_dev, K_PIN, 1);
+				k_busy_wait(on_us);
+			}
+			if (on_us < CARRIER_US) {
+				gpio_pin_set(gpio1_dev, K_PIN, 0);
+				k_busy_wait(CARRIER_US - on_us);
+			}
+		}
+	}
+	return 0;
+}
+"""
+
+
+def zephyr_safebox(task: TaskConfig) -> str:
+    """Two-row keypad scan with edge detection; after each 4 entered keys the
+    code is compared against "1234" and the relay latches high on a match."""
+
+    return """\
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/gpio.h>
+
+#define RELAY_PIN 13
+
+static const struct device *const gpio0_dev = DEVICE_DT_GET(DT_NODELABEL(gpio0));
+static const struct device *const gpio1_dev = DEVICE_DT_GET(DT_NODELABEL(gpio1));
+
+static const int row_pins[2] = {11, 12};
+static const char legend[2][3] = {{'1', '2', '3'}, {'4', '5', '6'}};
+
+struct line {
+\tconst struct device *port;
+\tint pin;
+};
+
+int main(void)
+{
+\tconst struct line cols[3] = {
+\t\t{gpio1_dev, 14}, {gpio0_dev, 23}, {gpio0_dev, 21},
+\t};
+\tbool held[2][3] = {0};
+\tchar entered[5] = {0};
+\tint count = 0;
+\tbool unlocked = false;
+
+\tgpio_pin_configure(gpio0_dev, RELAY_PIN, GPIO_OUTPUT_LOW);
+\tfor (int r = 0; r < 2; ++r) {
+\t\tgpio_pin_configure(gpio1_dev, row_pins[r], GPIO_OUTPUT_HIGH);
+\t}
+\tfor (int c = 0; c < 3; ++c) {
+\t\tgpio_pin_configure(cols[c].port, cols[c].pin, GPIO_INPUT);
+\t}
+
+\twhile (1) {
+\t\tfor (int r = 0; r < 2; ++r) {
+\t\t\tgpio_pin_set_raw(gpio1_dev, row_pins[r], 0);
+\t\t\tk_msleep(1);
+\t\t\tfor (int c = 0; c < 3; ++c) {
+\t\t\t\tbool pressed = gpio_pin_get_raw(cols[c].port, cols[c].pin) == 0;
+
+\t\t\t\tif (pressed && !held[r][c] && !unlocked && count < 4) {
+\t\t\t\t\tentered[count++] = legend[r][c];
+\t\t\t\t}
+\t\t\t\theld[r][c] = pressed;
+\t\t\t}
+\t\t\tgpio_pin_set_raw(gpio1_dev, row_pins[r], 1);
+\t\t}
+\t\tif (count == 4) {
+\t\t\tif (entered[0] == '1' && entered[1] == '2' &&
+\t\t\t    entered[2] == '3' && entered[3] == '4') {
+\t\t\t\tunlocked = true;
+\t\t\t\tgpio_pin_set(gpio0_dev, RELAY_PIN, 1);
+\t\t\t}
+\t\t\tcount = 0;
+\t\t}
+\t\tk_msleep(5);
+\t}
+\treturn 0;
+}
+"""
+
+
+def zephyr_step_counter_print(task: TaskConfig) -> str:
+    return """\
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/i2c.h>
+#include <zephyr/sys/printk.h>
+
+#define MPU6050_ADDR 0x68
+#define PWR_MGMT_1 0x6B
+#define ACCEL_ZOUT_H 0x3F
+#define STEP_THRESHOLD 23700 /* ~1.45 g at 16384 counts/g */
+
+static const struct device *const i2c_dev = DEVICE_DT_GET(DT_NODELABEL(i2c0));
+
+int main(void)
+{
+\tuint8_t raw[2];
+\tint steps = 0;
+\tbool above = false;
+
+\t(void)i2c_reg_write_byte(i2c_dev, MPU6050_ADDR, PWR_MGMT_1, 0x00);
+\twhile (1) {
+\t\tif (i2c_burst_read(i2c_dev, MPU6050_ADDR, ACCEL_ZOUT_H, raw, sizeof(raw)) == 0) {
+\t\t\tint16_t az = (int16_t)((raw[0] << 8) | raw[1]);
+
+\t\t\tif (az > STEP_THRESHOLD && !above) {
+\t\t\t\tabove = true;
+\t\t\t\tprintk("%d\\n", ++steps);
+\t\t\t} else if (az <= STEP_THRESHOLD) {
+\t\t\t\tabove = false;
+\t\t\t}
+\t\t}
+\t\tk_msleep(40);
+\t}
+\treturn 0;
+}
+"""
+
+
+def zephyr_rotary_encoder(task: TaskConfig) -> str:
+    """Quadrature decoder over the Gray-code transition table: quarter steps
+    accumulate per transition and commit one detent (+/-1) when the lines
+    return to the 11 idle state."""
+
+    return """\
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/sys/printk.h>
+
+#define CLK_PIN 11
+#define DT_PIN 12
+
+static const struct device *const gpio1_dev = DEVICE_DT_GET(DT_NODELABEL(gpio1));
+
+/* quarter-step direction per (previous state, new state), state = CLK<<1|DT */
+static const int8_t quarter[4][4] = {
+\t/* from 00 */ {0, -1, 1, 0},
+\t/* from 01 */ {1, 0, 0, -1},
+\t/* from 10 */ {-1, 0, 0, 1},
+\t/* from 11 */ {0, 1, -1, 0},
+};
+
+int main(void)
+{
+\tint position = 0;
+\tint quarters = 0;
+
+\tgpio_pin_configure(gpio1_dev, CLK_PIN, GPIO_INPUT);
+\tgpio_pin_configure(gpio1_dev, DT_PIN, GPIO_INPUT);
+
+\tint prev = (gpio_pin_get_raw(gpio1_dev, CLK_PIN) << 1) | gpio_pin_get_raw(gpio1_dev, DT_PIN);
+
+\twhile (1) {
+\t\tint state = (gpio_pin_get_raw(gpio1_dev, CLK_PIN) << 1) |
+\t\t\t    gpio_pin_get_raw(gpio1_dev, DT_PIN);
+
+\t\tif (state != prev) {
+\t\t\tquarters += quarter[prev][state];
+\t\t\tprev = state;
+\t\t\tif (state == 3) {
+\t\t\t\tif (quarters >= 4) {
+\t\t\t\t\tposition++;
+\t\t\t\t\tprintk("Position: %d Direction: CW\\n", position);
+\t\t\t\t} else if (quarters <= -4) {
+\t\t\t\t\tposition--;
+\t\t\t\t\tprintk("Position: %d Direction: CCW\\n", position);
+\t\t\t\t}
+\t\t\t\tquarters = 0;
+\t\t\t}
+\t\t}
+\t\tk_msleep(1);
+\t}
+\treturn 0;
+}
+"""
+
+
+def zephyr_mpu6050_read_i2c(task: TaskConfig) -> str:
+    return """\
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/i2c.h>
+#include <zephyr/sys/printk.h>
+
+#define MPU6050_ADDR 0x68
+#define PWR_MGMT_1 0x6B
+#define ACCEL_XOUT_H 0x3B
+
+static const struct device *const i2c_dev = DEVICE_DT_GET(DT_NODELABEL(i2c0));
+
+int main(void)
+{
+\tuint8_t raw[14];
+
+\t/* Wake from sleep: clear the SLEEP bit (power-on default 0x40). */
+\t(void)i2c_reg_write_byte(i2c_dev, MPU6050_ADDR, PWR_MGMT_1, 0x00);
+
+\twhile (1) {
+\t\tif (i2c_burst_read(i2c_dev, MPU6050_ADDR, ACCEL_XOUT_H, raw, sizeof(raw)) == 0) {
+\t\t\tint16_t ax = (int16_t)((raw[0] << 8) | raw[1]);
+\t\t\tint16_t ay = (int16_t)((raw[2] << 8) | raw[3]);
+\t\t\tint16_t az = (int16_t)((raw[4] << 8) | raw[5]);
+\t\t\tint16_t gx = (int16_t)((raw[8] << 8) | raw[9]);
+\t\t\tint16_t gy = (int16_t)((raw[10] << 8) | raw[11]);
+\t\t\tint16_t gz = (int16_t)((raw[12] << 8) | raw[13]);
+
+\t\t\tprintk("Accel: %d %d %d Gyro: %d %d %d\\n", ax, ay, az, gx, gy, gz);
+\t\t}
+\t\tk_msleep(150);
+\t}
+\treturn 0;
+}
+"""
+
+
+def zephyr_bme280_read_i2c(task: TaskConfig) -> str:
+    """Register-level BME280 driver: calibration read, mode config, raw data
+    read, and the Bosch datasheet integer compensation for temperature and
+    humidity (pressure is excluded from the Renode oracle; see the task YAML).
+    printk has no float support in the harness prj.conf, so decimals are
+    formatted from integer math."""
+
+    return """\
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/i2c.h>
+#include <zephyr/sys/printk.h>
+
+#define BME280_ADDR 0x76
+
+static const struct device *const i2c_dev = DEVICE_DT_GET(DT_NODELABEL(i2c0));
+
+/* Separate stopped write+read transactions: the simulated bus does not
+ * support repeated-start combined transfers (stated in the prompt). */
+static int bme_read(uint8_t reg, uint8_t *buf, uint32_t len)
+{
+	if (i2c_write(i2c_dev, &reg, 1, BME280_ADDR) != 0) {
+		return -1;
+	}
+	return i2c_read(i2c_dev, buf, len, BME280_ADDR);
+}
+
+static uint16_t dig_t1;
+static int16_t dig_t2, dig_t3;
+static uint8_t dig_h1, dig_h3;
+static int16_t dig_h2, dig_h4, dig_h5;
+static int8_t dig_h6;
+static int32_t t_fine;
+
+static int read_calibration(void)
+{
+\tuint8_t buf[26];
+
+\tif (bme_read(0x88, buf, 26) != 0) {
+\t\treturn -1;
+\t}
+\tdig_t1 = (uint16_t)((buf[1] << 8) | buf[0]);
+\tdig_t2 = (int16_t)((buf[3] << 8) | buf[2]);
+\tdig_t3 = (int16_t)((buf[5] << 8) | buf[4]);
+\tdig_h1 = buf[25];
+\tif (bme_read(0xE1, buf, 7) != 0) {
+\t\treturn -1;
+\t}
+\tdig_h2 = (int16_t)((buf[1] << 8) | buf[0]);
+\tdig_h3 = buf[2];
+\tdig_h4 = (int16_t)((buf[3] << 4) | (buf[4] & 0x0F));
+\tdig_h5 = (int16_t)((buf[5] << 4) | (buf[4] >> 4));
+\tdig_h6 = (int8_t)buf[6];
+\treturn 0;
+}
+
+static int32_t compensate_temperature(int32_t adc_t)
+{
+\tint32_t var1 = ((((adc_t >> 3) - ((int32_t)dig_t1 << 1))) * (int32_t)dig_t2) >> 11;
+\tint32_t var2 = (((((adc_t >> 4) - (int32_t)dig_t1) *
+\t\t\t  ((adc_t >> 4) - (int32_t)dig_t1)) >> 12) * (int32_t)dig_t3) >> 14;
+
+\tt_fine = var1 + var2;
+\treturn (t_fine * 5 + 128) >> 8; /* 0.01 degC */
+}
+
+static uint32_t compensate_humidity(int32_t adc_h)
+{
+\tint32_t v = t_fine - 76800;
+
+\tv = ((((adc_h << 14) - ((int32_t)dig_h4 << 20) - ((int32_t)dig_h5 * v)) + 16384) >> 15) *
+\t    (((((((v * (int32_t)dig_h6) >> 10) *
+\t\t (((v * (int32_t)dig_h3) >> 11) + 32768)) >> 10) + 2097152) *
+\t\t  (int32_t)dig_h2 + 8192) >> 14);
+\tv = v - (((((v >> 15) * (v >> 15)) >> 7) * (int32_t)dig_h1) >> 4);
+\tv = v < 0 ? 0 : v;
+\tv = v > 419430400 ? 419430400 : v;
+\treturn (uint32_t)(v >> 12); /* %RH in Q22.10 */
+}
+
+int main(void)
+{
+\tuint8_t raw[8];
+
+\tif (read_calibration() != 0) {
+\t\tprintk("BME280 calibration read failed\\n");
+\t\treturn 0;
+\t}
+\t/* humidity oversampling x1, then temp/press oversampling x1, normal mode */
+\t(void)i2c_reg_write_byte(i2c_dev, BME280_ADDR, 0xF2, 0x01);
+\t(void)i2c_reg_write_byte(i2c_dev, BME280_ADDR, 0xF4, 0x27);
+
+\twhile (1) {
+\t\tif (bme_read(0xF7, raw, sizeof(raw)) == 0) {
+\t\t\tint32_t adc_t = ((int32_t)raw[3] << 12) | ((int32_t)raw[4] << 4) | (raw[5] >> 4);
+\t\t\tint32_t adc_h = ((int32_t)raw[6] << 8) | raw[7];
+\t\t\tint32_t temp = compensate_temperature(adc_t);
+\t\t\tuint32_t hum = compensate_humidity(adc_h);
+\t\t\tint32_t t_whole = temp / 100;
+\t\t\tint32_t t_frac = temp % 100;
+\t\t\tuint32_t h_deci = (hum * 10) >> 10;
+
+\t\t\tif (t_frac < 0) {
+\t\t\t\tt_frac = -t_frac;
+\t\t\t}
+\t\t\tprintk("Temperature: %d.%02d C Humidity: %u.%u %%\\n",
+\t\t\t       t_whole, t_frac, h_deci / 10, h_deci % 10);
+\t\t}
+\t\tk_msleep(200);
+\t}
+\treturn 0;
+}
+"""
+
+
 def zephyr_ds1307_rtc(task: TaskConfig) -> str:
     return """\
 #include <zephyr/kernel.h>
@@ -2324,6 +3584,285 @@ int main(void)
 \t\t\tgpio_pin_set(led_port, {index}, level);
 \t\t}}
 \t\tk_yield();
+\t}}
+\treturn 0;
+}}
+"""
+
+
+def zephyr_morse_sos(task: TaskConfig) -> str:
+    port, index = zephyr_gpio_parts(fixture_pin(task, "led"))
+    return ZEPHYR_COMMON_INCLUDES + f"""\
+{zephyr_port_decl("led_port", port)}
+
+static void set_led_for_units(int level, int units)
+{{
+\tgpio_pin_set(led_port, {index}, level);
+\tk_msleep(200 * units);
+}}
+
+int main(void)
+{{
+\tconst int pattern[] = {{1, 1, 1, 3, 3, 3, 1, 1, 1}};
+
+\tgpio_pin_configure(led_port, {index}, GPIO_OUTPUT_LOW);
+\twhile (1) {{
+\t\tfor (int i = 0; i < 9; ++i) {{
+\t\t\tset_led_for_units(1, pattern[i]);
+\t\t\tif (i < 8) {{
+\t\t\t\tset_led_for_units(0, (i == 2 || i == 5) ? 3 : 1);
+\t\t\t}}
+\t\t}}
+\t\tset_led_for_units(0, 7);
+\t}}
+\treturn 0;
+}}
+"""
+
+
+def zephyr_blink_two_leds(task: TaskConfig) -> str:
+    pins = task.fixture.get("pins", {}) if isinstance(task.fixture, dict) else {}
+    led1_port, led1_index = zephyr_gpio_parts(str(pins.get("led1", task.board_profile.default_pins["led"])))
+    led2_port, led2_index = zephyr_gpio_parts(str(pins.get("led2", task.board_profile.default_pins["led2"])))
+    return ZEPHYR_COMMON_INCLUDES + f"""\
+{zephyr_port_decl("led1_port", led1_port)}
+{zephyr_port_decl("led2_port", led2_port)}
+
+int main(void)
+{{
+\tint led1 = 0;
+\tint led2 = 0;
+\tint64_t last_led1_ms;
+\tint64_t last_led2_ms;
+
+\tgpio_pin_configure(led1_port, {led1_index}, GPIO_OUTPUT_LOW);
+\tgpio_pin_configure(led2_port, {led2_index}, GPIO_OUTPUT_LOW);
+\tlast_led1_ms = k_uptime_get();
+\tlast_led2_ms = last_led1_ms;
+\twhile (1) {{
+\t\tint64_t now = k_uptime_get();
+
+\t\tif (now - last_led1_ms >= 500) {{
+\t\t\tlast_led1_ms += 500;
+\t\t\tled1 = !led1;
+\t\t\tgpio_pin_set(led1_port, {led1_index}, led1);
+\t\t}}
+\t\tif (now - last_led2_ms >= 250) {{
+\t\t\tlast_led2_ms += 250;
+\t\t\tled2 = !led2;
+\t\t\tgpio_pin_set(led2_port, {led2_index}, led2);
+\t\t}}
+\t\tk_yield();
+\t}}
+\treturn 0;
+}}
+"""
+
+
+def zephyr_button_status_display(task: TaskConfig) -> str:
+    port, index = zephyr_gpio_parts(fixture_pin(task, "button"))
+    return ZEPHYR_COMMON_INCLUDES + f"""\
+{zephyr_port_decl("button_port", port)}
+
+int main(void)
+{{
+\tint was_pressed = 0;
+
+\tgpio_pin_configure(button_port, {index}, GPIO_INPUT);
+\twhile (1) {{
+\t\tint pressed = gpio_pin_get(button_port, {index});
+
+\t\tif (pressed && !was_pressed) {{
+\t\t\tprintk("Button Pressed!\\n");
+\t\t}}
+\t\twas_pressed = pressed;
+\t\tk_msleep(5);
+\t}}
+\treturn 0;
+}}
+"""
+
+
+def zephyr_buzzer_doorbell(task: TaskConfig) -> str:
+    button_port, button_index = zephyr_gpio_parts(fixture_pin(task, "button"))
+    buzzer_port, buzzer_index = zephyr_gpio_parts(fixture_pin(task, "buzzer"))
+    return ZEPHYR_COMMON_INCLUDES + f"""\
+{zephyr_port_decl("button_port", button_port)}
+{zephyr_port_decl("buzzer_port", buzzer_port)}
+
+int main(void)
+{{
+\tgpio_pin_configure(button_port, {button_index}, GPIO_INPUT);
+\tgpio_pin_configure(buzzer_port, {buzzer_index}, GPIO_OUTPUT_LOW);
+\twhile (1) {{
+\t\tgpio_pin_set(buzzer_port, {buzzer_index}, gpio_pin_get(button_port, {button_index}));
+\t\tk_msleep(1);
+\t}}
+\treturn 0;
+}}
+"""
+
+
+def zephyr_buzzer_button(task: TaskConfig) -> str:
+    button_port, button_index = zephyr_gpio_parts(fixture_pin(task, "button"))
+    buzzer_port, buzzer_index = zephyr_gpio_parts(fixture_pin(task, "buzzer"))
+    return ZEPHYR_COMMON_INCLUDES + f"""\
+{zephyr_port_decl("button_port", button_port)}
+{zephyr_port_decl("buzzer_port", buzzer_port)}
+
+#define DEBOUNCE_MS 30
+
+int main(void)
+{{
+\tint stable = 0;
+\tint last_reading = 0;
+\tint64_t changed_at_ms;
+
+\tgpio_pin_configure(button_port, {button_index}, GPIO_INPUT);
+\tgpio_pin_configure(buzzer_port, {buzzer_index}, GPIO_OUTPUT_LOW);
+\tchanged_at_ms = k_uptime_get();
+\twhile (1) {{
+\t\tint reading = gpio_pin_get(button_port, {button_index});
+\t\tint64_t now = k_uptime_get();
+
+\t\tif (reading != last_reading) {{
+\t\t\tlast_reading = reading;
+\t\t\tchanged_at_ms = now;
+\t\t}}
+\t\tif (now - changed_at_ms >= DEBOUNCE_MS && stable != reading) {{
+\t\t\tstable = reading;
+\t\t}}
+\t\tgpio_pin_set(buzzer_port, {buzzer_index}, stable);
+\t\tk_msleep(1);
+\t}}
+\treturn 0;
+}}
+"""
+def zephyr_digital_follow(task: TaskConfig) -> str:
+    input_id = "tilt1" if task.task_id == "tilt_detection_alarm" else "pir1"
+    input_default = "button" if task.task_id == "tilt_detection_alarm" else "pir"
+    input_port, input_index = zephyr_gpio_parts(zephyr_component_pin(task, input_id, input_default))
+    output_port, output_index = zephyr_gpio_parts(zephyr_component_pin(task, "buzzer1", "buzzer"))
+    return ZEPHYR_COMMON_INCLUDES + f"""\
+{zephyr_port_decl("input_port", input_port)}
+{zephyr_port_decl("output_port", output_port)}
+
+int main(void)
+{{
+\tgpio_pin_configure(input_port, {input_index}, GPIO_INPUT);
+\tgpio_pin_configure(output_port, {output_index}, GPIO_OUTPUT_LOW);
+
+\twhile (1) {{
+\t\tgpio_pin_set(output_port, {output_index}, gpio_pin_get(input_port, {input_index}));
+\t\tk_msleep(5);
+\t}}
+\treturn 0;
+}}
+"""
+
+
+def zephyr_clap_switch(task: TaskConfig) -> str:
+    input_port, input_index = zephyr_gpio_parts(zephyr_component_pin(task, "sound1", "button"))
+    output_port, output_index = zephyr_gpio_parts(zephyr_component_pin(task, "relay1", "led"))
+    return ZEPHYR_COMMON_INCLUDES + f"""\
+{zephyr_port_decl("input_port", input_port)}
+{zephyr_port_decl("relay_port", output_port)}
+
+int main(void)
+{{
+\tint last = 0;
+\tint relay = 0;
+
+\tgpio_pin_configure(input_port, {input_index}, GPIO_INPUT);
+\tgpio_pin_configure(relay_port, {output_index}, GPIO_OUTPUT_LOW);
+
+\twhile (1) {{
+\t\tint current = gpio_pin_get(input_port, {input_index});
+\t\tif (current && !last) {{
+\t\t\trelay = !relay;
+\t\t\tgpio_pin_set(relay_port, {output_index}, relay);
+\t\t}}
+\t\tlast = current;
+\t\tk_msleep(5);
+\t}}
+\treturn 0;
+}}
+"""
+
+
+def zephyr_buzzer_toggle_led_freq(task: TaskConfig) -> str:
+    button_port, button_index = zephyr_gpio_parts(zephyr_component_pin(task, "btn1", "button"))
+    led_port, led_index = zephyr_gpio_parts(zephyr_component_pin(task, "led1", "led"))
+    buzzer_port, buzzer_index = zephyr_gpio_parts(zephyr_component_pin(task, "buzzer1", "buzzer"))
+    return ZEPHYR_COMMON_INCLUDES + f"""\
+{zephyr_port_decl("button_port", button_port)}
+{zephyr_port_decl("led_port", led_port)}
+{zephyr_port_decl("buzzer_port", buzzer_port)}
+
+static int64_t half_period_ms(int mode)
+{{
+\tswitch (mode) {{
+\tcase 1:
+\t\treturn 500;
+\tcase 2:
+\t\treturn 250;
+\tcase 3:
+\t\treturn 125;
+\tdefault:
+\t\treturn 0;
+\t}}
+}}
+
+int main(void)
+{{
+\tint mode = 0;
+\tint last_button = 0;
+\tint led_state = 0;
+\tint buzzer_state = 0;
+\tint64_t last_led_toggle = k_uptime_get();
+\tint64_t last_buzzer_toggle = 0;
+\tint64_t buzzer_until = 0;
+
+\tgpio_pin_configure(button_port, {button_index}, GPIO_INPUT);
+\tgpio_pin_configure(led_port, {led_index}, GPIO_OUTPUT_LOW);
+\tgpio_pin_configure(buzzer_port, {buzzer_index}, GPIO_OUTPUT_LOW);
+
+\twhile (1) {{
+\t\tint64_t now = k_uptime_get();
+\t\tint button = gpio_pin_get(button_port, {button_index});
+
+\t\tif (button && !last_button) {{
+\t\t\tmode = (mode + 1) % 4;
+\t\t\tled_state = 0;
+\t\t\tlast_led_toggle = now;
+\t\t\tgpio_pin_set(led_port, {led_index}, led_state);
+\t\t\tbuzzer_until = now + 80;
+\t\t\tlast_buzzer_toggle = now;
+\t\t}}
+\t\tlast_button = button;
+
+\t\tint64_t half = half_period_ms(mode);
+\t\tif (half == 0) {{
+\t\t\tled_state = 0;
+\t\t\tgpio_pin_set(led_port, {led_index}, 0);
+\t\t}} else if (now - last_led_toggle >= half) {{
+\t\t\tlast_led_toggle += half;
+\t\t\tled_state = !led_state;
+\t\t\tgpio_pin_set(led_port, {led_index}, led_state);
+\t\t}}
+
+\t\tif (now < buzzer_until) {{
+\t\t\tif (now - last_buzzer_toggle >= 1) {{
+\t\t\t\tlast_buzzer_toggle = now;
+\t\t\t\tbuzzer_state = !buzzer_state;
+\t\t\t\tgpio_pin_set(buzzer_port, {buzzer_index}, buzzer_state);
+\t\t\t}}
+\t\t}} else if (buzzer_state) {{
+\t\t\tbuzzer_state = 0;
+\t\t\tgpio_pin_set(buzzer_port, {buzzer_index}, 0);
+\t\t}}
+
+\t\tk_msleep(1);
 \t}}
 \treturn 0;
 }}
@@ -2416,6 +3955,48 @@ int main(void)
 """
 
 
+def zephyr_tmp36_read(task: TaskConfig) -> str:
+    profile = task.board_profile
+    return f"""\
+#include <zephyr/kernel.h>
+#include <zephyr/device.h>
+#include <zephyr/drivers/adc.h>
+#include <zephyr/dt-bindings/adc/nrf-saadc.h>
+#include <zephyr/sys/printk.h>
+
+static const struct device *const adc_dev = DEVICE_DT_GET(DT_NODELABEL(adc));
+
+int main(void)
+{{
+\tint16_t sample;
+\tstruct adc_channel_cfg channel_cfg = {{
+\t\t.gain = ADC_GAIN_1,
+\t\t.reference = ADC_REF_INTERNAL,
+\t\t.acquisition_time = ADC_ACQ_TIME_DEFAULT,
+\t\t.channel_id = 0,
+\t\t.input_positive = NRF_SAADC_AIN0,
+\t}};
+\tstruct adc_sequence sequence = {{
+\t\t.channels = BIT(0),
+\t\t.buffer = &sample,
+\t\t.buffer_size = sizeof(sample),
+\t\t.resolution = 12,
+\t}};
+
+\tadc_channel_setup(adc_dev, &channel_cfg);
+\twhile (1) {{
+\t\tif (adc_read(adc_dev, &sequence) == 0) {{
+\t\t\tfloat voltage = sample * ({profile.voltage:.6g}f / {float(profile.adc_max):.1f}f);
+\t\t\tfloat celsius = (voltage - 0.5f) * 100.0f;
+\t\t\tprintk("%.1f\\n", (double)celsius);
+\t\t}}
+\t\tk_msleep(100);
+\t}}
+\treturn 0;
+}}
+"""
+
+
 def espidf_example_source(task: TaskConfig) -> str:
     examples = {
         "blink_led_1hz": espidf_blink_1hz,
@@ -2436,7 +4017,7 @@ def espidf_example_source(task: TaskConfig) -> str:
         "dht11_read": espidf_dht11_read,
         "ds1307_rtc": espidf_i2c_serial_stub,
         "mpu6050_read_i2c": espidf_mpu6050_i2c_serial,
-        "mpu6050_read_spi": espidf_spi_serial_stub,
+        "mpu6050_read_spi": espidf_mpu6050_spi_serial,
         "bme280_read_i2c": espidf_bme280_i2c_stub,
         "bme280_read_spi": espidf_bme280_spi_stub,
         "tilt_detection_alarm": espidf_digital_follow,
@@ -2502,8 +4083,13 @@ def espidf_gpio_output_setup(pin_name: str) -> str:
     return f"  gpio_reset_pin({pin_name});\n  gpio_set_direction({pin_name}, GPIO_MODE_OUTPUT);\n"
 
 
-def espidf_gpio_input_setup(pin_name: str) -> str:
-    return f"  gpio_reset_pin({pin_name});\n  gpio_set_direction({pin_name}, GPIO_MODE_INPUT);\n"
+def espidf_gpio_input_setup(pin_name: str, *, pull: str = "down") -> str:
+    pull_mode = "GPIO_PULLUP_ONLY" if pull == "up" else "GPIO_PULLDOWN_ONLY"
+    return (
+        f"  gpio_reset_pin({pin_name});\n"
+        f"  gpio_set_direction({pin_name}, GPIO_MODE_INPUT);\n"
+        f"  gpio_set_pull_mode({pin_name}, {pull_mode});\n"
+    )
 
 
 def espidf_blink_1hz(task: TaskConfig) -> str:
@@ -2549,21 +4135,29 @@ void app_main(void) {{
 
 def espidf_blink_no_delay(task: TaskConfig) -> str:
     pin = fixture_pin(task, "led")
+    # Non-blocking via an esp_timer periodic callback rather than a busy-poll
+    # loop. A while(1)+taskYIELD spin keeps the simulated core at 100% load, so
+    # Wokwi must emulate every spin instruction and the sim runs at ~half real
+    # time; an event-driven timer lets app_main return to the FreeRTOS idle task
+    # (waiti), which Wokwi fast-forwards, restoring ~real-time speed. Uses no
+    # forbidden blocking-delay call, so the no-delay static check still passes.
     return espidf_common_includes() + f"""\
 #define LED_PIN GPIO_NUM_{pin}
 
+static void toggle_led_cb(void *arg) {{
+  static int level = 0;
+  level = !level;
+  gpio_set_level(LED_PIN, level);
+}}
+
 void app_main(void) {{
-{espidf_gpio_output_setup("LED_PIN")}  int level = 0;
-  int64_t last_toggle_us = esp_timer_get_time();
-  while (1) {{
-    int64_t now = esp_timer_get_time();
-    if (now - last_toggle_us >= 500000) {{
-      last_toggle_us += 500000;
-      level = !level;
-      gpio_set_level(LED_PIN, level);
-    }}
-    taskYIELD();
-  }}
+{espidf_gpio_output_setup("LED_PIN")}  const esp_timer_create_args_t timer_args = {{
+    .callback = &toggle_led_cb,
+    .name = "blink",
+  }};
+  esp_timer_handle_t timer;
+  esp_timer_create(&timer_args, &timer);
+  esp_timer_start_periodic(timer, 500000);
 }}
 """
 
@@ -2607,8 +4201,8 @@ def espidf_buzzer_doorbell(task: TaskConfig) -> str:
 #define BUZZER_PIN GPIO_NUM_{buzzer}
 
 void app_main(void) {{
-{espidf_gpio_input_setup("BUTTON_PIN")}{espidf_gpio_output_setup("BUZZER_PIN")}  while (1) {{
-    gpio_set_level(BUZZER_PIN, gpio_get_level(BUTTON_PIN));
+{espidf_gpio_input_setup("BUTTON_PIN", pull="up")}{espidf_gpio_output_setup("BUZZER_PIN")}  while (1) {{
+    gpio_set_level(BUZZER_PIN, gpio_get_level(BUTTON_PIN) == 0);
     vTaskDelay(pdMS_TO_TICKS(1));
   }}
 }}
@@ -2624,11 +4218,11 @@ def espidf_buzzer_button(task: TaskConfig) -> str:
 #define DEBOUNCE_US 30000
 
 void app_main(void) {{
-{espidf_gpio_input_setup("BUTTON_PIN")}{espidf_gpio_output_setup("BUZZER_PIN")}  int stable = 0;
+{espidf_gpio_input_setup("BUTTON_PIN", pull="up")}{espidf_gpio_output_setup("BUZZER_PIN")}  int stable = 0;
   int last_reading = 0;
   int64_t changed_at = esp_timer_get_time();
   while (1) {{
-    int reading = gpio_get_level(BUTTON_PIN);
+    int reading = gpio_get_level(BUTTON_PIN) == 0;
     int64_t now = esp_timer_get_time();
     if (reading != last_reading) {{
       last_reading = reading;
@@ -2650,9 +4244,9 @@ def espidf_button_status_display(task: TaskConfig) -> str:
 #define BUTTON_PIN GPIO_NUM_{button}
 
 void app_main(void) {{
-{espidf_gpio_input_setup("BUTTON_PIN")}  int was_pressed = 0;
+{espidf_gpio_input_setup("BUTTON_PIN", pull="up")}  int was_pressed = 0;
   while (1) {{
-    int pressed = gpio_get_level(BUTTON_PIN);
+    int pressed = gpio_get_level(BUTTON_PIN) == 0;
     if (pressed && !was_pressed) {{
       printf("Button Pressed!\\n");
     }}
@@ -2669,10 +4263,10 @@ def espidf_button_status_count(task: TaskConfig) -> str:
 #define BUTTON_PIN GPIO_NUM_{button}
 
 void app_main(void) {{
-{espidf_gpio_input_setup("BUTTON_PIN")}  int was_pressed = 0;
+{espidf_gpio_input_setup("BUTTON_PIN", pull="up")}  int was_pressed = 0;
   int count = 0;
   while (1) {{
-    int pressed = gpio_get_level(BUTTON_PIN);
+    int pressed = gpio_get_level(BUTTON_PIN) == 0;
     if (pressed && !was_pressed) {{
       ++count;
       printf("%d\\n", count);
@@ -2691,11 +4285,11 @@ def espidf_button_press_debounce(task: TaskConfig) -> str:
 #define DEBOUNCE_US 30000
 
 void app_main(void) {{
-{espidf_gpio_input_setup("BUTTON_PIN")}  int stable = 0;
+{espidf_gpio_input_setup("BUTTON_PIN", pull="up")}  int stable = 0;
   int last_reading = 0;
   int64_t changed_at = esp_timer_get_time();
   while (1) {{
-    int reading = gpio_get_level(BUTTON_PIN);
+    int reading = gpio_get_level(BUTTON_PIN) == 0;
     int64_t now = esp_timer_get_time();
     if (reading != last_reading) {{
       last_reading = reading;
@@ -3137,14 +4731,73 @@ void app_main(void) {
 """
 
 
+def espidf_mpu6050_spi_serial(task: TaskConfig) -> str:
+    return espidf_common_includes(spi=True) + espidf_spi_activity_source("35", "37", "36", "14") + """\
+static uint8_t mpu_spi_read_reg(uint8_t reg) {
+  uint8_t command = 0x80 | reg;
+  uint8_t rx[2] = {0, 0};
+  uint8_t tx[2] = {command, 0};
+  spi_transaction_t t = {
+    .length = 16,
+    .tx_buffer = tx,
+    .rx_buffer = rx,
+  };
+  spi_device_transmit(spi_dev, &t);
+  return rx[1];
+}
+
+static void mpu_spi_write_reg(uint8_t reg, uint8_t value) {
+  uint8_t tx[2] = {reg & 0x7f, value};
+  spi_transaction_t t = {
+    .length = 16,
+    .tx_buffer = tx,
+  };
+  spi_device_transmit(spi_dev, &t);
+}
+
+static int16_t mpu_spi_read_word(uint8_t reg) {
+  uint8_t high = mpu_spi_read_reg(reg);
+  uint8_t low = mpu_spi_read_reg(reg + 1);
+  return (int16_t)((high << 8) | low);
+}
+
+void app_main(void) {
+  spi_setup();
+  uint8_t who = mpu_spi_read_reg(0x75);
+  mpu_spi_write_reg(0x6b, 0);
+  while (1) {
+    int16_t ax = mpu_spi_read_word(0x3b);
+    int16_t ay = mpu_spi_read_word(0x3d);
+    int16_t az = mpu_spi_read_word(0x3f);
+    int16_t gx = mpu_spi_read_word(0x43);
+    int16_t gy = mpu_spi_read_word(0x45);
+    int16_t gz = mpu_spi_read_word(0x47);
+    printf("WHO: 0x%02x Accel: %d %d %d Gyro: %d %d %d\\n", who, ax, ay, az, gx, gy, gz);
+    vTaskDelay(pdMS_TO_TICKS(100));
+  }
+}
+"""
+
+
 def espidf_bme280_i2c_stub(task: TaskConfig) -> str:
-    return espidf_common_includes(i2c=True) + espidf_i2c_setup_source("38", "39") + """\
+    return espidf_common_includes(i2c=True) + espidf_i2c_setup_source("38", "39") + espidf_bme280_compensation_source() + """\
+static void bme_read_bytes(uint8_t reg, uint8_t *data, size_t len) {
+  i2c_master_write_read_device(I2C_PORT, 0x76, &reg, 1, data, len, pdMS_TO_TICKS(50));
+}
+
+static void bme_write_reg(uint8_t reg, uint8_t value) {
+  i2c_write_reg(0x76, reg, value);
+}
+
 void app_main(void) {
   i2c_setup();
   (void)i2c_read_reg(0x76, 0xd0);
-  printf("Temperature: 24.5 C Humidity: 55.0 %% Pressure: 101325 Pa\\n");
+  bme_write_reg(0xf2, 0x01);
+  bme_write_reg(0xf4, 0x27);
   while (1) {
-    (void)i2c_read_reg(0x76, 0xfa);
+    bme_sample_t sample = bme_read_sample();
+    printf("Temperature: %.1f C Humidity: %.1f %% Pressure: %.0f Pa\\n",
+           sample.temperature_c, sample.humidity_rh, sample.pressure_pa);
     vTaskDelay(pdMS_TO_TICKS(500));
   }
 }
@@ -3152,16 +4805,140 @@ void app_main(void) {
 
 
 def espidf_bme280_spi_stub(task: TaskConfig) -> str:
-    return espidf_common_includes(spi=True) + espidf_spi_activity_source("38", "40", "39", "41") + """\
+    return espidf_common_includes(spi=True) + espidf_spi_activity_source("38", "40", "39", "41") + espidf_bme280_compensation_source() + """\
+static void bme_read_bytes(uint8_t reg, uint8_t *data, size_t len) {
+  uint8_t tx[9] = {0};
+  uint8_t rx[9] = {0};
+  if (len > 8) {
+    len = 8;
+  }
+  tx[0] = reg | 0x80;
+  spi_transaction_t t = {
+    .length = (len + 1) * 8,
+    .tx_buffer = tx,
+    .rx_buffer = rx,
+  };
+  spi_device_transmit(spi_dev, &t);
+  for (size_t i = 0; i < len; ++i) {
+    data[i] = rx[i + 1];
+  }
+}
+
+static void bme_write_reg(uint8_t reg, uint8_t value) {
+  uint8_t tx[2] = {reg & 0x7f, value};
+  spi_transaction_t t = {
+    .length = 16,
+    .tx_buffer = tx,
+  };
+  spi_device_transmit(spi_dev, &t);
+}
+
 void app_main(void) {
   spi_setup();
+  uint8_t id = 0;
+  bme_read_bytes(0xd0, &id, 1);
+  bme_write_reg(0xf2, 0x01);
+  bme_write_reg(0xf4, 0x27);
   while (1) {
-    (void)spi_transfer(0xd0);
-    (void)spi_transfer(0x00);
-    printf("Temperature: 24.5 C Humidity: 55.0 %% Pressure: 101325 Pa\\n");
+    bme_sample_t sample = bme_read_sample();
+    printf("Temperature: %.1f C Humidity: %.1f %% Pressure: %.0f Pa\\n",
+           sample.temperature_c, sample.humidity_rh, sample.pressure_pa);
     vTaskDelay(pdMS_TO_TICKS(500));
   }
 }
+"""
+
+
+def espidf_bme280_compensation_source() -> str:
+    return """\
+typedef struct {
+  float temperature_c;
+  float humidity_rh;
+  float pressure_pa;
+} bme_sample_t;
+
+static const uint16_t dig_T1 = 27504;
+static const int16_t dig_T2 = 26435;
+static const int16_t dig_T3 = -1000;
+static const uint16_t dig_P1 = 36477;
+static const int16_t dig_P2 = -10685;
+static const int16_t dig_P3 = 3024;
+static const int16_t dig_P4 = 2855;
+static const int16_t dig_P5 = 140;
+static const int16_t dig_P6 = -7;
+static const int16_t dig_P7 = 15500;
+static const int16_t dig_P8 = -14600;
+static const int16_t dig_P9 = 6000;
+static const uint8_t dig_H1 = 75;
+static const int16_t dig_H2 = 362;
+static const uint8_t dig_H3 = 0;
+static const int16_t dig_H4 = 325;
+static const int16_t dig_H5 = 50;
+static const int8_t dig_H6 = 30;
+static int32_t bme_t_fine = 0;
+
+static void bme_read_bytes(uint8_t reg, uint8_t *data, size_t len);
+
+static int32_t bme_compensate_temperature(int32_t adc_T) {
+  int32_t var1 = ((((adc_T >> 3) - ((int32_t)dig_T1 << 1))) * ((int32_t)dig_T2)) >> 11;
+  int32_t var2 = (((((adc_T >> 4) - ((int32_t)dig_T1)) * ((adc_T >> 4) - ((int32_t)dig_T1))) >> 12) * ((int32_t)dig_T3)) >> 14;
+  bme_t_fine = var1 + var2;
+  return (bme_t_fine * 5 + 128) >> 8;
+}
+
+static uint32_t bme_compensate_humidity(int32_t adc_H) {
+  int32_t v = bme_t_fine - 76800;
+  v = (((((adc_H << 14) - (((int32_t)dig_H4) << 20) - (((int32_t)dig_H5) * v)) + 16384) >> 15) *
+       (((((((v * ((int32_t)dig_H6)) >> 10) * (((v * ((int32_t)dig_H3)) >> 11) + 32768)) >> 10) + 2097152) *
+             ((int32_t)dig_H2) +
+           8192) >>
+          14));
+  v = v - (((((v >> 15) * (v >> 15)) >> 7) * ((int32_t)dig_H1)) >> 4);
+  if (v < 0) {
+    v = 0;
+  }
+  if (v > 419430400) {
+    v = 419430400;
+  }
+  return (uint32_t)(v >> 12);
+}
+
+static uint32_t bme_compensate_pressure(int32_t adc_P) {
+  int64_t var1 = ((int64_t)bme_t_fine) - 128000;
+  int64_t var2 = var1 * var1 * (int64_t)dig_P6;
+  var2 = var2 + ((var1 * (int64_t)dig_P5) << 17);
+  var2 = var2 + (((int64_t)dig_P4) << 35);
+  var1 = ((var1 * var1 * (int64_t)dig_P3) >> 8) + ((var1 * (int64_t)dig_P2) << 12);
+  var1 = (((((int64_t)1) << 47) + var1)) * ((int64_t)dig_P1) >> 33;
+  if (var1 == 0) {
+    return 0;
+  }
+  int64_t p = 1048576 - adc_P;
+  p = (((p << 31) - var2) * 3125) / var1;
+  var1 = (((int64_t)dig_P9) * (p >> 13) * (p >> 13)) >> 25;
+  var2 = (((int64_t)dig_P8) * p) >> 19;
+  p = ((p + var1 + var2) >> 8) + (((int64_t)dig_P7) << 4);
+  return (uint32_t)p;
+}
+
+static bme_sample_t bme_read_sample(void) {
+  uint8_t data[8] = {0};
+  bme_read_bytes(0xf7, data, sizeof(data));
+  int32_t adc_P = ((int32_t)data[0] << 12) | ((int32_t)data[1] << 4) | (data[2] >> 4);
+  int32_t adc_T = ((int32_t)data[3] << 12) | ((int32_t)data[4] << 4) | (data[5] >> 4);
+  int32_t adc_H = ((int32_t)data[6] << 8) | data[7];
+
+  int32_t temp_c_x100 = bme_compensate_temperature(adc_T);
+  uint32_t pressure_pa_x256 = bme_compensate_pressure(adc_P);
+  uint32_t humidity_x1024 = bme_compensate_humidity(adc_H);
+  bme_sample_t sample = {
+    .temperature_c = temp_c_x100 / 100.0f,
+    .humidity_rh = humidity_x1024 / 1024.0f,
+    .pressure_pa = pressure_pa_x256 / 256.0f,
+  };
+  return sample;
+}
+
 """
 
 

@@ -33,6 +33,7 @@ class BoardProfile:
     firmware_kind: str = "arduino_image"
     backend: str = "wokwi"
     zephyr_board: str | None = None
+    serial_interface: str | None = None
 
 
 BOARD_PROFILES = {
@@ -88,11 +89,12 @@ BOARD_PROFILES = {
         firmware_extension="",
         voltage=3.3,
         adc_max=4095,
-        power_pin="3V3",
+        power_pin="3V3.1",
         ground_pin="GND.1",
         build_kind="espidf",
         idf_target="esp32s3",
         firmware_kind="espidf_flasher_args",
+        serial_interface="USB_SERIAL_JTAG",
         default_pins={
             "led": "10",
             "led2": "11",
@@ -518,6 +520,8 @@ def validate_families(task: TaskConfig, channels: list[dict[str, Any]]) -> None:
             raise ConfigError(
                 f"{task.path}: serial_count_sequence match_mode must be monotonic_reaches or exact_sequence"
             )
+        if "line_pattern" in params:
+            validate_regexps(task, [params["line_pattern"]], "serial_count_sequence line_pattern")
     if task.validator_family == "debounce_serial":
         if "expected_triggers" not in params:
             raise ConfigError(f"{task.path}: debounce_serial requires expected_triggers")

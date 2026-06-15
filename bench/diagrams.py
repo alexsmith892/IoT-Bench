@@ -87,6 +87,13 @@ def apply_board_profile(diagram: dict[str, Any], task: TaskConfig) -> dict[str, 
             continue
         part_data["type"] = str(board.get("type", profile.board_type))
         part_data["id"] = profile.part_id
+        attrs = dict(part_data.get("attrs") or {})
+        if profile.serial_interface:
+            attrs.setdefault("serialInterface", profile.serial_interface)
+        board_attrs = board.get("attrs")
+        if isinstance(board_attrs, dict):
+            attrs.update(board_attrs)
+        part_data["attrs"] = attrs
         break
 
     for item in diagram.get("connections", []):
@@ -217,7 +224,10 @@ def add_component(
                 part("wokwi-resistor", resistor_id, left=left + 48, top=top + 85, rotate=90, attrs={"value": "10000"}),
             ]
         )
-        diagram["connections"].extend(active_high_button_connections(part_id, resistor_id, pin))
+        if component.get("active_low"):
+            diagram["connections"].extend(active_low_button_connections(part_id, resistor_id, pin))
+        else:
+            diagram["connections"].extend(active_high_button_connections(part_id, resistor_id, pin))
     elif kind == "digital_pullup":
         # Active-low digital source: idle HIGH via pull-up, driven LOW while the
         # surrogate button is "pressed". This presents the same pin-level
@@ -364,6 +374,18 @@ def add_component(
         for part_pin, config_pin in spi_map.items():
             if config_pin in pins:
                 diagram["connections"].append(connection(f"{part_id}:{part_pin}", f"mega:{pins[config_pin]}", "green"))
+    elif kind == "mpu6050_spi":
+        diagram["parts"].append(part("chip-mpu6050", part_id, left=left, top=top, attrs=mpu6050_attrs(component)))
+        spi_map = {"SCK": "sck", "SDO": "miso", "SDI": "mosi", "CS": "cs"}
+        diagram["connections"].extend(
+            [
+                connection(f"{part_id}:VCC", "mega:5V", "red"),
+                connection(f"{part_id}:GND", "mega:GND.1", "black"),
+            ]
+        )
+        for part_pin, config_pin in spi_map.items():
+            if config_pin in pins:
+                diagram["connections"].append(connection(f"{part_id}:{part_pin}", f"mega:{pins[config_pin]}", "green"))
     elif kind == "hcsr04":
         diagram["parts"].append(part("wokwi-hc-sr04", part_id, left=left, top=top, attrs=component.get("attrs") or {}))
         diagram["connections"].extend(
@@ -402,6 +424,20 @@ def bme280_attrs(component: dict[str, Any]) -> dict[str, Any]:
         "temperatureC": str(component.get("temperatureC", component.get("temperature", "24.5"))),
         "humidityRH": str(component.get("humidityRH", component.get("humidity", "55.0"))),
         "pressurePa": str(component.get("pressurePa", "101325")),
+    }
+    attrs.update(component.get("attrs") or {})
+    return attrs
+
+
+def mpu6050_attrs(component: dict[str, Any]) -> dict[str, Any]:
+    attrs = {
+        "accelX": str(component.get("accelX", "0.0")),
+        "accelY": str(component.get("accelY", "0.0")),
+        "accelZ": str(component.get("accelZ", "1.0")),
+        "rotationX": str(component.get("rotationX", "0.0")),
+        "rotationY": str(component.get("rotationY", "0.0")),
+        "rotationZ": str(component.get("rotationZ", "0.0")),
+        "temperatureC": str(component.get("temperatureC", component.get("temperature", "25.0"))),
     }
     attrs.update(component.get("attrs") or {})
     return attrs
@@ -449,8 +485,13 @@ def button_to_buzzer(task: TaskConfig) -> dict[str, Any]:
             logic_analyzer(task),
         ]
     )
+    button_connections = (
+        active_low_button_connections("btn1", "r1", button_pin)
+        if uses_active_low_button(task)
+        else active_high_button_connections("btn1", "r1", button_pin)
+    )
     diagram["connections"].extend(
-        active_high_button_connections("btn1", "r1", button_pin)
+        button_connections
         + [
             connection("buzzer1:1", "mega:GND.1", "black"),
             connection("buzzer1:2", f"mega:{buzzer_pin}", "red"),
@@ -470,7 +511,10 @@ def button_serial(task: TaskConfig) -> dict[str, Any]:
             part("wokwi-resistor", "r1", left=198, top=50, rotate=90, attrs={"value": "10000"}),
         ]
     )
-    diagram["connections"].extend(active_high_button_connections("btn1", "r1", button_pin))
+    if uses_active_low_button(task):
+        diagram["connections"].extend(active_low_button_connections("btn1", "r1", button_pin))
+    else:
+        diagram["connections"].extend(active_high_button_connections("btn1", "r1", button_pin))
     return diagram
 
 
@@ -536,6 +580,10 @@ def active_low_button_connections(button_id: str, resistor_id: str, pin: str) ->
     ]
 
 
+def uses_active_low_button(task: TaskConfig) -> bool:
+    return bool(task.fixture.get("active_low")) or task.platform == "esp32s3_espidf"
+
+
 def add_analyzer_connections(diagram: dict[str, Any], task: TaskConfig) -> None:
     for channel in task.fixture.get("analyzer", {}).get("channels", []):
         diagram["connections"].append(
@@ -595,6 +643,9 @@ PART_TYPE_CONTROLS: dict[str, set[str]] = {
     # bench/chips/bme280: deterministic custom chip; controls match its
     # bme280.chip.json control ids (which double as diagram attrs).
     "chip-bme280": {"temperatureC", "humidityRH", "pressurePa"},
+    # bench/chips/mpu6050: deterministic SPI custom chip matching the native
+    # Wokwi MPU6050 control names plus a temperature attr.
+    "chip-mpu6050": {"accelX", "accelY", "accelZ", "rotationX", "rotationY", "rotationZ", "temperatureC"},
 }
 
 # Fixed scenario families drive a single hardcoded control on a configurable
@@ -706,6 +757,13 @@ def validate_diagram_shape(diagram: dict[str, Any], task: TaskConfig) -> None:
         raise DiagramError(
             f"diagram board {profile.part_id!r} has type {board_part.get('type')!r}; expected {expected_type!r}"
         )
+    if profile.serial_interface:
+        attrs = board_part.get("attrs") or {}
+        if attrs.get("serialInterface") != profile.serial_interface:
+            raise DiagramError(
+                f"diagram board {profile.part_id!r} is missing serialInterface "
+                f"{profile.serial_interface!r}"
+            )
     if len(part_ids) != len(set(part_ids)):
         raise DiagramError("diagram contains duplicate part ids")
     for item in diagram.get("connections", []):
