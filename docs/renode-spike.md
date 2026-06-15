@@ -1,5 +1,12 @@
 # Renode/Zephyr Phase 0 Spike Findings (2026-06-11)
 
+> Historical note: this file records the initial hand-built spike that shaped
+> the backend. Current implementation status lives in the README and the task
+> tree. Since this spike, the harness has added generated `.repl`/`.resc`
+> cases, button/PIR scenario injection, custom SAADC support for TMP36,
+> selected Level 2 sensor models, and live-verified Level 1/selected Level 2
+> Zephyr/Renode tasks.
+
 One blink case was hand-built end to end: Zephyr firmware for
 `arduino_nano_33_ble` (nRF52840), simulated headless in Renode, with UART
 captured to a serial log and GPIO transitions synthesized into a
@@ -99,12 +106,11 @@ pin configuration produces a 1→0 glitch pair at the same µs tick, and
    the board repl and overrides `uart0: easyDMA: false`. Serial logs are
    plain text, no timestamps (assumption preserved); first line is the
    Zephyr boot banner.
-3. **No PWM or SAADC models** in Renode's stock `nrf52840.repl` (and SPI
-   exists but no ADC). Phase 4's analog plan ("inject into the SAADC
-   model") needs a custom SAADC peripheral model first; hardware-PWM tasks
-   (breathing LED) likewise need a custom PWM model that drives the GPIO.
-   GPIO, GPIOTE, RTC, TIMER, TWI (I2C), SPI, UART models exist — Phase 3's
-   GPIO+serial wave is fully covered.
+3. **No PWM or stock SAADC models** in Renode's `nrf52840.repl`. The harness
+   now provides a custom IoT-Bench SAADC model for analog tasks; hardware-PWM
+   tasks (breathing LED) still need a PWM model or a carefully documented
+   simulator surrogate. GPIO, GPIOTE, RTC, TIMER, TWI (I2C), SPI, UART models
+   exist.
 4. **SVD from URL**: `nrf52840.repl` runs
    `ApplySVD @https://dl.antmicro.com/...NRF52840.svd.gz` (first run
    downloads, then cached). It only adds register names to log messages;
@@ -116,6 +122,12 @@ pin configuration produces a 1→0 glitch pair at the same µs tick, and
 6. **Renode exit code** is 82 on `quit` after a crashed emulation; a clean
    run exits 0. The backend should treat nonzero exit + missing artifacts
    as IF with `failure_source: simulator`.
-7. **Button injection** (Phase 2/3): attach `Miscellaneous.Button @ gpio0 <pin>`
-   in the case repl and drive `Press`/`Release` from timed `.resc` steps —
-   not yet exercised in this spike; first thing to verify in Phase 2.
+7. **Button injection**: attach `Miscellaneous.Button @ gpioX <pin>` in the
+   case repl and drive `Press`/`Release` from timed `.resc` steps. This is now
+   exercised by the button, PIR, buzzer, and debounce Zephyr cases.
+8. **Digital sensor surrogates**: Renode-backed Zephyr coverage now uses the
+   same GPIO-button injection path for simple digital sensors whose useful
+   benchmark behavior is a binary stimulus. This supports `hcsr501_motion_alarm`,
+   `tilt_detection_alarm`, `clap_switch`, and the button side of
+   `buzzer_toggle_led_freq` without adding unsound placeholder peripheral
+   models.

@@ -158,14 +158,17 @@ python -m bench.cli generate --platform arduino_mega --level level2
 python -m bench.cli generate --platform arduino_mega --level level3
 python -m bench.cli generate --platform esp32s3_espidf --level level1
 python -m bench.cli generate --platform zephyr_nano33ble --level level1
+python -m bench.cli generate --platform zephyr_nano33ble --level level2
 ```
 
-Build sketches and create the firmware binaries referenced by `wokwi.toml`:
+Build sketches and create the firmware binaries referenced by `wokwi.toml`
+(or, for Renode cases, loaded by `case.resc`):
 
 ```powershell
 python -m bench.cli build --task blink_led_1hz
 python -m bench.cli build --platform arduino_mega --level level1
 python -m bench.cli build --platform esp32s3_espidf --level level1
+python -m bench.cli build --platform zephyr_nano33ble --level level1
 ```
 
 Run live Wokwi simulation, capture artifacts, validate behavior, and write
@@ -178,6 +181,7 @@ python -m bench.cli run --platform arduino_mega --level level2 --regenerate
 python -m bench.cli run --platform arduino_mega --level level3 --regenerate
 python -m bench.cli run --platform esp32s3_espidf --task blink_led_1hz --regenerate
 python -m bench.cli run --platform zephyr_nano33ble --level level1
+python -m bench.cli run --platform zephyr_nano33ble --level level2
 ```
 
 Validate existing VCD or serial artifacts without compiling or running Wokwi:
@@ -250,23 +254,48 @@ Level 2 live-supported:
 - `16key_keypad` (surrogate: matrix cross-point switches)
 - `bme280_read_i2c` (custom deterministic BME280 chip; multi-variant)
 - `bme280_read_spi` (custom deterministic BME280 chip; multi-variant)
+- `mpu6050_read_spi` (custom deterministic MPU6050 SPI chip; multi-variant)
+
+ESP32-S3 ESP-IDF also has `buzzer_button` as an ESP32-only supported level-1
+task. ESP32-S3 serial capture uses Wokwi's USB Serial/JTAG interface, so
+generated ESP-IDF diagrams set `serialInterface = "USB_SERIAL_JTAG"` and the
+generated `sdkconfig.defaults` routes `printf` there.
 
 Zephyr / Nano 33 BLE (Renode) level 1, all live-verified (reference BC across
 variants, adversarial stubs BF):
 - `blink_led_1hz`
+- `blink_led_morse_code`
 - `blink_led_no_delay`
+- `blink_two_leds`
+- `buzzer_doorbell`
+- `buzzer_button`
+- `button_status_display`
 - `button_status_count` (multi-variant: 3 vs 4 presses)
 - `button_press_debounce` (multi-variant: 2 vs 3 bounced presses)
 - `sensor_pir_human_motion` (multi-variant: single vs double motion)
+- `tmp36_read` (custom IoT-Bench SAADC C# model, `bench/chips/saadc/`;
+  multi-variant stimulus timelines, 3.3 V / 4095 conversion)
 
 Zephyr / Nano 33 BLE (Renode) level 2, all live-verified:
+- `clap_switch` (digital sound-sensor surrogate toggles relay output)
 - `ds1307_rtc` (custom C# DS1307 model compiled by Renode at include time;
   multi-variant seeded clock via per-variant attrs)
+- `hcsr501_motion_alarm` (digital PIR surrogate drives active-buzzer output)
 - `lsm9ds1_read_i2c` (native Renode LSM9DS1 — the board's real IMU; per-variant
   mid-run accel/gyro injection, raw-count oracle at 16384 LSB/g, 120 LSB/dps,
   verified live)
 - `lcd1602_display_hello_world` (bit-banged 4-bit bus decoded from the
   synthesized VCD by the existing `lcd1602.py`)
+- `tilt_detection_alarm` (digital tilt-switch surrogate drives active-buzzer output)
+- `bme280_read_i2c` (native Renode BME280 model; temperature + humidity only
+  — the model's pressure encoder is incompatible with the Bosch compensation
+  formulas, so no pressure oracle over it can be sound; the prompt mandates
+  separate write/read transactions because the model's address-select
+  desynchronizes under repeated-start combined transfers)
+
+Zephyr / Nano 33 BLE (Renode) level 3, live-verified:
+- `buzzer_toggle_led_freq` (button-driven 1 Hz / 2 Hz / 4 Hz / off LED state
+  machine plus buzzer activity)
 
 Level 3 live-supported (the display tasks below are multi-variant with
 numeric LCD oracles tied to injected stimulus):
@@ -362,8 +391,8 @@ matches the upstream iot-skillsbench real-hardware target. Key facts
 - `RENODE_PERIPHERAL_CONTROLS` is the scenario-control allowlist for this
   backend, linted like `PART_TYPE_CONTROLS`
   (`tests/test_renode_scenario_lint.py`). Per-variant scenario overrides are
-  supported; per-variant `attrs` are rejected until the backend has
-  peripheral models whose state variants can seed.
+  supported; per-variant `attrs` are supported for Renode-backed sensor and
+  analog-source models whose state can be seeded deterministically.
 - The case `.repl` pins the CPU at 2 MIPS: busy-polling firmware
   (`k_uptime_get` loops) crosses the emulator/peripheral boundary on every
   RTC read and would otherwise simulate slower than the wall-clock guard;
@@ -381,13 +410,15 @@ matches the upstream iot-skillsbench real-hardware target. Key facts
   Zephyr's I2C drivers default to TWIM (EasyDMA), which Renode's nRF52840
   I2C model does not implement; the harness-owned `app.overlay` pins the
   legacy `nordic,nrf-twi` driver (verified live).
-- Renode's stock nRF52840 model has no PWM or SAADC peripherals, so
-  hardware-PWM (breathing LED) and analog tasks (TMP36 and the other
-  potentiometer surrogates) need custom C# models before they can join this
-  platform — that is the next backend milestone; DHT11 and HC-SR04 stay
-  Wokwi-only (bit-banged microsecond protocols). The model fetches its SVD
-  (register names for log messages) from a URL on first run and caches it
-  afterwards.
+- Renode's stock nRF52840 model has no SAADC; analog tasks use the IoT-Bench
+  SAADC model (`bench/chips/saadc/NRF52840_SAADC.cs`, compiled by Renode at
+  include time) whose per-channel values are seeded from fixture attrs (raw
+  counts) and driven by scenario `position` controls (0..1 of full scale),
+  mirroring the Wokwi potentiometer surrogate. There is still no nRF PWM
+  model, so hardware-PWM tasks (breathing LED) remain a future backend
+  milestone; DHT11 and HC-SR04 stay Wokwi-only (bit-banged microsecond
+  protocols). The platform model fetches its SVD (register names for log
+  messages) from a URL on first run and caches it afterwards.
 
 Pinned tools for this platform (`bench/tool_versions.yaml`): the Renode
 version, west version, and the Zephyr tree revision. `doctor --platform
@@ -432,6 +463,10 @@ them in their default install locations).
   physical BME280 emulator. Temperature, humidity, and pressure are all scored
   per simulation variant (`expected_temperature_c`, `expected_humidity_rh`,
   `expected_pressure_pa`).
+- `mpu6050_read_spi` uses the deterministic custom `chip-mpu6050` model in
+  `bench/chips/mpu6050`. Its SPI register map mirrors the MPU6050 I2C raw-count
+  contract: WHO_AM_I returns `0x68`, accel/gyro registers are big-endian raw
+  values, and per-variant attrs change the scored counts.
 - DS1307 validation focuses on the read-and-print RTC contract: the prompt
   tells the model the clock is pre-seeded and must not be set, and each
   simulation variant seeds a different `initTime` (honored per-variant by
