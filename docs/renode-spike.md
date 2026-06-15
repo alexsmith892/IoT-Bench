@@ -131,3 +131,9 @@ pin configuration produces a 1→0 glitch pair at the same µs tick, and
    `tilt_detection_alarm`, `clap_switch`, and the button side of
    `buzzer_toggle_led_freq` without adding unsound placeholder peripheral
    models.
+9. **Canonical task coverage status**: HC-SR04 has a custom model and generated
+   Zephyr tasks, but it still needs a current live sweep before promotion.
+   Canonical DHT11, DS18B20, and BME280-SPI Zephyr tasks are present in
+   `tasks/zephyr_nano33ble` as unsupported until Workstream A wires real Renode
+   peripheral support. `lsm9ds1_read_i2c` is retained as an IoT-Bench addition
+   for the Nano 33 BLE onboard IMU, not as an upstream canonical task.

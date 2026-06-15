@@ -1,0 +1,42 @@
+task_id: dht11_read_button_display
+name: Read DHT11 on button interrupt and display temperature/RH (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level3
+support:
+  status: unsupported
+  reason: Renode backend has no DHT11 single-wire sensor model or timing-safe surrogate yet.
+fixture:
+  family: composite
+  analyzer:
+    channels:
+      - {signal: D0, pin: "P1.12"}
+      - {signal: D1, pin: "P1.14"}
+      - {signal: D2, pin: "P1.15"}
+      - {signal: D3, pin: "P1.13"}
+      - {signal: D4, pin: "P0.21"}
+      - {signal: D5, pin: "P0.27"}
+  components:
+    - type: button
+      id: btn1
+      pin: "P1.11"
+    - type: dht11
+      id: dht1
+      pins: {data: "P1.10"}
+      attrs: {temperature: "24", humidity: "40"}
+    - type: lcd1602
+      id: lcd1
+      pins: {rs: "P1.12", e: "P1.14", d4: "P1.15", d5: "P1.13", d6: "P0.21", d7: "P0.27"}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_any_patterns:
+          - ["gpio_pin_interrupt_configure", "gpio_init_callback"]
+    - family: lcd_text_sequence
+      params:
+        frames:
+          - expected_texts: ["Temp:", "RH:"]
+            expected_regexps: ["Temp:\\s*24(\\.0)?\\s*C", "RH:\\s*40(\\.0)?\\s*%"]
+simulation: {timeout_ms: 2700}
+case: {id: dht11-read-button-display-renode-nano33, sketch_name: dht11_read_button_display}

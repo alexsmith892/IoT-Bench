@@ -1,0 +1,43 @@
+task_id: bme280_read_spi
+name: Read BME280 temperature and humidity over SPI (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level2
+support:
+  status: unsupported
+  reason: Renode backend has no wired BME280 SPI fixture for Nano 33 BLE yet.
+fixture:
+  family: composite
+  components:
+    - type: bme280_spi
+      id: bme1
+      bus: spi0
+      cs: "P1.02"
+      attrs: {temperatureC: "24.5", humidityRH: "55.0"}
+simulation_variants:
+  - id: warm_humid
+    attrs: {bme1: {temperatureC: "24.5", humidityRH: "55.0"}}
+    validator:
+      checks:
+        - {}
+        - params: {expected_temperature_c: 24.5, expected_humidity_rh: 55.0}
+  - id: hot_dry
+    attrs: {bme1: {temperatureC: "31.0", humidityRH: "42.0"}}
+    validator:
+      checks:
+        - {}
+        - params: {expected_temperature_c: 31.0, expected_humidity_rh: 42.0}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_any_patterns:
+          - ["spi_transceive\\s*\\(", "spi_write\\s*\\(", "spi_read\\s*\\("]
+    - family: bme280_environment
+      params:
+        expected_temperature_c: 24.5
+        expected_humidity_rh: 55.0
+        temperature_tolerance_c: 0.5
+        humidity_tolerance_rh: 2.0
+simulation: {timeout_ms: 3000, require_distinct_variant_outputs: true}
+case: {id: bme280-read-spi-renode-nano33, sketch_name: bme280_read_spi}

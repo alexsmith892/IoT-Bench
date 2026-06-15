@@ -1,0 +1,29 @@
+task_id: dht11_read
+name: Read DHT11 temperature and humidity on serial (Zephyr / Nano 33 BLE)
+platform: zephyr_nano33ble
+level: level2
+support:
+  status: unsupported
+  reason: Renode backend has no DHT11 single-wire sensor model or timing-safe surrogate yet.
+fixture:
+  family: composite
+  components:
+    - type: dht11
+      id: dht1
+      pins: {data: "P1.11"}
+      attrs: {temperature: "24", humidity: "40"}
+validator:
+  family: composite
+  checks:
+    - family: static_checks
+      params:
+        required_any_patterns:
+          - ["gpio_pin_get(?:_dt|_raw)?\\s*\\(", "gpio_pin_set(?:_dt|_raw)?\\s*\\("]
+    - family: serial_observation_sequence
+      params:
+        observations:
+          - label: dht11_reading
+            patterns: ["Temp(erature)?.*24", "Hum(idity)?.*40"]
+            numeric_ranges: [[22, 26], [38, 42]]
+simulation: {timeout_ms: 2200}
+case: {id: dht11-read-renode-nano33, sketch_name: dht11_read}
