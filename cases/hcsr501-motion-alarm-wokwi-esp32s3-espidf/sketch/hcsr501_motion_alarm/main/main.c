@@ -11,6 +11,7 @@
 void app_main(void) {
   gpio_reset_pin(INPUT_PIN);
   gpio_set_direction(INPUT_PIN, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(INPUT_PIN, GPIO_PULLDOWN_ONLY);
   gpio_reset_pin(OUTPUT_PIN);
   gpio_set_direction(OUTPUT_PIN, GPIO_MODE_OUTPUT);
   while (1) {

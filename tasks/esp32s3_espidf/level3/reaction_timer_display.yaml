@@ -21,7 +21,7 @@ fixture:
   components:
   - type: button
     id: btn1
-    pin: '38'
+    pin: '12'
   - type: shock_sensor
     id: shock1
     pin: '14'

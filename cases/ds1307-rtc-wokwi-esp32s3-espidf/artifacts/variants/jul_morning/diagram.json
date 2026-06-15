@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp",
+      "top": 120,
+      "left": 20,
+      "attrs": {
+        "serialInterface": "USB_SERIAL_JTAG"
+      }
+    },
+    {
+      "type": "wokwi-ds1307",
+      "id": "rtc1",
+      "top": -80,
+      "left": 225,
+      "attrs": {
+        "initTime": "2026-07-19T08:03:00Z"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "rtc1:VCC",
+      "esp:3V3.1",
+      "red",
+      []
+    ],
+    [
+      "rtc1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "rtc1:SDA",
+      "esp:38",
+      "green",
+      []
+    ],
+    [
+      "rtc1:SCL",
+      "esp:39",
+      "green",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

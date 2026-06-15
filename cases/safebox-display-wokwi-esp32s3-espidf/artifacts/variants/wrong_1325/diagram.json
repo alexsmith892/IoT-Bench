@@ -1,0 +1,285 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp",
+      "top": 120,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-logic-analyzer",
+      "id": "logic1",
+      "top": -55,
+      "left": 300,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k1",
+      "top": -80,
+      "left": 225,
+      "attrs": {
+        "color": "green",
+        "label": "k1",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k2",
+      "top": -80,
+      "left": 330,
+      "attrs": {
+        "color": "green",
+        "label": "k2",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k3",
+      "top": -80,
+      "left": 435,
+      "attrs": {
+        "color": "green",
+        "label": "k3",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k4",
+      "top": 15,
+      "left": 120,
+      "attrs": {
+        "color": "green",
+        "label": "k4",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "k5",
+      "top": 15,
+      "left": 225,
+      "attrs": {
+        "color": "green",
+        "label": "k5",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-relay-module",
+      "id": "relay1",
+      "top": 15,
+      "left": 330,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-lcd1602",
+      "id": "lcd1",
+      "top": 15,
+      "left": 435,
+      "attrs": {}
+    }
+  ],
+  "connections": [
+    [
+      "logic1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "k1:1.r",
+      "esp:9",
+      "green",
+      []
+    ],
+    [
+      "k1:2.r",
+      "esp:14",
+      "green",
+      []
+    ],
+    [
+      "k2:1.r",
+      "esp:9",
+      "green",
+      []
+    ],
+    [
+      "k2:2.r",
+      "esp:38",
+      "green",
+      []
+    ],
+    [
+      "k3:1.r",
+      "esp:9",
+      "green",
+      []
+    ],
+    [
+      "k3:2.r",
+      "esp:43",
+      "green",
+      []
+    ],
+    [
+      "k4:1.r",
+      "esp:10",
+      "green",
+      []
+    ],
+    [
+      "k4:2.r",
+      "esp:14",
+      "green",
+      []
+    ],
+    [
+      "k5:1.r",
+      "esp:10",
+      "green",
+      []
+    ],
+    [
+      "k5:2.r",
+      "esp:38",
+      "green",
+      []
+    ],
+    [
+      "relay1:VCC",
+      "esp:3V3.1",
+      "red",
+      []
+    ],
+    [
+      "relay1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "relay1:IN",
+      "esp:38",
+      "green",
+      []
+    ],
+    [
+      "lcd1:VSS",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "lcd1:VDD",
+      "esp:3V3.1",
+      "red",
+      []
+    ],
+    [
+      "lcd1:RW",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "lcd1:K",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "lcd1:RS",
+      "esp:38",
+      "green",
+      []
+    ],
+    [
+      "lcd1:E",
+      "esp:39",
+      "green",
+      []
+    ],
+    [
+      "lcd1:D4",
+      "esp:40",
+      "green",
+      []
+    ],
+    [
+      "lcd1:D5",
+      "esp:41",
+      "green",
+      []
+    ],
+    [
+      "lcd1:D6",
+      "esp:42",
+      "green",
+      []
+    ],
+    [
+      "lcd1:D7",
+      "esp:21",
+      "green",
+      []
+    ],
+    [
+      "lcd1:A",
+      "esp:3V3.1",
+      "red",
+      []
+    ],
+    [
+      "logic1:D0",
+      "esp:38",
+      "green",
+      []
+    ],
+    [
+      "logic1:D1",
+      "esp:38",
+      "green",
+      []
+    ],
+    [
+      "logic1:D2",
+      "esp:39",
+      "green",
+      []
+    ],
+    [
+      "logic1:D3",
+      "esp:40",
+      "green",
+      []
+    ],
+    [
+      "logic1:D4",
+      "esp:41",
+      "green",
+      []
+    ],
+    [
+      "logic1:D5",
+      "esp:42",
+      "green",
+      []
+    ],
+    [
+      "logic1:D6",
+      "esp:21",
+      "green",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

@@ -9,7 +9,7 @@ fixture:
     - signal: D0
       pin: '38'
     - signal: D1
-      pin: '38'
+      pin: '8'
     - signal: D2
       pin: '39'
     - signal: D3
@@ -30,7 +30,7 @@ fixture:
     id: k2
     pins:
       row: '9'
-      col: '38'
+      col: '12'
   - type: matrix_key
     id: k3
     pins:
@@ -45,10 +45,10 @@ fixture:
     id: k5
     pins:
       row: '10'
-      col: '38'
+      col: '12'
   - type: relay
     id: relay1
-    pin: '38'
+    pin: '8'
   - type: lcd1602
     id: lcd1
     pins:

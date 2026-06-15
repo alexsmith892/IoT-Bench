@@ -21,7 +21,7 @@ fixture:
   components:
   - type: button
     id: btn1
-    pin: '38'
+    pin: '12'
   - type: dht11
     id: dht1
     pin: '14'

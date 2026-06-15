@@ -17,11 +17,11 @@ fixture:
     - signal: D4
       pin: '42'
     - signal: D5
-      pin: '10'
+      pin: '21'
   components:
   - type: button
     id: btn1
-    pin: '38'
+    pin: '12'
   - type: mpu6050
     id: imu1
     pins:
@@ -35,7 +35,7 @@ fixture:
       d4: '40'
       d5: '41'
       d6: '42'
-      d7: '10'
+      d7: '21'
 scenario:
   family: timeline
   steps:

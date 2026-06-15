@@ -1,0 +1,211 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp",
+      "top": 120,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-logic-analyzer",
+      "id": "logic1",
+      "top": -55,
+      "left": 300,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn1",
+      "top": -80,
+      "left": 225,
+      "attrs": {
+        "color": "green",
+        "label": "button",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_btn_1",
+      "top": 5,
+      "left": 273,
+      "attrs": {
+        "value": "10000"
+      },
+      "rotate": 90
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "pot1",
+      "top": -80,
+      "left": 330,
+      "attrs": {
+        "value": "184"
+      }
+    },
+    {
+      "type": "wokwi-lcd1602",
+      "id": "lcd1",
+      "top": -80,
+      "left": 435,
+      "attrs": {}
+    }
+  ],
+  "connections": [
+    [
+      "logic1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "btn1:1.r",
+      "esp:3V3.1",
+      "red",
+      []
+    ],
+    [
+      "btn1:2.r",
+      "esp:38",
+      "green",
+      []
+    ],
+    [
+      "r_btn_1:1",
+      "esp:38",
+      "green",
+      []
+    ],
+    [
+      "r_btn_1:2",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "pot1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "pot1:VCC",
+      "esp:3V3.1",
+      "red",
+      []
+    ],
+    [
+      "pot1:SIG",
+      "esp:9",
+      "green",
+      []
+    ],
+    [
+      "lcd1:VSS",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "lcd1:VDD",
+      "esp:3V3.1",
+      "red",
+      []
+    ],
+    [
+      "lcd1:RW",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "lcd1:K",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "lcd1:RS",
+      "esp:38",
+      "green",
+      []
+    ],
+    [
+      "lcd1:E",
+      "esp:39",
+      "green",
+      []
+    ],
+    [
+      "lcd1:D4",
+      "esp:40",
+      "green",
+      []
+    ],
+    [
+      "lcd1:D5",
+      "esp:41",
+      "green",
+      []
+    ],
+    [
+      "lcd1:D6",
+      "esp:42",
+      "green",
+      []
+    ],
+    [
+      "lcd1:D7",
+      "esp:21",
+      "green",
+      []
+    ],
+    [
+      "lcd1:A",
+      "esp:3V3.1",
+      "red",
+      []
+    ],
+    [
+      "logic1:D0",
+      "esp:38",
+      "green",
+      []
+    ],
+    [
+      "logic1:D1",
+      "esp:39",
+      "green",
+      []
+    ],
+    [
+      "logic1:D2",
+      "esp:40",
+      "green",
+      []
+    ],
+    [
+      "logic1:D3",
+      "esp:41",
+      "green",
+      []
+    ],
+    [
+      "logic1:D4",
+      "esp:42",
+      "green",
+      []
+    ],
+    [
+      "logic1:D5",
+      "esp:21",
+      "green",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

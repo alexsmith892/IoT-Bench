@@ -8,7 +8,9 @@
       "id": "esp",
       "top": 120,
       "left": 20,
-      "attrs": {}
+      "attrs": {
+        "serialInterface": "USB_SERIAL_JTAG"
+      }
     },
     {
       "type": "wokwi-logic-analyzer",
@@ -71,13 +73,13 @@
     ],
     [
       "btn1:2.r",
-      "esp:38",
+      "esp:12",
       "green",
       []
     ],
     [
       "r_btn_1:1",
-      "esp:38",
+      "esp:12",
       "green",
       []
     ],

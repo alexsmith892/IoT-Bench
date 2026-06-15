@@ -70,7 +70,7 @@ static void lcd_print(const char *text) {
     lcd_data((uint8_t)*text++);
   }
 }
-#define RELAY_PIN GPIO_NUM_12
+#define RELAY_PIN GPIO_NUM_8
 
 void app_main(void) {
   gpio_reset_pin(RELAY_PIN);

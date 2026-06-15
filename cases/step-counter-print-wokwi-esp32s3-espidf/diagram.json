@@ -8,7 +8,9 @@
       "id": "esp",
       "top": 120,
       "left": 20,
-      "attrs": {}
+      "attrs": {
+        "serialInterface": "USB_SERIAL_JTAG"
+      }
     },
     {
       "type": "wokwi-mpu6050",

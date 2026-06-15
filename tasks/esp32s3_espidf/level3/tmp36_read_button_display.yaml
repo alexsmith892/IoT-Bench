@@ -21,7 +21,7 @@ fixture:
   components:
   - type: button
     id: btn1
-    pin: '38'
+    pin: '12'
   - type: tmp36_surrogate
     id: pot1
     pin: '9'

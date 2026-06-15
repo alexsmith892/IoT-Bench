@@ -42,7 +42,7 @@
     },
     {
       "vcd_name": "D5",
-      "expected_connection": "GPIO 10"
+      "expected_connection": "GPIO 21"
     }
   ]
 }

@@ -26,7 +26,7 @@
     },
     {
       "vcd_name": "D1",
-      "expected_connection": "GPIO 38"
+      "expected_connection": "GPIO 8"
     },
     {
       "vcd_name": "D2",

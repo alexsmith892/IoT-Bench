@@ -7,13 +7,13 @@ fixture:
   analyzer:
     channels:
     - signal: D0
-      pin: '41'
+      pin: '10'
     - signal: D1
       pin: '11'
   components:
   - type: led
     id: led1
-    pin: '41'
+    pin: '10'
   - type: hcsr04
     id: sonar1
     pins:

@@ -5156,7 +5156,7 @@ def espidf_safebox(task: TaskConfig) -> str:
     return espidf_common_includes(string=True) + """\
 static const gpio_num_t rows[4] = {GPIO_NUM_9, GPIO_NUM_10, GPIO_NUM_11, GPIO_NUM_13};
 static const gpio_num_t cols[4] = {GPIO_NUM_14, GPIO_NUM_12, GPIO_NUM_43, GPIO_NUM_44};
-#define RELAY_PIN GPIO_NUM_12
+#define RELAY_PIN GPIO_NUM_8
 
 void app_main(void) {
   for (int r = 0; r < 4; ++r) {
@@ -5181,7 +5181,7 @@ void app_main(void) {
 
 def espidf_safebox_display(task: TaskConfig) -> str:
     return espidf_common_includes(rom=True, string=True) + espidf_lcd_driver_source() + """\
-#define RELAY_PIN GPIO_NUM_12
+#define RELAY_PIN GPIO_NUM_8
 
 void app_main(void) {
   gpio_reset_pin(RELAY_PIN);
