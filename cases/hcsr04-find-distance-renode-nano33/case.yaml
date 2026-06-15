@@ -1,0 +1,11 @@
+task_id: hcsr04_find_distance
+case_id: hcsr04-find-distance-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/hcsr04_find_distance
+  diagram: case.repl
+  build: artifacts/build
+  serial_log: artifacts/serial/serial.log
+  resc: case.resc

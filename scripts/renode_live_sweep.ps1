@@ -11,6 +11,16 @@
     each task's verdict (BC/BF/CF/IF or an error) so a human can see, in one
     place, what currently passes live.
 
+    The verdict for each task is taken from the JSON the `run` command prints on
+    stdout -- NOT by globbing for a verification.json file. An earlier version
+    globbed `cases\*<task-with-dashes>*\artifacts\verification.json`, which
+    silently matched same-named cases on OTHER platforms (e.g. the Wokwi Arduino
+    or ESP32 build of the same task), reporting their BC verdicts as if they were
+    Renode results. It also called `generate/build/run` without `--platform` /
+    `--level`, so every invocation defaulted to arduino_mega/level1. Both bugs
+    are fixed here: every CLI call is pinned to zephyr_nano33ble + the task's
+    real level, and the verdict comes straight from the run payload.
+
     Requires Renode, west, and a Zephyr workspace (run the doctor step first).
     Nothing here runs in CI; it is local/manual by design.
 
@@ -51,8 +61,33 @@ Set-Location $repoRoot
 
 function Invoke-Bench {
     param([string[]]$BenchArgs)
-    & python -m bench.cli @BenchArgs
+    # Echo command output to the host (for live visibility) without letting it
+    # leak into the function's return value; return only the exit code.
+    & python -m bench.cli @BenchArgs | Out-Host
     return $LASTEXITCODE
+}
+
+# Run a bench command and return both its exit code and parsed JSON stdout.
+function Invoke-BenchJson {
+    param([string[]]$BenchArgs)
+    $raw = & python -m bench.cli @BenchArgs 2>$null
+    $code = $LASTEXITCODE
+    $parsed = $null
+    try {
+        $parsed = ($raw | Out-String | ConvertFrom-Json)
+    } catch {
+        $parsed = $null
+    }
+    return [pscustomobject]@{ Code = $code; Json = $parsed; Raw = ($raw | Out-String) }
+}
+
+function Resolve-TaskLevel {
+    param([string]$TaskId)
+    foreach ($lvl in @("level1", "level2", "level3")) {
+        $p = Join-Path $repoRoot "tasks/$platform/$lvl/$TaskId.yaml"
+        if (Test-Path $p) { return $lvl }
+    }
+    return $null
 }
 
 if (-not $SkipDoctor) {
@@ -67,7 +102,7 @@ if (-not $SkipDoctor) {
 $levels = if ($Level) { @($Level) } else { @("level1", "level2", "level3") }
 $tasks = @()
 if ($Task) {
-    $tasks += [pscustomobject]@{ Id = $Task; Level = $null }
+    $tasks += [pscustomobject]@{ Id = $Task; Level = (Resolve-TaskLevel $Task) }
 } else {
     foreach ($lvl in $levels) {
         $dir = Join-Path $repoRoot "tasks/$platform/$lvl"
@@ -83,32 +118,41 @@ $report = @()
 
 foreach ($t in $tasks) {
     $id = $t.Id
-    Write-Host "-- $id --" -ForegroundColor Yellow
+    $lvl = $t.Level
+    Write-Host "-- $id ($lvl) --" -ForegroundColor Yellow
     $entry = [ordered]@{
-        task_id   = $id
-        level     = $t.Level
-        generate  = $null
-        build     = $null
-        run       = $null
-        result    = $null
-        reason    = $null
-        error     = $null
+        task_id        = $id
+        level          = $lvl
+        generate       = $null
+        build          = $null
+        run            = $null
+        result         = $null
+        classification = $null
+        reason         = $null
+        error          = $null
     }
 
-    try {
-        $entry.generate = (Invoke-Bench @("generate", "--task", $id)) -eq 0
-        $entry.build    = (Invoke-Bench @("build", "--task", $id)) -eq 0
-        $runCode        = Invoke-Bench @("run", "--task", $id)
-        $entry.run      = $runCode -eq 0
+    if (-not $lvl) {
+        $entry.error = "could not resolve level for task '$id' under tasks/$platform"
+        $report += [pscustomobject]$entry
+        Write-Host "   => ERROR (no level)" -ForegroundColor Red
+        continue
+    }
 
-        # The run writes verification.json under the case dir; read the verdict.
-        $caseGlob = Join-Path $repoRoot "cases\*$($id.Replace('_','-'))*\artifacts\verification.json"
-        $vfile = Get-ChildItem -Path $caseGlob -ErrorAction SilentlyContinue |
-            Sort-Object LastWriteTime -Descending | Select-Object -First 1
-        if ($vfile) {
-            $v = Get-Content $vfile.FullName -Raw | ConvertFrom-Json
-            $entry.result = $v.result
-            $entry.reason = $v.reason
+    $sel = @("--task", $id, "--platform", $platform, "--level", $lvl)
+
+    try {
+        $entry.generate = (Invoke-Bench (@("generate") + $sel)) -eq 0
+        $entry.build    = (Invoke-Bench (@("build") + $sel)) -eq 0
+
+        $runResult      = Invoke-BenchJson (@("run") + $sel)
+        $entry.run      = $runResult.Code -eq 0
+        if ($runResult.Json) {
+            $entry.result         = $runResult.Json.result
+            $entry.classification = $runResult.Json.classification
+            $entry.reason         = $runResult.Json.reason
+        } else {
+            $entry.error = "run produced no parseable JSON (exit $($runResult.Code))"
         }
     } catch {
         $entry.error = $_.Exception.Message

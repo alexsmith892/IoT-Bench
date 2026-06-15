@@ -1,11 +1,11 @@
 # Renode/Zephyr Phase 0 Spike Findings (2026-06-11)
 
 > Historical note: this file records the initial hand-built spike that shaped
-> the backend. Current implementation status lives in the README and the task
-> tree. Since this spike, the harness has added generated `.repl`/`.resc`
-> cases, button/PIR scenario injection, custom SAADC support for TMP36,
-> selected Level 2 sensor models, and live-verified Level 1/selected Level 2
-> Zephyr/Renode tasks.
+> the backend. Current task maturity lives in
+> [zephyr-task-status.md](zephyr-task-status.md). Since this spike, the harness
+> has added generated `.repl`/`.resc` cases, button/PIR scenario injection,
+> custom SAADC support for TMP36, selected Level 2 sensor models, and
+> live-verified Level 1/selected Level 2 Zephyr/Renode tasks.
 
 One blink case was hand-built end to end: Zephyr firmware for
 `arduino_nano_33_ble` (nRF52840), simulated headless in Renode, with UART
