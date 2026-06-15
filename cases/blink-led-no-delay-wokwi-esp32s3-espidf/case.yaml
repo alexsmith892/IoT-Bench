@@ -1,0 +1,11 @@
+task_id: blink_led_no_delay
+case_id: blink-led-no-delay-wokwi-esp32s3-espidf
+board:
+  type: board-esp32-s3-devkitc-1
+  fqbn: ''
+paths:
+  sketch: sketch/blink_led_no_delay
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  vcd: artifacts/logic/wokwi.vcd

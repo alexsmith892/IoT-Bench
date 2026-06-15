@@ -1,0 +1,145 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp",
+      "top": 120,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-logic-analyzer",
+      "id": "logic1",
+      "top": -55,
+      "left": 300,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn1",
+      "top": -80,
+      "left": 225,
+      "attrs": {
+        "color": "green",
+        "label": "button",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_btn_1",
+      "top": 5,
+      "left": 273,
+      "attrs": {
+        "value": "10000"
+      },
+      "rotate": 90
+    },
+    {
+      "type": "wokwi-buzzer",
+      "id": "buzzer1",
+      "top": -80,
+      "left": 330,
+      "attrs": {
+        "volume": "0.2"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_led_3",
+      "top": -14,
+      "left": 430,
+      "attrs": {
+        "value": "220"
+      },
+      "rotate": 90
+    },
+    {
+      "type": "wokwi-led",
+      "id": "led1",
+      "top": -80,
+      "left": 435,
+      "attrs": {
+        "color": "red"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "logic1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "btn1:1.r",
+      "esp:3V3.1",
+      "red",
+      []
+    ],
+    [
+      "btn1:2.r",
+      "esp:12",
+      "green",
+      []
+    ],
+    [
+      "r_btn_1:1",
+      "esp:12",
+      "green",
+      []
+    ],
+    [
+      "r_btn_1:2",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "buzzer1:1",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "buzzer1:2",
+      "esp:10",
+      "red",
+      []
+    ],
+    [
+      "esp:GND.1",
+      "led1:C",
+      "black",
+      []
+    ],
+    [
+      "r_led_3:1",
+      "led1:A",
+      "blue",
+      []
+    ],
+    [
+      "esp:11",
+      "r_led_3:2",
+      "blue",
+      []
+    ],
+    [
+      "logic1:D0",
+      "esp:11",
+      "green",
+      []
+    ],
+    [
+      "logic1:D1",
+      "esp:10",
+      "green",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

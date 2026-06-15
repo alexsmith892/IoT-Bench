@@ -1,0 +1,4 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/flasher_args.json'
+elf = 'artifacts/build/16key_keypad.elf'

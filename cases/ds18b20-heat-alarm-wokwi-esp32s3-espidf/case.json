@@ -1,0 +1,32 @@
+{
+  "id": "ds18b20-heat-alarm-wokwi-esp32s3-espidf",
+  "task": "ds18b20_heat_alarm",
+  "name": "Flash LED and sound buzzer when DS18B20 temperature exceeds 30 C",
+  "simulator": "wokwi",
+  "board": {
+    "type": "board-esp32-s3-devkitc-1",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/ds18b20_heat_alarm",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd",
+    "scenario": "scenario.yaml"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 10"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 10"
+    },
+    {
+      "vcd_name": "D1",
+      "expected_connection": "GPIO 11"
+    }
+  ]
+}

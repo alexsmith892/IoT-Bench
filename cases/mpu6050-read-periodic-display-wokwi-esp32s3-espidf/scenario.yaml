@@ -1,0 +1,25 @@
+name: mpu6050_read_periodic_display automation
+version: 1
+author: IoT-Bench
+steps:
+- delay: 200ms
+- set-control:
+    part-id: imu1
+    control: accelX
+    value: 0.0
+- delay: 50ms
+- set-control:
+    part-id: imu1
+    control: accelZ
+    value: 1.0
+- delay: 650ms
+- set-control:
+    part-id: imu1
+    control: accelX
+    value: 0.5
+- delay: 50ms
+- set-control:
+    part-id: imu1
+    control: rotationX
+    value: 30
+- delay: 1500ms

@@ -1,5 +1,5 @@
 task_id: button_press_debounce
-name: Debounce a pull-down button and print one trigger per intended press on ESP32-S3
+name: Debounce an active-low button and print one trigger per intended press on ESP32-S3
 platform: esp32s3_espidf
 level: level1
 board:
@@ -13,7 +13,7 @@ fixture:
 scenario:
   family: bounced_button_sequence
   part_id: btn1
-  initial_delay_ms: 200
+  initial_delay_ms: 700
   final_delay_ms: 250
   sequence:
     - value: 1
@@ -38,7 +38,7 @@ simulation_variants:
     scenario:
       family: bounced_button_sequence
       part_id: btn1
-      initial_delay_ms: 200
+      initial_delay_ms: 700
       final_delay_ms: 250
       sequence:
         - {value: 1, duration_ms: 1}
@@ -67,9 +67,8 @@ validator:
         expected_text: "Button Pressed!"
         expected_triggers: 2
 simulation:
-  timeout_ms: 2100
+  timeout_ms: 2600
   require_distinct_variant_outputs: true
 case:
   id: button-press-debounce-wokwi-esp32s3-espidf
   sketch_name: button_press_debounce
-

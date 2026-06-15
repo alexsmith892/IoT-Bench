@@ -1,0 +1,28 @@
+{
+  "id": "safebox-wokwi-esp32s3-espidf",
+  "task": "safebox",
+  "name": "Unlock relay when keypad password 1234 is entered",
+  "simulator": "wokwi",
+  "board": {
+    "type": "board-esp32-s3-devkitc-1",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/safebox",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd",
+    "scenario": "scenario.yaml"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 12"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 12"
+    }
+  ]
+}

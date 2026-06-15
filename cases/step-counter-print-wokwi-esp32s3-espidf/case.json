@@ -1,0 +1,18 @@
+{
+  "id": "step-counter-print-wokwi-esp32s3-espidf",
+  "task": "step_counter_print",
+  "name": "Count movement spikes from GY-521/MPU6050 and print steps",
+  "simulator": "wokwi",
+  "board": {
+    "type": "board-esp32-s3-devkitc-1",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/step_counter_print",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "scenario": "scenario.yaml",
+    "serial_log": "artifacts/serial/serial.log"
+  }
+}

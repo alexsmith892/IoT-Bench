@@ -1,0 +1,35 @@
+name: button_status_count automation
+version: 1
+author: IoT-Bench
+steps:
+- delay: 700ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 160ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 220ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 160ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 220ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 160ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 220ms

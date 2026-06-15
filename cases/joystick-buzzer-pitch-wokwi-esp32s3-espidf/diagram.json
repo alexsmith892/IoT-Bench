@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp",
+      "top": 120,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-logic-analyzer",
+      "id": "logic1",
+      "top": -55,
+      "left": 300,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-analog-joystick",
+      "id": "joy1",
+      "top": -80,
+      "left": 225,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-buzzer",
+      "id": "buzzer1",
+      "top": -80,
+      "left": 330,
+      "attrs": {
+        "volume": "0.2"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "logic1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "joy1:VCC",
+      "esp:3V3.1",
+      "red",
+      []
+    ],
+    [
+      "joy1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "joy1:VERT",
+      "esp:9",
+      "green",
+      []
+    ],
+    [
+      "buzzer1:1",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "buzzer1:2",
+      "esp:11",
+      "red",
+      []
+    ],
+    [
+      "logic1:D0",
+      "esp:11",
+      "green",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

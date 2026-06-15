@@ -81,6 +81,7 @@ validator:
     params:
       expected_count: 3
       match_mode: exact_sequence
+      line_pattern: ^\s*Steps:\s*(\d+)\s*$
 simulation:
   timeout_ms: 2500
 case:

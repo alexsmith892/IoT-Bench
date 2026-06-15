@@ -1,0 +1,47 @@
+{
+  "id": "lcd1602-display-hello-world-wokwi-esp32s3-espidf",
+  "task": "lcd1602_display_hello_world",
+  "name": "Display Hello World centered on LCD1602",
+  "simulator": "wokwi",
+  "board": {
+    "type": "board-esp32-s3-devkitc-1",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/lcd1602_display_hello_world",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 38"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 38"
+    },
+    {
+      "vcd_name": "D1",
+      "expected_connection": "GPIO 39"
+    },
+    {
+      "vcd_name": "D2",
+      "expected_connection": "GPIO 40"
+    },
+    {
+      "vcd_name": "D3",
+      "expected_connection": "GPIO 41"
+    },
+    {
+      "vcd_name": "D4",
+      "expected_connection": "GPIO 42"
+    },
+    {
+      "vcd_name": "D5",
+      "expected_connection": "GPIO 21"
+    }
+  ]
+}

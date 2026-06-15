@@ -1,0 +1,15 @@
+name: joystick_buzzer_pitch automation
+version: 1
+author: IoT-Bench
+steps:
+- delay: 200ms
+- set-control:
+    part-id: joy1
+    control: y
+    value: -1
+- delay: 350ms
+- set-control:
+    part-id: joy1
+    control: y
+    value: 1
+- delay: 350ms

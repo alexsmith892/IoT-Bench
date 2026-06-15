@@ -1,0 +1,18 @@
+{
+  "id": "rotary-encoder-wokwi-esp32s3-espidf",
+  "task": "rotary_encoder",
+  "name": "Track rotary encoder position and direction on serial",
+  "simulator": "wokwi",
+  "board": {
+    "type": "board-esp32-s3-devkitc-1",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/rotary_encoder",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "scenario": "scenario.yaml",
+    "serial_log": "artifacts/serial/serial.log"
+  }
+}

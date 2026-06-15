@@ -21,6 +21,7 @@ validator:
       D0:
         frequency_hz: 1.0
         min_valid_cycles_after_startup: 4
+        skip_startup_segments: 2
         half_period_range_s: [0.475, 0.525]
         full_period_range_s: [0.95, 1.05]
         duty_cycle_range: [0.45, 0.55]
@@ -29,4 +30,3 @@ simulation:
 case:
   id: blink-led-no-delay-wokwi-esp32s3-espidf
   sketch_name: blink_led_no_delay
-

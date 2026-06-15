@@ -1,5 +1,5 @@
 task_id: button_status_count
-name: Count pull-down button presses and print the count on ESP32-S3
+name: Count active-low button presses and print the count on ESP32-S3
 platform: esp32s3_espidf
 level: level1
 board:
@@ -11,7 +11,7 @@ fixture:
 scenario:
   family: button_press_sequence
   part_id: btn1
-  initial_delay_ms: 200
+  initial_delay_ms: 700
   presses:
     - duration_ms: 160
       after_ms: 220
@@ -24,9 +24,9 @@ validator:
   params:
     expected_count: 3
     match_mode: exact_sequence
+    line_pattern: ^\s*(\d+)\s*$
 simulation:
-  timeout_ms: 1500
+  timeout_ms: 2200
 case:
   id: button-status-count-wokwi-esp32s3-espidf
   sketch_name: button_status_count
-

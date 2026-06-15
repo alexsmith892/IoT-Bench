@@ -1,0 +1,12 @@
+task_id: button_status_display
+case_id: button-status-display-wokwi-esp32s3-espidf
+board:
+  type: board-esp32-s3-devkitc-1
+  fqbn: ''
+paths:
+  sketch: sketch/button_status_display
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  scenario: scenario.yaml
+  serial_log: artifacts/serial/serial.log

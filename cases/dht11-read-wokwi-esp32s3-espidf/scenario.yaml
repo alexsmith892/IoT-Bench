@@ -1,0 +1,25 @@
+name: dht11_read automation
+version: 1
+author: IoT-Bench
+steps:
+- delay: 200ms
+- set-control:
+    part-id: dht1
+    control: temperature
+    value: 18
+- delay: 250ms
+- set-control:
+    part-id: dht1
+    control: humidity
+    value: 35
+- delay: 450ms
+- set-control:
+    part-id: dht1
+    control: temperature
+    value: 31
+- delay: 250ms
+- set-control:
+    part-id: dht1
+    control: humidity
+    value: 65
+- delay: 450ms

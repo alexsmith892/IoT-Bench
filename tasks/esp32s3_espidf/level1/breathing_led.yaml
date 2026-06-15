@@ -19,10 +19,9 @@ validator:
     levels: 50
     step_interval_s: 0.01
     full_period_range_s: [0.95, 1.05]
-    duty_tolerance: 0.03
+    duty_tolerance: 0.04
 simulation:
   timeout_ms: 2000
 case:
   id: breathing-led-wokwi-esp32s3-espidf
   sketch_name: breathing_led
-

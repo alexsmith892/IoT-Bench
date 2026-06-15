@@ -1,0 +1,27 @@
+{
+  "id": "blink-led-morse-code-wokwi-esp32s3-espidf",
+  "task": "blink_led_morse_code",
+  "name": "Blink SOS in Morse code on ESP32-S3 GPIO 10",
+  "simulator": "wokwi",
+  "board": {
+    "type": "board-esp32-s3-devkitc-1",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/blink_led_morse_code",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 10"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 10"
+    }
+  ]
+}

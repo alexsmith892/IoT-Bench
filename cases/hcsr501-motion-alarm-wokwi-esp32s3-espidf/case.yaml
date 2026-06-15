@@ -1,0 +1,12 @@
+task_id: hcsr501_motion_alarm
+case_id: hcsr501-motion-alarm-wokwi-esp32s3-espidf
+board:
+  type: board-esp32-s3-devkitc-1
+  fqbn: ''
+paths:
+  sketch: sketch/hcsr501_motion_alarm
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  vcd: artifacts/logic/wokwi.vcd
+  scenario: scenario.yaml

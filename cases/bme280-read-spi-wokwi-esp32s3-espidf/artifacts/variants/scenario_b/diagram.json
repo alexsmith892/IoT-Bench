@@ -1,0 +1,103 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp",
+      "top": 120,
+      "left": 20,
+      "attrs": {
+        "serialInterface": "USB_SERIAL_JTAG"
+      }
+    },
+    {
+      "type": "wokwi-logic-analyzer",
+      "id": "logic1",
+      "top": -55,
+      "left": 300,
+      "attrs": {}
+    },
+    {
+      "type": "chip-bme280",
+      "id": "bme1",
+      "top": -80,
+      "left": 225,
+      "attrs": {
+        "temperatureC": "31.0",
+        "humidityRH": "42.0",
+        "pressurePa": "99000"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "logic1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "bme1:VCC",
+      "esp:3V3.1",
+      "red",
+      []
+    ],
+    [
+      "bme1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "bme1:SCK",
+      "esp:38",
+      "green",
+      []
+    ],
+    [
+      "bme1:SDO",
+      "esp:40",
+      "green",
+      []
+    ],
+    [
+      "bme1:SDI",
+      "esp:39",
+      "green",
+      []
+    ],
+    [
+      "bme1:CS",
+      "esp:41",
+      "green",
+      []
+    ],
+    [
+      "logic1:D0",
+      "esp:38",
+      "green",
+      []
+    ],
+    [
+      "logic1:D1",
+      "esp:40",
+      "green",
+      []
+    ],
+    [
+      "logic1:D2",
+      "esp:39",
+      "green",
+      []
+    ],
+    [
+      "logic1:D3",
+      "esp:41",
+      "green",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

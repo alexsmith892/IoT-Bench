@@ -1,0 +1,9 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/flasher_args.json'
+elf = 'artifacts/build/mpu6050_read_spi.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'
+
+[[chip]]
+name = 'mpu6050'
+binary = 'chips/mpu6050.chip.wasm'

@@ -1,0 +1,25 @@
+name: buzzer_doorbell automation
+version: 1
+author: IoT-Bench
+steps:
+- delay: 700ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 300ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 300ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 300ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 300ms

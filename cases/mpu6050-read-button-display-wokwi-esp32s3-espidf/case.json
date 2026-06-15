@@ -1,0 +1,48 @@
+{
+  "id": "mpu6050-read-button-display-wokwi-esp32s3-espidf",
+  "task": "mpu6050_read_button_display",
+  "name": "Read MPU6050 on button interrupt and display accel/gyro on LCD",
+  "simulator": "wokwi",
+  "board": {
+    "type": "board-esp32-s3-devkitc-1",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/mpu6050_read_button_display",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd",
+    "scenario": "scenario.yaml"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 38"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 38"
+    },
+    {
+      "vcd_name": "D1",
+      "expected_connection": "GPIO 39"
+    },
+    {
+      "vcd_name": "D2",
+      "expected_connection": "GPIO 40"
+    },
+    {
+      "vcd_name": "D3",
+      "expected_connection": "GPIO 41"
+    },
+    {
+      "vcd_name": "D4",
+      "expected_connection": "GPIO 42"
+    },
+    {
+      "vcd_name": "D5",
+      "expected_connection": "GPIO 10"
+    }
+  ]
+}

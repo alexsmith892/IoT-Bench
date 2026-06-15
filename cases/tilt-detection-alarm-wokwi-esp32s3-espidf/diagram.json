@@ -1,0 +1,102 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp",
+      "top": 120,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-logic-analyzer",
+      "id": "logic1",
+      "top": -55,
+      "left": 300,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "tilt1",
+      "top": -80,
+      "left": 225,
+      "attrs": {
+        "color": "green",
+        "label": "tilt_switch",
+        "bounce": "0"
+      }
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_btn_1",
+      "top": 5,
+      "left": 273,
+      "attrs": {
+        "value": "10000"
+      },
+      "rotate": 90
+    },
+    {
+      "type": "wokwi-buzzer",
+      "id": "buzzer1",
+      "top": -80,
+      "left": 330,
+      "attrs": {
+        "volume": "0.2"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "logic1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "tilt1:1.r",
+      "esp:3V3.1",
+      "red",
+      []
+    ],
+    [
+      "tilt1:2.r",
+      "esp:14",
+      "green",
+      []
+    ],
+    [
+      "r_btn_1:1",
+      "esp:14",
+      "green",
+      []
+    ],
+    [
+      "r_btn_1:2",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "buzzer1:1",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "buzzer1:2",
+      "esp:13",
+      "red",
+      []
+    ],
+    [
+      "logic1:D0",
+      "esp:13",
+      "green",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

@@ -16,7 +16,7 @@ fixture:
 scenario:
   family: button_press_sequence
   part_id: btn1
-  initial_delay_ms: 200
+  initial_delay_ms: 700
   presses:
     - duration_ms: 300
       after_ms: 300
@@ -26,13 +26,12 @@ validator:
   family: stimulus_to_output
   params:
     channel: D0
-    active_windows_s: [[0.25, 0.45], [0.85, 1.05]]
-    inactive_windows_s: [[0.05, 0.15], [0.55, 0.75], [1.15, 1.35]]
+    active_windows_s: [[0.75, 0.95], [1.35, 1.55]]
+    inactive_windows_s: [[0.25, 0.65], [1.05, 1.25], [1.65, 1.85]]
     active_ratio_min: 0.8
     inactive_ratio_max: 0.2
 simulation:
-  timeout_ms: 1600
+  timeout_ms: 2200
 case:
   id: buzzer-doorbell-wokwi-esp32s3-espidf
   sketch_name: buzzer_doorbell
-

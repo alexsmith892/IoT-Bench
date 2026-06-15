@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/flasher_args.json'
+elf = 'artifacts/build/blink_two_leds.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

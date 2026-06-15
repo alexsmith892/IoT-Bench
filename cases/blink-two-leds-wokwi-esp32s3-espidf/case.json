@@ -1,0 +1,31 @@
+{
+  "id": "blink-two-leds-wokwi-esp32s3-espidf",
+  "task": "blink_two_leds",
+  "name": "Blink two LEDs at 1 Hz and 2 Hz without blocking delay calls on ESP32-S3",
+  "simulator": "wokwi",
+  "board": {
+    "type": "board-esp32-s3-devkitc-1",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/blink_two_leds",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 10"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 10"
+    },
+    {
+      "vcd_name": "D1",
+      "expected_connection": "GPIO 11"
+    }
+  ]
+}

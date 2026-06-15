@@ -1,0 +1,11 @@
+task_id: lcd1602_display_hello_world
+case_id: lcd1602-display-hello-world-wokwi-esp32s3-espidf
+board:
+  type: board-esp32-s3-devkitc-1
+  fqbn: ''
+paths:
+  sketch: sketch/lcd1602_display_hello_world
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  vcd: artifacts/logic/wokwi.vcd

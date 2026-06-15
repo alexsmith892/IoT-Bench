@@ -13,7 +13,7 @@ scenario:
   # produces the same GPIO-level signal expected from the sensor output.
   family: pir_state_sequence
   part_id: pir1
-  initial_delay_ms: 200
+  initial_delay_ms: 700
   states:
     - value: 0
       duration_ms: 250
@@ -27,7 +27,7 @@ simulation_variants:
     scenario:
       family: pir_state_sequence
       part_id: pir1
-      initial_delay_ms: 200
+      initial_delay_ms: 700
       states:
         - {value: 0, duration_ms: 250}
         - {value: 1, duration_ms: 350}
@@ -48,9 +48,8 @@ validator:
           "1": "Motion Detected!"
         min_count: 1
 simulation:
-  timeout_ms: 2100
+  timeout_ms: 2600
   require_distinct_variant_outputs: true
 case:
   id: sensor-pir-human-motion-wokwi-esp32s3-espidf
   sketch_name: sensor_pir_human_motion
-

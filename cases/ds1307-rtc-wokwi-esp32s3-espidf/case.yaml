@@ -1,0 +1,11 @@
+task_id: ds1307_rtc
+case_id: ds1307-rtc-wokwi-esp32s3-espidf
+board:
+  type: board-esp32-s3-devkitc-1
+  fqbn: ''
+paths:
+  sketch: sketch/ds1307_rtc
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  serial_log: artifacts/serial/serial.log

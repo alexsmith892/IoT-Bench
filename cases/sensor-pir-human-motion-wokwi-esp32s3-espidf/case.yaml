@@ -1,0 +1,12 @@
+task_id: sensor_pir_human_motion
+case_id: sensor-pir-human-motion-wokwi-esp32s3-espidf
+board:
+  type: board-esp32-s3-devkitc-1
+  fqbn: ''
+paths:
+  sketch: sketch/sensor_pir_human_motion
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  scenario: scenario.yaml
+  serial_log: artifacts/serial/serial.log

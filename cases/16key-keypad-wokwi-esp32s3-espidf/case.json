@@ -1,0 +1,18 @@
+{
+  "id": "16key-keypad-wokwi-esp32s3-espidf",
+  "task": "16key_keypad",
+  "name": "Scan 16 key keypad and print detected key",
+  "simulator": "wokwi",
+  "board": {
+    "type": "board-esp32-s3-devkitc-1",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/16key_keypad",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "scenario": "scenario.yaml",
+    "serial_log": "artifacts/serial/serial.log"
+  }
+}

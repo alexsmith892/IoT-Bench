@@ -19,6 +19,7 @@ validator:
       D0:
         frequency_hz: 1.0
         min_valid_cycles_after_startup: 4
+        skip_startup_segments: 2
         half_period_range_s: [0.45, 0.55]
         full_period_range_s: [0.9, 1.1]
         duty_cycle_range: [0.4, 0.6]
@@ -27,4 +28,3 @@ simulation:
 case:
   id: blink-1hz-wokwi-esp32s3-espidf
   sketch_name: blink_led_1hz
-

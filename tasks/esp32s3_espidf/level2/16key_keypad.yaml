@@ -14,7 +14,7 @@ fixture:
     id: k2
     pins:
       row: '38'
-      col: '38'
+      col: '9'
   - type: matrix_key
     id: k3
     pins:
@@ -34,7 +34,7 @@ fixture:
     id: k5
     pins:
       row: '39'
-      col: '38'
+      col: '9'
   - type: matrix_key
     id: k6
     pins:
@@ -54,7 +54,7 @@ fixture:
     id: k8
     pins:
       row: '21'
-      col: '38'
+      col: '9'
   - type: matrix_key
     id: k9
     pins:
@@ -74,7 +74,7 @@ fixture:
     id: k0
     pins:
       row: '14'
-      col: '38'
+      col: '9'
   - type: matrix_key
     id: kHash
     pins:

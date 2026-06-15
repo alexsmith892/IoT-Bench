@@ -1,0 +1,106 @@
+#include <stdio.h>
+#include <stdint.h>
+#include "driver/gpio.h"
+#include "esp_timer.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "driver/ledc.h"
+#include "esp_adc/adc_oneshot.h"
+#include "esp_rom_sys.h"
+
+static adc_oneshot_unit_handle_t adc_handle;
+
+static void adc_gpio9_init(void) {
+  adc_oneshot_unit_init_cfg_t init_config = {.unit_id = ADC_UNIT_1};
+  adc_oneshot_new_unit(&init_config, &adc_handle);
+  adc_oneshot_chan_cfg_t channel_config = {
+    .atten = ADC_ATTEN_DB_12,
+    .bitwidth = ADC_BITWIDTH_12,
+  };
+  adc_oneshot_config_channel(adc_handle, ADC_CHANNEL_8, &channel_config);
+}
+
+static int adc_gpio9_read(void) {
+  int raw = 0;
+  adc_oneshot_read(adc_handle, ADC_CHANNEL_8, &raw);
+  return raw;
+}
+#define LCD_RS GPIO_NUM_38
+#define LCD_E GPIO_NUM_39
+#define LCD_D4 GPIO_NUM_40
+#define LCD_D5 GPIO_NUM_41
+#define LCD_D6 GPIO_NUM_42
+#define LCD_D7 GPIO_NUM_21
+
+static void lcd_gpio_init(void) {
+  const gpio_num_t pins[] = {LCD_RS, LCD_E, LCD_D4, LCD_D5, LCD_D6, LCD_D7};
+  for (int i = 0; i < 6; ++i) {
+    gpio_reset_pin(pins[i]);
+    gpio_set_direction(pins[i], GPIO_MODE_OUTPUT);
+  }
+}
+
+static void lcd_pulse(void) {
+  gpio_set_level(LCD_E, 1);
+  esp_rom_delay_us(1);
+  gpio_set_level(LCD_E, 0);
+  esp_rom_delay_us(60);
+}
+
+static void lcd_nibble(uint8_t value) {
+  gpio_set_level(LCD_D4, value & 1);
+  gpio_set_level(LCD_D5, (value >> 1) & 1);
+  gpio_set_level(LCD_D6, (value >> 2) & 1);
+  gpio_set_level(LCD_D7, (value >> 3) & 1);
+  lcd_pulse();
+}
+
+static void lcd_write(uint8_t value, int rs) {
+  gpio_set_level(LCD_RS, rs);
+  lcd_nibble(value >> 4);
+  lcd_nibble(value & 0x0f);
+}
+
+static void lcd_command(uint8_t value) {
+  lcd_write(value, 0);
+  if (value == 1) {
+    vTaskDelay(pdMS_TO_TICKS(2));
+  }
+}
+
+static void lcd_data(uint8_t value) {
+  lcd_write(value, 1);
+}
+
+static void lcd_begin(void) {
+  lcd_gpio_init();
+  vTaskDelay(pdMS_TO_TICKS(50));
+  lcd_command(0x28);
+  lcd_command(0x0c);
+  lcd_command(0x06);
+  lcd_command(0x01);
+}
+
+static void lcd_clear(void) { lcd_command(0x01); }
+static void lcd_set_cursor(int col, int row) { lcd_command((row ? 0xc0 : 0x80) + col); }
+static void lcd_print(const char *text) {
+  while (*text) {
+    lcd_data((uint8_t)*text++);
+  }
+}
+#define BACKLIGHT_PIN GPIO_NUM_14
+
+void app_main(void) {
+  adc_gpio9_init();
+  lcd_begin();
+  ledc_timer_config_t timer = {.speed_mode = LEDC_LOW_SPEED_MODE, .timer_num = LEDC_TIMER_0, .duty_resolution = LEDC_TIMER_10_BIT, .freq_hz = 1000, .clk_cfg = LEDC_AUTO_CLK};
+  ledc_timer_config(&timer);
+  ledc_channel_config_t channel = {.gpio_num = BACKLIGHT_PIN, .speed_mode = LEDC_LOW_SPEED_MODE, .channel = LEDC_CHANNEL_0, .intr_type = LEDC_INTR_DISABLE, .timer_sel = LEDC_TIMER_0, .duty = 0, .hpoint = 0};
+  ledc_channel_config(&channel);
+  while (1) {
+    int raw = adc_gpio9_read();
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0, raw / 4);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_0);
+    vTaskDelay(pdMS_TO_TICKS(20));
+  }
+}

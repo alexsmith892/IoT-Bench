@@ -25,6 +25,33 @@ fixture:
       temperatureC: '24.5'
       humidityRH: '55.0'
       pressurePa: '101325'
+simulation_variants:
+- id: scenario_a
+  attrs:
+    bme1:
+      temperatureC: '24.5'
+      humidityRH: '55.0'
+      pressurePa: '101325'
+  validator:
+    checks:
+    - {}
+    - params:
+        expected_temperature_c: 24.5
+        expected_humidity_rh: 55.0
+        expected_pressure_pa: 101325
+- id: scenario_b
+  attrs:
+    bme1:
+      temperatureC: '31.0'
+      humidityRH: '42.0'
+      pressurePa: '99000'
+  validator:
+    checks:
+    - {}
+    - params:
+        expected_temperature_c: 31.0
+        expected_humidity_rh: 42.0
+        expected_pressure_pa: 99000
 validator:
   family: composite
   checks:
@@ -67,6 +94,7 @@ validator:
         min_transitions: 2
 simulation:
   timeout_ms: 3000
+  require_distinct_variant_outputs: true
 case:
   id: bme280-read-i2c-wokwi-esp32s3-espidf
   sketch_name: bme280_read_i2c

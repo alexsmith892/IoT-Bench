@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/flasher_args.json'
+elf = 'artifacts/build/buzzer_toggle_led_freq.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

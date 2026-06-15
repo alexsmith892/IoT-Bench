@@ -1,0 +1,31 @@
+{
+  "id": "parking-sensor-wokwi-esp32s3-espidf",
+  "task": "parking_sensor",
+  "name": "Scale LED brightness and buzzer pitch as object approaches",
+  "simulator": "wokwi",
+  "board": {
+    "type": "board-esp32-s3-devkitc-1",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/parking_sensor",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 41"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 41"
+    },
+    {
+      "vcd_name": "D1",
+      "expected_connection": "GPIO 11"
+    }
+  ]
+}

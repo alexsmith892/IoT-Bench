@@ -1,5 +1,5 @@
 task_id: button_status_display
-name: Print Button Pressed! when a pull-down button is pressed on ESP32-S3
+name: Print Button Pressed! when an active-low button is pressed on ESP32-S3
 platform: esp32s3_espidf
 level: level1
 board:
@@ -11,7 +11,7 @@ fixture:
 scenario:
   family: button_press_sequence
   part_id: btn1
-  initial_delay_ms: 200
+  initial_delay_ms: 700
   presses:
     - duration_ms: 200
       after_ms: 250
@@ -23,8 +23,7 @@ validator:
     expected_texts: ["Button Pressed!"]
     min_count: 2
 simulation:
-  timeout_ms: 1200
+  timeout_ms: 1800
 case:
   id: button-status-display-wokwi-esp32s3-espidf
   sketch_name: button_status_display
-

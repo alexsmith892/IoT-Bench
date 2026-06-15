@@ -1,0 +1,18 @@
+{
+  "id": "tmp36-read-wokwi-esp32s3-espidf",
+  "task": "tmp36_read",
+  "name": "Read TMP36-like analog temperature on ESP32-S3 GPIO 9 and print Celsius",
+  "simulator": "wokwi",
+  "board": {
+    "type": "board-esp32-s3-devkitc-1",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/tmp36_read",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "scenario": "scenario.yaml",
+    "serial_log": "artifacts/serial/serial.log"
+  }
+}

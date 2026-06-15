@@ -1,0 +1,12 @@
+task_id: bme280_read_spi
+case_id: bme280-read-spi-wokwi-esp32s3-espidf
+board:
+  type: board-esp32-s3-devkitc-1
+  fqbn: ''
+paths:
+  sketch: sketch/bme280_read_spi
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  vcd: artifacts/logic/wokwi.vcd
+  serial_log: artifacts/serial/serial.log

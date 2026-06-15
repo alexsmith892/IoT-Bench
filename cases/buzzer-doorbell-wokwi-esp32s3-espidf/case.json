@@ -1,0 +1,28 @@
+{
+  "id": "buzzer-doorbell-wokwi-esp32s3-espidf",
+  "task": "buzzer_doorbell",
+  "name": "Turn on a buzzer while a button is pressed on ESP32-S3",
+  "simulator": "wokwi",
+  "board": {
+    "type": "board-esp32-s3-devkitc-1",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/buzzer_doorbell",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd",
+    "scenario": "scenario.yaml"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 13"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 13"
+    }
+  ]
+}

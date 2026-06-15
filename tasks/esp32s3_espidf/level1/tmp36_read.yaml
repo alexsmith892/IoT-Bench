@@ -15,7 +15,7 @@ fixture:
 scenario:
   family: analog_position_sequence
   part_id: pot1
-  initial_delay_ms: 200
+  initial_delay_ms: 700
   positions:
     - value: 0.10
       duration_ms: 350
@@ -27,8 +27,7 @@ validator:
     expected_celsius: [-17.0, -0.5]
     tolerance_celsius: 6.0
 simulation:
-  timeout_ms: 1200
+  timeout_ms: 1700
 case:
   id: tmp36-read-wokwi-esp32s3-espidf
   sketch_name: tmp36_read
-

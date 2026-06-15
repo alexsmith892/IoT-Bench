@@ -1,0 +1,12 @@
+task_id: lcd1602_auto_brightness_control
+case_id: lcd1602-auto-brightness-control-wokwi-esp32s3-espidf
+board:
+  type: board-esp32-s3-devkitc-1
+  fqbn: ''
+paths:
+  sketch: sketch/lcd1602_auto_brightness_control
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  vcd: artifacts/logic/wokwi.vcd
+  scenario: scenario.yaml

@@ -2,10 +2,15 @@ task_id: mpu6050_read_spi
 name: Read MPU6050 raw accelerometer and gyroscope values over SPI
 platform: esp32s3_espidf
 level: level2
+support:
+  status: supported
+custom_chips:
+- name: mpu6050
+  binary: chips/mpu6050.chip.wasm
 fixture:
   family: composite
   components:
-  - type: bme280_spi
+  - type: mpu6050_spi
     id: imu1
     pins:
       sck: '35'
@@ -13,9 +18,13 @@ fixture:
       mosi: '36'
       cs: '14'
     attrs:
-      temperatureC: '24.5'
-      humidityRH: '55.0'
-      pressurePa: '101325'
+      accelX: '0.0'
+      accelY: '0.0'
+      accelZ: '1.0'
+      rotationX: '0'
+      rotationY: '0'
+      rotationZ: '0'
+      temperatureC: '25.0'
   analyzer:
     channels:
     - signal: D0
@@ -27,7 +36,50 @@ fixture:
     - signal: D3
       pin: '14'
 simulation_variants:
-- id: spi_activity
+- id: half_g
+  attrs:
+    imu1:
+      accelX: '0.5'
+      accelZ: '1.0'
+      rotationX: '30'
+  validator:
+    checks:
+    - {}
+    - params:
+        observations:
+        - label: half_g
+          patterns:
+          - WHO.*0x68
+          - Accel.*Gyro
+          numeric_ranges:
+          - - 7300
+            - 9100
+          - - 15500
+            - 17300
+          - - 3300
+            - 4700
+- id: one_and_half_g
+  attrs:
+    imu1:
+      accelX: '1.5'
+      accelZ: '1.0'
+      rotationX: '60'
+  validator:
+    checks:
+    - {}
+    - params:
+        observations:
+        - label: one_and_half_g
+          patterns:
+          - WHO.*0x68
+          - Accel.*Gyro
+          numeric_ranges:
+          - - 23300
+            - 25900
+          - - 15500
+            - 17300
+          - - 7000
+            - 8700
 validator:
   family: composite
   checks:
@@ -54,6 +106,20 @@ validator:
       - Keypad
       required_patterns:
       - spi_
+  - family: serial_observation_sequence
+    params:
+      observations:
+      - label: resting_baseline
+        patterns:
+        - WHO.*0x68
+        - Accel.*Gyro
+        numeric_ranges:
+        - - -800
+          - 800
+        - - 15500
+          - 17300
+        - - -800
+          - 800
   - family: bus_activity
     params:
       bus: spi
@@ -63,17 +129,11 @@ validator:
       - D2
       - D3
       min_transitions: 2
-  - family: serial_regex_sequence
-    params:
-      patterns:
-      - Accel.*Gyro
 simulation:
-  timeout_ms: 1600
+  timeout_ms: 3000
+  require_distinct_variant_outputs: true
 case:
   id: mpu6050-read-spi-wokwi-esp32s3-espidf
   sketch_name: mpu6050_read_spi
 board:
   type: board-esp32-s3-devkitc-1
-custom_chips:
-- name: bme280
-  binary: chips/bme280.chip.wasm

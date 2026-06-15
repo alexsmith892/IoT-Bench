@@ -1,0 +1,43 @@
+name: mpu6050_read_button_display automation
+version: 1
+author: IoT-Bench
+steps:
+- delay: 200ms
+- set-control:
+    part-id: imu1
+    control: accelX
+    value: 0.0
+- set-control:
+    part-id: imu1
+    control: accelZ
+    value: 1.0
+- delay: 300ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 100ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 600ms
+- set-control:
+    part-id: imu1
+    control: accelX
+    value: 0.5
+- set-control:
+    part-id: imu1
+    control: rotationX
+    value: 30
+- delay: 200ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 100ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 600ms

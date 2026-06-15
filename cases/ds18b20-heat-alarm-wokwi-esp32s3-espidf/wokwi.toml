@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/flasher_args.json'
+elf = 'artifacts/build/ds18b20_heat_alarm.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'

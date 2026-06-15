@@ -1,0 +1,12 @@
+task_id: joystick_buzzer_pitch
+case_id: joystick-buzzer-pitch-wokwi-esp32s3-espidf
+board:
+  type: board-esp32-s3-devkitc-1
+  fqbn: ''
+paths:
+  sketch: sketch/joystick_buzzer_pitch
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  vcd: artifacts/logic/wokwi.vcd
+  scenario: scenario.yaml

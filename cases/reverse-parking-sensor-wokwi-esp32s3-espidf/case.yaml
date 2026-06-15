@@ -1,0 +1,11 @@
+task_id: reverse_parking_sensor
+case_id: reverse-parking-sensor-wokwi-esp32s3-espidf
+board:
+  type: board-esp32-s3-devkitc-1
+  fqbn: ''
+paths:
+  sketch: sketch/reverse_parking_sensor
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  vcd: artifacts/logic/wokwi.vcd

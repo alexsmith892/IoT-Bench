@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp",
+      "top": 120,
+      "left": 20,
+      "attrs": {
+        "serialInterface": "USB_SERIAL_JTAG"
+      }
+    },
+    {
+      "type": "wokwi-potentiometer",
+      "id": "pot1",
+      "top": -25,
+      "left": 150,
+      "attrs": {
+        "value": "153"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "pot1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "pot1:VCC",
+      "esp:3V3.1",
+      "red",
+      []
+    ],
+    [
+      "pot1:SIG",
+      "esp:9",
+      "green",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

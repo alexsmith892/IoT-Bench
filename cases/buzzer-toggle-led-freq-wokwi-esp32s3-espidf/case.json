@@ -1,0 +1,32 @@
+{
+  "id": "buzzer-toggle-led-freq-wokwi-esp32s3-espidf",
+  "task": "buzzer_toggle_led_freq",
+  "name": "Cycle LED blink frequency on button press and beep buzzer",
+  "simulator": "wokwi",
+  "board": {
+    "type": "board-esp32-s3-devkitc-1",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/buzzer_toggle_led_freq",
+    "diagram": "diagram.json",
+    "wokwi": "wokwi.toml",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/wokwi.vcd",
+    "scenario": "scenario.yaml"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO 11"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO 11"
+    },
+    {
+      "vcd_name": "D1",
+      "expected_connection": "GPIO 10"
+    }
+  ]
+}

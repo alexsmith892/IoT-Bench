@@ -1,0 +1,9 @@
+[wokwi]
+version = 1
+firmware = 'artifacts/build/flasher_args.json'
+elf = 'artifacts/build/bme280_read_i2c.elf'
+vcdFile = 'artifacts/logic/wokwi.vcd'
+
+[[chip]]
+name = 'bme280'
+binary = 'chips/bme280.chip.wasm'

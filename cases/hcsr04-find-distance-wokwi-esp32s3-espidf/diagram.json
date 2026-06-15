@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "author": "IoT-Bench",
+  "editor": "wokwi",
+  "parts": [
+    {
+      "type": "board-esp32-s3-devkitc-1",
+      "id": "esp",
+      "top": 120,
+      "left": 20,
+      "attrs": {}
+    },
+    {
+      "type": "wokwi-hc-sr04",
+      "id": "sonar1",
+      "top": -80,
+      "left": 225,
+      "attrs": {
+        "distance": "100"
+      }
+    }
+  ],
+  "connections": [
+    [
+      "sonar1:VCC",
+      "esp:3V3.1",
+      "red",
+      []
+    ],
+    [
+      "sonar1:GND",
+      "esp:GND.1",
+      "black",
+      []
+    ],
+    [
+      "sonar1:TRIG",
+      "esp:43",
+      "green",
+      []
+    ],
+    [
+      "sonar1:ECHO",
+      "esp:44",
+      "green",
+      []
+    ]
+  ],
+  "dependencies": {}
+}

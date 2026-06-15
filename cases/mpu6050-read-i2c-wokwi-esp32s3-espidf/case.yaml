@@ -1,0 +1,11 @@
+task_id: mpu6050_read_i2c
+case_id: mpu6050-read-i2c-wokwi-esp32s3-espidf
+board:
+  type: board-esp32-s3-devkitc-1
+  fqbn: ''
+paths:
+  sketch: sketch/mpu6050_read_i2c
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  serial_log: artifacts/serial/serial.log

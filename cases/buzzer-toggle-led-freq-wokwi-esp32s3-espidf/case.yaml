@@ -1,0 +1,12 @@
+task_id: buzzer_toggle_led_freq
+case_id: buzzer-toggle-led-freq-wokwi-esp32s3-espidf
+board:
+  type: board-esp32-s3-devkitc-1
+  fqbn: ''
+paths:
+  sketch: sketch/buzzer_toggle_led_freq
+  diagram: diagram.json
+  wokwi: wokwi.toml
+  build: artifacts/build
+  vcd: artifacts/logic/wokwi.vcd
+  scenario: scenario.yaml
