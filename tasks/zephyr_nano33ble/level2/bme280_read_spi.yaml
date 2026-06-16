@@ -2,9 +2,6 @@ task_id: bme280_read_spi
 name: Read BME280 temperature and humidity over SPI (Zephyr / Nano 33 BLE)
 platform: zephyr_nano33ble
 level: level2
-support:
-  status: unsupported
-  reason: Renode BME280 SPI model and spi2 wiring exist but are not live-validated; current Zephyr/Renode run is blocked before variant serial evidence is produced.
 fixture:
   family: composite
   components:
@@ -33,7 +30,7 @@ validator:
     - family: static_checks
       params:
         required_any_patterns:
-          - ["spi_transceive\\s*\\(", "spi_write\\s*\\(", "spi_read\\s*\\("]
+          - ["spi_transceive(?:_dt)?\\s*\\(", "spi_write(?:_dt)?\\s*\\(", "spi_read(?:_dt)?\\s*\\("]
     - family: bme280_environment
       params:
         expected_temperature_c: 24.5

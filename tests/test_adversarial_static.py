@@ -95,6 +95,8 @@ ZEPHYR_STUBS = [
     ("lsm9ds1_read_i2c", "level2", "stub_zephyr_decoy_hardcoded.c", False),
     ("bme280_read_i2c", "level2", "stub_zephyr_print_only.c", True),
     ("bme280_read_i2c", "level2", "stub_zephyr_decoy_hardcoded.c", False),
+    ("bme280_read_spi", "level2", "stub_zephyr_print_only.c", True),
+    ("bme280_read_spi", "level2", "stub_zephyr_i2c_decoy.c", True),
     ("tmp36_read", "level1", "stub_zephyr_print_only.c", True),
     ("tmp36_read", "level1", "stub_zephyr_decoy_hardcoded.c", False),
     ("mpu6050_read_i2c", "level2", "stub_zephyr_print_only.c", True),

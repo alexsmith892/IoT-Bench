@@ -36,7 +36,6 @@ FIXTURE = Path(__file__).resolve().parent / "fixtures" / "upstream_zephyr_tasks.
 # current live BC evidence against the task oracle.
 KNOWN_MISSING = {
     "dht11_read",
-    "bme280_read_spi",
     "ds18b20_heat_alarm",
     "dht11_read_button_display",
 }

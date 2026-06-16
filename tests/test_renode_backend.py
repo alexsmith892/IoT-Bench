@@ -485,7 +485,6 @@ class CustomProtocolPartTests(unittest.TestCase):
             ("dht11_read", "level2"),
             ("dht11_read_button_display", "level3"),
             ("ds18b20_heat_alarm", "level2"),
-            ("bme280_read_spi", "level2"),
         ):
             with self.subTest(task=task_id):
                 task = load_task(task_id, platform="zephyr_nano33ble", level=level)

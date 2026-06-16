@@ -1,0 +1,17 @@
+{
+  "id": "bme280-read-spi-renode-nano33",
+  "task": "bme280_read_spi",
+  "name": "Read BME280 temperature and humidity over SPI (Zephyr / Nano 33 BLE)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/bme280_read_spi",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "serial_log": "artifacts/serial/serial.log",
+    "resc": "case.resc"
+  }
+}

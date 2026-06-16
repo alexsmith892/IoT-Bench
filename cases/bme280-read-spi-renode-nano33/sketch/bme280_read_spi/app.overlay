@@ -1,0 +1,20 @@
+&i2c0 {
+	compatible = "nordic,nrf-twi";
+};
+
+
+&spi2 {
+	compatible = "nordic,nrf-spi";
+	cs-gpios = <&gpio1 2 GPIO_ACTIVE_LOW>;
+	bme1: bme280@0 {
+		compatible = "bosch,bme280";
+		reg = <0>;
+		spi-max-frequency = <1000000>;
+	};
+};
+
+/ {
+	aliases {
+		my-sensor = &bme1;
+	};
+};
