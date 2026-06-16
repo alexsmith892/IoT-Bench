@@ -40,6 +40,7 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
         public void Reset()
         {
             lastLevel = true;
+            armed = false;
             responseActive = false;
             events.Clear();
             responseTimer.Enabled = false;
@@ -53,7 +54,15 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
                 this.Log(LogLevel.Warning, "DHT11 has only DATA input 0, got {0}", number);
                 return;
             }
-            if(lastLevel && !value && !responseActive)
+            // The bus idles high (pull-up). The nRF GPIO OUT register powers up
+            // low, so the line is low at boot before the firmware drives it;
+            // arm only once a genuine high has been seen so that boot-time low
+            // is ignored and the response triggers on the real high->low start.
+            if(value)
+            {
+                armed = true;
+            }
+            if(armed && lastLevel && !value && !responseActive)
             {
                 QueueResponse();
             }
@@ -71,10 +80,18 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
             Enqueue(500, true);    // response high
             Enqueue(500, false);   // first bit preamble low
 
+            // Enqueue(delay, level) holds the *previous* level for `delay` us
+            // and then drives `level`, so the HIGH pulse width is the delay of
+            // the following low transition. The benchmark firmware times each
+            // high pulse and treats >1000 us as a 1. These 500/1500 us widths
+            // are a deliberate ~10x-stretched surrogate of the real DHT11
+            // 26/70 us timing so Renode's virtual-time / RTC resolution
+            // (~30 us) can discriminate them; the task prompt documents the
+            // scale a submission must target.
             foreach(var bit in FrameBits())
             {
-                Enqueue(500, true);
-                Enqueue(bit ? 1500UL : 500UL, false);
+                Enqueue(500, true);                   // 500 us inter-bit low, then high
+                Enqueue(bit ? 1500UL : 500UL, false); // hold high for the bit width
             }
             Enqueue(500, true);
             ScheduleNext();
@@ -133,6 +150,7 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
         private readonly LimitTimer responseTimer;
         private readonly Queue<ScheduledLevel> events = new Queue<ScheduledLevel>();
         private bool lastLevel;
+        private bool armed;
         private bool nextLevel;
         private bool responseActive;
 

@@ -40,11 +40,9 @@ namespace Antmicro.Renode.Peripherals.SPI
 
         public byte Transmit(byte data)
         {
-            if(!commandSeen)
+            if(!commandSeen || (reading && IsCommandByte(data)))
             {
-                commandSeen = true;
-                reading = (data & 0x80) != 0;
-                registerPointer = (byte)(data & 0x7F);
+                StartCommand(data);
                 return 0xFF;
             }
             if(reading)
@@ -55,6 +53,8 @@ namespace Antmicro.Renode.Peripherals.SPI
             }
             WriteRegister(registerPointer, data);
             registerPointer++;
+            commandSeen = false;
+            reading = false;
             return 0xFF;
         }
 
@@ -66,6 +66,7 @@ namespace Antmicro.Renode.Peripherals.SPI
 
         private byte ReadRegister(byte offset)
         {
+            offset = CanonicalRegister(offset);
             if(offset >= 0xF7 && offset <= 0xFE)
             {
                 UpdateMeasurementRegisters();
@@ -75,6 +76,7 @@ namespace Antmicro.Renode.Peripherals.SPI
 
         private void WriteRegister(byte offset, byte value)
         {
+            offset = CanonicalRegister(offset);
             switch(offset)
             {
                 case 0xE0:
@@ -89,6 +91,40 @@ namespace Antmicro.Renode.Peripherals.SPI
                     registers[offset] = value;
                     break;
             }
+        }
+
+        private void StartCommand(byte data)
+        {
+            commandSeen = true;
+            reading = (data & 0x80) != 0;
+            registerPointer = (byte)(data & 0x7F);
+        }
+
+        private static bool IsCommandByte(byte data)
+        {
+            var offset = CanonicalRegister((byte)(data & 0x7F));
+            return (offset >= 0x88 && offset <= 0xA1) ||
+                offset == 0xD0 ||
+                offset == 0xE0 ||
+                (offset >= 0xE1 && offset <= 0xE7) ||
+                (offset >= 0xF2 && offset <= 0xF5) ||
+                (offset >= 0xF7 && offset <= 0xFE);
+        }
+
+        private static byte CanonicalRegister(byte offset)
+        {
+            // SPI transfers clear bit 7 for writes and commonly send
+            // register|0x80 for reads. Mirror the documented BME280 register
+            // map into the 7-bit SPI address window used on the wire.
+            if(offset >= 0x08 && offset <= 0x21)
+            {
+                return (byte)(offset + 0x80);
+            }
+            if(offset >= 0x50 && offset <= 0x7E)
+            {
+                return (byte)(offset + 0x80);
+            }
+            return offset;
         }
 
         private void LoadCalibration()

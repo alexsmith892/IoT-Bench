@@ -58,22 +58,36 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
             var now = NowUs();
             if(lastLevel && !value)
             {
+                // Falling edge: the master pulled the line low to start a slot.
+                // During the scratchpad read phase the firmware releases the bus
+                // (no rising edge follows), so the read slot is answered here.
                 lowStartedAt = now;
-            }
-            else if(!lastLevel && value)
-            {
-                var lowDuration = now - lowStartedAt;
-                if(lowDuration >= ResetLowThresholdUs)
-                {
-                    OnResetPulse();
-                }
-                else if(sendingScratchpad)
+                if(sendingScratchpad)
                 {
                     OnReadSlot();
                 }
+            }
+            else if(!lastLevel && value)
+            {
+                if(sendingScratchpad)
+                {
+                    // Rising edge while answering reads is just the master
+                    // restoring the idle-high line; not a command edge.
+                }
                 else
                 {
-                    OnWriteSlot(lowDuration >= WriteZeroThresholdUs ? 0 : 1);
+                    var lowDuration = now - lowStartedAt;
+                    if(lowDuration >= ResetLowThresholdUs)
+                    {
+                        this.Log(LogLevel.Info, "DS18B20 RESET (low {0} us)", lowDuration);
+                        OnResetPulse();
+                    }
+                    else
+                    {
+                        this.Log(LogLevel.Info, "DS18B20 write bit {0} (low {1} us) bits={2}",
+                            lowDuration >= WriteZeroThresholdUs ? 0 : 1, lowDuration, commandBits);
+                        OnWriteSlot(lowDuration >= WriteZeroThresholdUs ? 0 : 1);
+                    }
                 }
             }
             lastLevel = value;
@@ -89,8 +103,10 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
             sendingScratchpad = false;
             sendBitIndex = 0;
             events.Clear();
-            Enqueue(30, false);
-            Enqueue(180, true);
+            // Presence pulse: pull the response line low across the master's
+            // sample window (~90 us after it releases) then let it idle high.
+            Enqueue(10, false);
+            Enqueue(300, true);
             ScheduleNext();
         }
 
@@ -111,6 +127,8 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
                     scratchpad = BuildScratchpad();
                     sendingScratchpad = true;
                     sendBitIndex = 0;
+                    this.Log(LogLevel.Info, "DS18B20 READ_SCRATCHPAD; scratch[0..1]={0:X2} {1:X2}",
+                        scratchpad[0], scratchpad[1]);
                     break;
                 default:
                     this.Log(LogLevel.Warning, "Unsupported DS18B20 command 0x{0:X2}", command);
@@ -125,21 +143,30 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
             var byteIndex = sendBitIndex / 8;
             var bitIndex = sendBitIndex % 8;
             var bit = byteIndex < scratchpad.Length ? ((scratchpad[byteIndex] >> bitIndex) & 1) : 1;
+            if(sendBitIndex < 16)
+            {
+                this.Log(LogLevel.Info, "DS18B20 read slot idx={0} bit={1}", sendBitIndex, bit);
+            }
             sendBitIndex++;
             if(sendBitIndex >= scratchpad.Length * 8)
             {
+                this.Log(LogLevel.Info, "DS18B20 scratchpad fully sent");
                 sendingScratchpad = false;
             }
+            // The master starts each read slot by pulling low, then releases and
+            // samples ~180 us later. Answer scheduled from this falling edge: a 0
+            // holds the line low across the sample, a 1 lets it idle high.
             events.Clear();
             if(bit == 0)
             {
-                Enqueue(4, false);
-                Enqueue(52, true);
+                Enqueue(10, false);
+                Enqueue(330, true);
                 ScheduleNext();
             }
             else
             {
-                Data.Set(true);
+                Enqueue(10, true);
+                ScheduleNext();
             }
         }
 
@@ -210,8 +237,8 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
         }
 
         private const long TimerFrequency = 1000000;
-        private const ulong ResetLowThresholdUs = 400;
-        private const ulong WriteZeroThresholdUs = 45;
+        private const ulong ResetLowThresholdUs = 1000;
+        private const ulong WriteZeroThresholdUs = 200;
 
         private readonly IMachine machine;
         private readonly LimitTimer timer;
