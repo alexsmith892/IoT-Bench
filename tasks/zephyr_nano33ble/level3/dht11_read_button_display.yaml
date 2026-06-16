@@ -2,9 +2,6 @@ task_id: dht11_read_button_display
 name: Read DHT11 on button interrupt and display temperature/RH (Zephyr / Nano 33 BLE)
 platform: zephyr_nano33ble
 level: level3
-support:
-  status: unsupported
-  reason: Renode DHT11 protocol model exists but is not live-validated; button/LCD validation remains blocked until the same single-wire frame is read correctly in Renode.
 fixture:
   family: composite
   analyzer:
@@ -26,17 +23,74 @@ fixture:
     - type: lcd1602
       id: lcd1
       pins: {rs: "P1.12", e: "P1.14", d4: "P1.15", d5: "P1.13", d6: "P0.21", d7: "P0.27"}
+# Each variant displays a baseline reading, presses the button (LCD shows the
+# baseline temp/RH), then changes the simulated DHT11 environment and presses
+# again: the second displayed frame must track the new sensor values, so a
+# hardcoded or boot-only display (that never re-reads on the button) fails the
+# second frame. The static gate additionally requires single-wire GPIO traffic
+# plus a real button interrupt/callback.
+scenario:
+  family: timeline
+  steps:
+    - {delay_ms: 200}
+    - set_control: {part_id: dht1, control: temperature, value: 24}
+    - set_control: {part_id: dht1, control: humidity, value: 40}
+    - {delay_ms: 300}
+    - set_control: {part_id: btn1, control: pressed, value: 1}
+    - {delay_ms: 100}
+    - set_control: {part_id: btn1, control: pressed, value: 0}
+    - {delay_ms: 700}
+    - set_control: {part_id: dht1, control: temperature, value: 30}
+    - set_control: {part_id: dht1, control: humidity, value: 60}
+    - {delay_ms: 200}
+    - set_control: {part_id: btn1, control: pressed, value: 1}
+    - {delay_ms: 100}
+    - set_control: {part_id: btn1, control: pressed, value: 0}
+    - {delay_ms: 700}
+simulation_variants:
+  - id: cool_dry_then_warm_humid
+  - id: cool_dry_then_hot_sticky
+    scenario:
+      family: timeline
+      steps:
+        - {delay_ms: 200}
+        - set_control: {part_id: dht1, control: temperature, value: 24}
+        - set_control: {part_id: dht1, control: humidity, value: 40}
+        - {delay_ms: 300}
+        - set_control: {part_id: btn1, control: pressed, value: 1}
+        - {delay_ms: 100}
+        - set_control: {part_id: btn1, control: pressed, value: 0}
+        - {delay_ms: 700}
+        - set_control: {part_id: dht1, control: temperature, value: 35}
+        - set_control: {part_id: dht1, control: humidity, value: 70}
+        - {delay_ms: 200}
+        - set_control: {part_id: btn1, control: pressed, value: 1}
+        - {delay_ms: 100}
+        - set_control: {part_id: btn1, control: pressed, value: 0}
+        - {delay_ms: 700}
+    validator:
+      checks:
+        - {}
+        - params:
+            frames:
+              - expected_texts: ["Temp:", "RH:"]
+                expected_regexps: ["Temp:\\s*24(\\.0)?\\s*C", "RH:\\s*40(\\.0)?\\s*%"]
+              - expected_texts: ["Temp:", "RH:"]
+                expected_regexps: ["Temp:\\s*35(\\.0)?\\s*C", "RH:\\s*70(\\.0)?\\s*%"]
 validator:
   family: composite
   checks:
     - family: static_checks
       params:
         required_any_patterns:
+          - ["gpio_pin_get(?:_dt|_raw)?\\s*\\(", "gpio_pin_set(?:_dt|_raw)?\\s*\\("]
           - ["gpio_pin_interrupt_configure", "gpio_init_callback"]
     - family: lcd_text_sequence
       params:
         frames:
           - expected_texts: ["Temp:", "RH:"]
             expected_regexps: ["Temp:\\s*24(\\.0)?\\s*C", "RH:\\s*40(\\.0)?\\s*%"]
-simulation: {timeout_ms: 2700}
+          - expected_texts: ["Temp:", "RH:"]
+            expected_regexps: ["Temp:\\s*30(\\.0)?\\s*C", "RH:\\s*60(\\.0)?\\s*%"]
+simulation: {timeout_ms: 3200, performance_mips: 8}
 case: {id: dht11-read-button-display-renode-nano33, sketch_name: dht11_read_button_display}

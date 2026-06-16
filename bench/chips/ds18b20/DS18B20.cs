@@ -79,13 +79,10 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
                     var lowDuration = now - lowStartedAt;
                     if(lowDuration >= ResetLowThresholdUs)
                     {
-                        this.Log(LogLevel.Info, "DS18B20 RESET (low {0} us)", lowDuration);
                         OnResetPulse();
                     }
                     else
                     {
-                        this.Log(LogLevel.Info, "DS18B20 write bit {0} (low {1} us) bits={2}",
-                            lowDuration >= WriteZeroThresholdUs ? 0 : 1, lowDuration, commandBits);
                         OnWriteSlot(lowDuration >= WriteZeroThresholdUs ? 0 : 1);
                     }
                 }
@@ -127,8 +124,6 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
                     scratchpad = BuildScratchpad();
                     sendingScratchpad = true;
                     sendBitIndex = 0;
-                    this.Log(LogLevel.Info, "DS18B20 READ_SCRATCHPAD; scratch[0..1]={0:X2} {1:X2}",
-                        scratchpad[0], scratchpad[1]);
                     break;
                 default:
                     this.Log(LogLevel.Warning, "Unsupported DS18B20 command 0x{0:X2}", command);
@@ -143,31 +138,23 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
             var byteIndex = sendBitIndex / 8;
             var bitIndex = sendBitIndex % 8;
             var bit = byteIndex < scratchpad.Length ? ((scratchpad[byteIndex] >> bitIndex) & 1) : 1;
-            if(sendBitIndex < 16)
-            {
-                this.Log(LogLevel.Info, "DS18B20 read slot idx={0} bit={1}", sendBitIndex, bit);
-            }
             sendBitIndex++;
-            if(sendBitIndex >= scratchpad.Length * 8)
+            var done = sendBitIndex >= scratchpad.Length * 8;
+            if(done)
             {
-                this.Log(LogLevel.Info, "DS18B20 scratchpad fully sent");
                 sendingScratchpad = false;
             }
-            // The master starts each read slot by pulling low, then releases and
-            // samples ~180 us later. Answer scheduled from this falling edge: a 0
-            // holds the line low across the sample, a 1 lets it idle high.
+            // The master starts each read slot by pulling the master-output net
+            // low, then releases its pin and samples the (separate) response net
+            // somewhere in the middle of the slot. Drive the bit synchronously on
+            // this falling edge and HOLD it for the whole slot: the next read
+            // slot's falling edge overwrites it. Holding (rather than scheduling a
+            // timed release) makes the readback independent of k_busy_wait stretch
+            // under high PerformanceInMips, which is the only reason the master's
+            // sample instant is not exactly predictable in virtual time.
             events.Clear();
-            if(bit == 0)
-            {
-                Enqueue(10, false);
-                Enqueue(330, true);
-                ScheduleNext();
-            }
-            else
-            {
-                Enqueue(10, true);
-                ScheduleNext();
-            }
+            timer.Enabled = false;
+            Data.Set(bit != 0);
         }
 
         private byte[] BuildScratchpad()

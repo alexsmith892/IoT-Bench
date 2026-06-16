@@ -48,14 +48,14 @@ prompt-advertises ⇒ overlay-emits invariant is enforced offline by
 | `rotary_encoder` | Track position/direction via `encoder-clk`, `encoder-dt`. | aligned | Matrix of GPIO surrogates drives quadrature sequence. |
 | `16key_keypad` | Scan rows `row-1`..`row-4`, columns `col-1`..`col-4`. | aligned | Custom keypad model preserves row-drive/column-read behavior. |
 | `lcd1602_display_hello_world` | LCD aliases `D-7`, `D-6`, `D-5`, `D-4`, `RS`, `E`; display Hello World. | aligned | LCD bus decoded from VCD. |
-| `dht11_read` | DHT11 alias `data-dht11`; print temp/RH or checksum error. | unsupported | Added locally as unsupported; needs DHT11 Renode model/wiring from Workstream A. |
+| `dht11_read` | DHT11 alias `data-dht11`; print temp/RH or checksum error. | aligned | DHT11 single-wire Renode model live-verified 2026-06-16; prompt documents the stretched single-wire timing surrogate. |
 | `ds1307_rtc` | I2C bus 0; set/read 2026/02/02 15:37:00. | aligned | Custom DS1307 model supplies deterministic time. |
 | `mpu6050_read_i2c` | I2C bus 0; print raw accel/gyro. | aligned | Custom MPU6050 model with variants. |
 | `bme280_read_i2c` | I2C bus 0; print humidity and temperature. | aligned | Pressure intentionally excluded due native Renode model fidelity. |
 | `bme280_read_spi` | SPI BME280 alias `my_sensor`; print humidity and temperature. | aligned | Custom SPI BME280 model is live-verified for temperature/humidity variants; pressure is outside the upstream contract. |
 | `tilt_detection_alarm` | KY-020 alias `ky020` drives buzzer `my-buzzer`. | aligned | Digital input surrogate. |
 | `photoresistor_nightlight` | `my-led` plus `zephyr_user` ADC channel 0. | aligned | SAADC surrogate maps light to ADC count. |
-| `ds18b20_heat_alarm` | DS18B20 alias `data-ds18b20`; threshold 30 C; drive `my-led` and `my-buzzer`. | unsupported | Added locally as unsupported; needs 1-Wire model/wiring from Workstream A. |
+| `ds18b20_heat_alarm` | DS18B20 alias `data-ds18b20`; threshold 30 C; drive `my-led` and `my-buzzer`. | aligned | DS18B20 1-Wire Renode model live-verified 2026-06-16 with cold/hot scenario variants; prompt documents the stretched 1-Wire timing surrogate. |
 | `clap_switch` | `sound-sensor` toggles relay `lock-relay`. | aligned | Digital sound threshold surrogate. |
 | `hcsr501_motion_alarm` | PIR alias `sr501` drives `my-buzzer`. | aligned | Digital PIR surrogate. |
 | `hcsr04_find_distance` | HC-SR04 aliases `sr04-trig`, `sr04-echo`; print distance. | aligned | Local prompt gives raw trig/echo pins. Live status is `bf-triage` (inconsistent BF manifest vs valid-looking serial) — see `zephyr-task-status.md`. |
@@ -66,7 +66,7 @@ prompt-advertises ⇒ overlay-emits invariant is enforced offline by
 
 | Task | Upstream contract | Local status | Notes |
 |---|---|---|---|
-| `dht11_read_button_display` | Button `my-button` interrupt reads DHT11 `data-dht11`; LCD aliases display `Temp:` and `RH:`. | unsupported | Added locally as unsupported; blocked on DHT11 Renode support. |
+| `dht11_read_button_display` | Button `my-button` interrupt reads DHT11 `data-dht11`; LCD aliases display `Temp:` and `RH:`. | aligned | Live-verified 2026-06-16; button-press scenario forces a re-read so the decoded LCD frames track changed sensor values across two distinct variants. |
 | `mpu6050_read_button_display` | Button `my-button` reads MPU6050 on I2C bus 0 and displays accel/gyro on LCD. | aligned | LCD/MPU models are wired; reference should stay variant-correlated. |
 | `mpu6050_read_periodic_display` | Every 100 ms read MPU6050, average 10 samples, display accel/gyro on LCD. | aligned | Live status `live-validated` per `zephyr-task-status.md` (earlier BF was resolved); pending the 2026-06-16 confirming sweep. |
 | `safebox` | 16-key keypad password `1234` unlocks `lock-relay`. | aligned | Keypad surrogate scans rows/columns. |

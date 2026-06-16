@@ -1,0 +1,43 @@
+name: dht11_read_button_display automation
+version: 1
+author: IoT-Bench
+steps:
+- delay: 200ms
+- set-control:
+    part-id: dht1
+    control: temperature
+    value: 24
+- set-control:
+    part-id: dht1
+    control: humidity
+    value: 40
+- delay: 300ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 100ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 700ms
+- set-control:
+    part-id: dht1
+    control: temperature
+    value: 30
+- set-control:
+    part-id: dht1
+    control: humidity
+    value: 60
+- delay: 200ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 1
+- delay: 100ms
+- set-control:
+    part-id: btn1
+    control: pressed
+    value: 0
+- delay: 700ms

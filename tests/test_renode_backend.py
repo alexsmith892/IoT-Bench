@@ -477,40 +477,22 @@ class CustomProtocolPartTests(unittest.TestCase):
                 with self.assertRaises(RenodeConfigError):
                     part_attr_commands(task, {part_id: attrs})
 
-    def test_unsupported_protocol_tasks_are_if(self) -> None:
-        from bench import cli
-        from bench.config import load_task
+    def test_no_unsupported_protocol_tasks_remain(self) -> None:
+        # Every canonical Zephyr protocol task (DHT11/DS18B20 single-wire,
+        # BME280-SPI, button+LCD displays) has reached live BC, so none should
+        # carry `support.status: unsupported`. If a task is ever marked
+        # unsupported again, restore the harness IF-path assertions below: an
+        # unsupported task must build/run to IF with failure_source "harness"
+        # and a reason containing "unsupported" (see git history of this test).
+        from bench.config import iter_tasks
 
-        for task_id, level in (
-            ("dht11_read_button_display", "level3"),
-        ):
-            with self.subTest(task=task_id):
-                task = load_task(task_id, platform="zephyr_nano33ble", level=level)
-                build_payload = cli.build_single_task(
-                    task,
-                    case_dir=None,
-                    sketch_override=None,
-                    regenerate=False,
-                    arduino_cli="arduino-cli",
-                    west="west",
-                )
-                run_payload = cli.run_single_task(
-                    task,
-                    case_dir=None,
-                    sketch_override=None,
-                    use_existing_artifacts=False,
-                    regenerate=False,
-                    simulation_time_ms=None,
-                    arduino_cli="arduino-cli",
-                    wokwi_cli="wokwi-cli",
-                    west="west",
-                    renode_cli="renode",
-                    archived_vcd=None,
-                )
-                self.assertEqual("IF", build_payload["result"])
-                self.assertEqual("IF", run_payload["result"])
-                self.assertEqual("harness", build_payload["failure_source"])
-                self.assertIn("unsupported", run_payload["reason"])
+        unsupported = sorted(
+            task.task_id
+            for level in ("level1", "level2", "level3")
+            for task in iter_tasks(platform="zephyr_nano33ble", level=level)
+            if not task.is_supported
+        )
+        self.assertEqual([], unsupported, f"unsupported Zephyr tasks remain: {unsupported}")
 
     def test_task_aware_overlay_contains_canonical_aliases(self) -> None:
         from bench.config import load_task

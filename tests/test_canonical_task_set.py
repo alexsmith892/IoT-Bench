@@ -33,10 +33,9 @@ FIXTURE = Path(__file__).resolve().parent / "fixtures" / "upstream_zephyr_tasks.
 
 # Canonical tasks not yet *covered* locally (absent, or present only as an
 # unsupported stub). Each is blocked until the Renode protocol model produces
-# current live BC evidence against the task oracle.
-KNOWN_MISSING = {
-    "dht11_read_button_display",
-}
+# current live BC evidence against the task oracle. Empty: every canonical
+# upstream Zephyr task now has supported live coverage.
+KNOWN_MISSING: set[str] = set()
 
 # Local tasks with no upstream counterpart. lsm9ds1_read_i2c uses the Nano 33
 # BLE's real onboard IMU; keep it here only while it is a sanctioned addition.

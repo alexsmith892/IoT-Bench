@@ -1,0 +1,43 @@
+&i2c0 {
+	compatible = "nordic,nrf-twi";
+};
+
+/ {
+	iotbench_gpios {
+		compatible = "gpio-leds";
+		iotbench_button: iotbench_button {
+			gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;
+		};
+		iotbench_dht11: iotbench_dht11 {
+			gpios = <&gpio1 10 GPIO_ACTIVE_HIGH>;
+		};
+		iotbench_lcd_rs: iotbench_lcd_rs {
+			gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
+		};
+		iotbench_lcd_e: iotbench_lcd_e {
+			gpios = <&gpio1 14 GPIO_ACTIVE_HIGH>;
+		};
+		iotbench_lcd_d4: iotbench_lcd_d4 {
+			gpios = <&gpio1 15 GPIO_ACTIVE_HIGH>;
+		};
+		iotbench_lcd_d5: iotbench_lcd_d5 {
+			gpios = <&gpio1 13 GPIO_ACTIVE_HIGH>;
+		};
+		iotbench_lcd_d6: iotbench_lcd_d6 {
+			gpios = <&gpio0 21 GPIO_ACTIVE_HIGH>;
+		};
+		iotbench_lcd_d7: iotbench_lcd_d7 {
+			gpios = <&gpio0 27 GPIO_ACTIVE_HIGH>;
+		};
+	};
+	aliases {
+		my-button = &iotbench_button;
+		data-dht11 = &iotbench_dht11;
+		rs = &iotbench_lcd_rs;
+		e = &iotbench_lcd_e;
+		d-4 = &iotbench_lcd_d4;
+		d-5 = &iotbench_lcd_d5;
+		d-6 = &iotbench_lcd_d6;
+		d-7 = &iotbench_lcd_d7;
+	};
+};

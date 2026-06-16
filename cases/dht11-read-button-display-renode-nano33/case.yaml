@@ -1,0 +1,12 @@
+task_id: dht11_read_button_display
+case_id: dht11-read-button-display-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/dht11_read_button_display
+  diagram: case.repl
+  build: artifacts/build
+  vcd: artifacts/logic/renode.vcd
+  scenario: scenario.yaml
+  resc: case.resc

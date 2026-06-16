@@ -47,20 +47,20 @@ Status meanings:
 | `rotary_encoder` | live-validated | GPIO quadrature surrogate. |
 | `16key_keypad` | live-validated | Custom keypad model. |
 | `lcd1602_display_hello_world` | live-validated | LCD VCD decode. |
-| `dht11_read` | unsupported | DHT11 single-wire Renode model and case wiring added, but current live runs still produce read/checksum errors rather than serial temperature/humidity evidence. |
+| `dht11_read` | live-verified | DHT11 single-wire Renode model; fresh 2026-06-16 Renode run produced BC for `cool_dry` (24 C/40 %) and `warm_humid` (30 C/60 %) variants with checksum-validated serial output, and `validate-artifacts` passed. Uses the stretched single-wire timing surrogate (see prompt) at `performance_mips: 8`. |
 | `ds1307_rtc` | live-validated | Custom DS1307 model. |
 | `mpu6050_read_i2c` | live-validated | Custom MPU6050 model. |
 | `bme280_read_i2c` | live-validated | Native BME280 temperature/humidity only. |
 | `bme280_read_spi` | live-verified | Custom SPI BME280 model; fresh 2026-06-16 Renode run produced BC for warm/humid and hot/dry variants, and `validate-artifacts` passed. |
 | `tilt_detection_alarm` | live-validated | KY-020 as binary GPIO surrogate. |
 | `photoresistor_nightlight` | live-validated | SAADC light surrogate. |
-| `ds18b20_heat_alarm` | unsupported | DS18B20 1-Wire Renode model and scenario temperature control added, but cold/hot LED/buzzer VCD behavior has not reached live BC. |
+| `ds18b20_heat_alarm` | live-verified | DS18B20 1-Wire Renode model with scenario temperature control; fresh 2026-06-16 Renode run produced BC for `cold_then_hot` (buzzer/LED fire only in the hot window) and `stays_cold` (outputs stay off) variants, and `validate-artifacts` passed. Read slots hold the response bit for the whole slot so readback is robust to busy-wait stretch at `performance_mips: 64`. |
 | `clap_switch` | live-validated | Sound threshold as binary GPIO surrogate. |
 | `hcsr501_motion_alarm` | live-validated | PIR as binary GPIO surrogate. |
 | `hcsr04_find_distance` | bf-triage | **Inconsistent evidence:** local `verification.json` records BF, but near/far serial logs appear to contain valid distances inside the YAML ranges. Pending fresh live re-triage (live workstream) before any leaderboard claim; do not treat as ready. |
 | `parking_sensor` | implemented-unvalidated | HC-SR04 plus LED ratio and buzzer waveform VCD; shares the HC-SR04 model under `hcsr04_find_distance` re-triage, so re-run live before relying on it. |
 | `reverse_parking_sensor` | implemented-unvalidated | HC-SR04 plus buzzer waveform VCD; shares the HC-SR04 model under `hcsr04_find_distance` re-triage, so re-run live before relying on it. |
-| `dht11_read_button_display` | unsupported | DHT11 model plus button/LCD wiring added, but it remains blocked on the DHT11 single-wire read failure. |
+| `dht11_read_button_display` | live-verified | DHT11 model plus button interrupt and LCD1602; fresh 2026-06-16 Renode run produced BC for both variants. The scenario presses the button, then changes the simulated environment and presses again; the decoded LCD frames track the new values (e.g. 24 C/40 % then 30 C/60 %), so a hardcoded or boot-only display fails the second frame. `validate-artifacts` passed. |
 | `mpu6050_read_button_display` | live-validated | MPU6050 plus LCD/button. |
 | `mpu6050_read_periodic_display` | live-validated | MPU6050 variants decoded from LCD VCD frames; 10-sample average values differ by variant. |
 | `safebox` | live-validated | Keypad surrogate plus relay. |
@@ -81,9 +81,15 @@ Status meanings:
 - Canonical devicetree alias emission is now complete on the task-contract side:
   `zephyr_app_overlay` emits every alias the prompts advertise (verified offline
   by `tests/test_zephyr_overlay_contract.py`), including `my-led` for the
-  single-LED blink family. DHT11 and DS18B20 Renode model/wiring exist but stay
-  `unsupported`; promote those rows only after current live Renode runs produce
-  BC evidence.
+  single-LED blink family. DHT11 and DS18B20 single-wire tasks (`dht11_read`,
+  `ds18b20_heat_alarm`, `dht11_read_button_display`) reached fresh live BC on
+  2026-06-16 and are now `live-verified`; no canonical Zephyr task remains
+  `unsupported`. These tasks use a deliberately stretched single-wire timing
+  surrogate (documented in each frozen `.prompt.md`) so Renode's ~30 us
+  virtual-time resolution can discriminate the bits; the DS18B20 read model
+  holds each response bit for the full read slot so readback is independent of
+  `k_busy_wait` stretch under the per-task `simulation.performance_mips`
+  override.
 - HC-SR04 model compilation needed the Renode timers namespace import; after
   that, the HC-SR04 trio produced current local BC evidence at the pinned
   2 MIPS CPU setting.
