@@ -525,6 +525,32 @@ def active_variant_attrs(task: TaskConfig) -> dict[str, Any] | None:
     return None
 
 
+DEFAULT_PERFORMANCE_MIPS = 2
+
+
+def performance_mips(task: TaskConfig) -> int:
+    """CPU rating for the generated platform.
+
+    Defaults to ``DEFAULT_PERFORMANCE_MIPS`` (tuned for busy-polling firmware).
+    A task may opt into a higher rating via ``simulation.performance_mips`` when
+    its firmware needs finer ``k_busy_wait``/``k_cycle_get_32`` resolution to
+    bit-bang a microsecond single-wire protocol.
+    """
+
+    raw = task.simulation.get("performance_mips", DEFAULT_PERFORMANCE_MIPS)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        raise RenodeConfigError(
+            f"{task.task_id}: simulation.performance_mips must be a positive integer, got {raw!r}"
+        )
+    if value <= 0:
+        raise RenodeConfigError(
+            f"{task.task_id}: simulation.performance_mips must be a positive integer, got {raw!r}"
+        )
+    return value
+
+
 def generate_repl(task: TaskConfig) -> str:
     """Platform description for the case: nRF52840 + probes + input drivers."""
 
@@ -544,8 +570,12 @@ def generate_repl(task: TaskConfig) -> str:
         "// ~100 us resolution and Zephyr boot under 3 ms of virtual time while",
         "// making busy-polling firmware simulate fast enough to run.",
         "// Sleep-based firmware is unaffected (idle time is skipped either way).",
+        "// Tasks whose firmware bit-bangs a microsecond single-wire protocol in a",
+        "// short burst (DHT11, DS18B20) opt into a higher rating via the task's",
+        "// simulation.performance_mips so k_busy_wait/k_cycle_get_32 resolve the",
+        "// bit timing; the brief transactions keep the higher rating affordable.",
         "cpu:",
-        "    PerformanceInMips: 2",
+        f"    PerformanceInMips: {performance_mips(task)}",
         "",
     ]
     seen_pins: dict[tuple[str, int], str] = {}

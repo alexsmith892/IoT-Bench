@@ -44,6 +44,7 @@ from .runner import (
     prepare_artifacts,
     run_case,
     tool_version_report,
+    parse_tool_version,
     validate_case,
     with_archived_vcd,
 )
@@ -746,7 +747,7 @@ def check_command(command: str, *args: str) -> dict[str, Any]:
         "name": command,
         "ok": completed.returncode == 0,
         "path": path,
-        "version": output.splitlines()[0] if output else None,
+        "version": parse_tool_version(command, output),
         "reason": None if completed.returncode == 0 else output,
     }
 

@@ -1,5 +1,5 @@
 arduino_cli_version: "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z"
-idf_py_version:
+idf_py_version: "ESP-IDF v5.5.4"
 wokwi_cli_version: "0.26.1 (9d71b975b7eb)"
 renode_version: "Renode v1.16.1.19220"
 west_version: "West version: v1.5.0"

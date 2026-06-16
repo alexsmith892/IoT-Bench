@@ -614,8 +614,11 @@ class ZephyrSubmissionNormalizationTests(unittest.TestCase):
             (destination / "CMakeLists.txt").read_text(encoding="utf-8"), zephyr_root_cmake(task)
         )
         self.assertEqual((destination / "prj.conf").read_text(encoding="utf-8"), zephyr_prj_conf())
+        # The overlay is task-specific (the blink family advertises `my-led`),
+        # so it must equal the generator output for this task, not the bare
+        # task-less default.
         self.assertEqual(
-            (destination / "app.overlay").read_text(encoding="utf-8"), zephyr_app_overlay()
+            (destination / "app.overlay").read_text(encoding="utf-8"), zephyr_app_overlay(task)
         )
 
     def test_project_without_main_c_is_compile_fail(self) -> None:

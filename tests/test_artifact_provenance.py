@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+from subprocess import CompletedProcess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from bench.cli import run_single_task
+from bench import runner
 from bench.config import TaskConfig, load_task
 from bench.results import RESULT_BC, RESULT_IF, PASS, result_payload
 from bench.runner import (
@@ -98,6 +101,19 @@ class ArtifactProvenanceTests(unittest.TestCase):
             payload = validate_existing(task, paths, require_provenance=False)
         self.assertEqual(payload["result"], RESULT_BC, payload)
 
+    def test_idf_py_version_probe_ignores_wrapper_chatter(self):
+        completed = CompletedProcess(
+            args=["idf.py", "--version"],
+            returncode=0,
+            stdout=(
+                "Done! You can now compile ESP-IDF projects.\n"
+                "ESP-IDF v5.5.4\n"
+            ),
+            stderr="",
+        )
+        with mock.patch.object(runner.subprocess, "run", return_value=completed):
+            self.assertEqual(runner.command_version("idf.py", "--version"), "ESP-IDF v5.5.4")
+
 
 def variant_task(case_dir: Path) -> tuple[TaskConfig, CasePaths]:
     task = TaskConfig(
@@ -129,6 +145,25 @@ def variant_task(case_dir: Path) -> tuple[TaskConfig, CasePaths]:
 
 def populate_variant_case(case_dir: Path) -> tuple[TaskConfig, CasePaths]:
     task, paths = variant_task(case_dir)
+    task.path.write_text("task_id: bme280_read_i2c\n", encoding="utf-8")
+    task.prompt_path.write_text("Read the BME280 over I2C.\n", encoding="utf-8")
+    (case_dir / "case.yaml").write_text(
+        "task_id: bme280_read_i2c\ncase_id: case\npaths:\n  sketch: sketch/bme280_read_i2c\n  diagram: diagram.json\n",
+        encoding="utf-8",
+    )
+    (case_dir / "case.json").write_text(
+        json.dumps(
+            {
+                "task": "bme280_read_i2c",
+                "id": case_dir.name,
+                "paths": {
+                    "sketch": "sketch/bme280_read_i2c",
+                    "diagram": "diagram.json",
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
     sketch_dir = paths.sketch
     sketch_dir.mkdir(parents=True)
     (sketch_dir / "bme280_read_i2c.ino").write_text("void setup(){}\nvoid loop(){}\n", encoding="utf-8")
@@ -152,6 +187,26 @@ class VariantProvenanceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             task, paths = populate_variant_case(Path(tmp))
             validate_existing_artifact_manifest(task, paths)
+
+    def test_variant_manifest_keeps_base_outputs_empty(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, paths = populate_variant_case(Path(tmp))
+            manifest = json.loads((paths.case_dir / "artifacts" / "verification.json").read_text(encoding="utf-8"))
+        self.assertIsNone(manifest["serial_log_path"])
+        self.assertIsNone(manifest["serial_log_hash"])
+        self.assertEqual(
+            ["artifacts/serial/scenario_a.serial.log", "artifacts/serial/scenario_b.serial.log"],
+            [entry["serial_log_path"] for entry in manifest["variants"]],
+        )
+
+    def test_changed_task_yaml_after_manifest_is_artifact_failure(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            task, paths = populate_variant_case(Path(tmp))
+            task.path.write_text("task_id: bme280_read_i2c\n# changed\n", encoding="utf-8")
+            with self.assertRaises(BuildSimulationError) as ctx:
+                validate_existing_artifact_manifest(task, paths)
+        self.assertEqual(ctx.exception.classification, "SIM_OUTPUT_FAIL")
+        self.assertIn("task YAML", str(ctx.exception))
 
     def test_variant_missing_from_manifest_is_artifact_failure(self):
         with tempfile.TemporaryDirectory() as tmp:

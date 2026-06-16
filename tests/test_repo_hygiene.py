@@ -67,6 +67,28 @@ class RepoHygieneTests(unittest.TestCase):
         ]
         self.assertEqual(offenders, [], "generated output files must not be tracked")
 
+    def test_case_verification_manifests_are_local_only(self):
+        tracked = tracked_files()
+        offenders = [
+            path
+            for path in tracked
+            if re.match(r"^cases/[^/]+/artifacts/verification\.json$", path)
+        ]
+        self.assertEqual(offenders, [], "case verification manifests are ignored local evidence")
+
+        gitignore = (ROOT / ".gitignore").read_text(encoding="utf-8")
+        self.assertIn("cases/*/artifacts/verification.json", gitignore)
+
+    def test_wokwi_live_tests_remain_opt_in(self):
+        integration = (ROOT / "tests" / "test_wokwi_integration_optional.py").read_text(encoding="utf-8")
+        outcome = (
+            ROOT / "tests" / "runner_outcome_cases" / "test_wokwi_outcome_smoke_optional.py"
+        ).read_text(encoding="utf-8")
+
+        self.assertIn('os.environ.get("RUN_WOKWI_INTEGRATION") == "1"', integration)
+        self.assertIn('os.environ.get("RUN_WOKWI_INTEGRATION") == "1"', outcome)
+        self.assertIn('os.environ.get("RUN_WOKWI_TASK_CORPUS") == "1"', outcome)
+
     def test_root_diagram_fixture_exists(self):
         self.assertTrue((ROOT / "tests" / "fixtures" / "diagram.json").exists())
 

@@ -534,6 +534,17 @@ def zephyr_app_overlay(task: TaskConfig | None = None) -> str:
 }};
 """
             alias_lines.append(f"\t\tmy-sensor = &{label};")
+    # Fixture families without a discrete `components` list still promise the
+    # canonical `my-led` alias in their prompts (the single_led_output blink
+    # family). Emit it so a submission that follows the prompt and uses
+    # DT_ALIAS(my_led) builds, even though the reference solution reaches the
+    # same pin through the raw gpio0 node label.
+    if not task.fixture.get("components"):
+        family = str(task.fixture.get("family", ""))
+        pins_top = task.fixture.get("pins") or {}
+        if family == "single_led_output" and pins_top.get("led"):
+            node_lines.append(zephyr_gpio_alias_node("iotbench_led", str(pins_top["led"])))
+            alias_lines.append("\t\tmy-led = &iotbench_led;")
     if node_lines or alias_lines:
         overlay += "\n/ {\n"
         if node_lines:
@@ -1743,8 +1754,21 @@ def write_verification(
         "task_id": task.task_id,
         "case_id": paths.case_id,
         "command": command,
+        "evidence_policy": {
+            "leaderboard_ready_requires": "fresh_live_run_bc_with_current_task_case_harness_and_artifact_hashes",
+            "local_manifest_is_authoritative_repo_truth": False,
+        },
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "python_version": sys.version.split()[0],
+        "benchmark_harness_hash": benchmark_harness_hash(),
+        "task_path": relative_to(task.path, repo_root()),
+        "task_hash": hash_file(task.path),
+        "prompt_path": relative_to(task.prompt_path, repo_root()) if task.prompt_path.exists() else None,
+        "prompt_hash": hash_file(task.prompt_path),
+        "case_yaml_path": "case.yaml",
+        "case_yaml_hash": hash_file(paths.case_dir / "case.yaml"),
+        "case_json_path": "case.json",
+        "case_json_hash": hash_file(paths.case_dir / "case.json"),
         "arduino_cli_version": tool_versions["arduino_cli_version"],
         "idf_py_version": tool_versions["idf_py_version"],
         "wokwi_cli_version": tool_versions["wokwi_cli_version"],
@@ -1765,10 +1789,20 @@ def write_verification(
         "firmware_hex_hash": hash_file(paths.firmware_hex),
         "firmware_elf": relative_to(paths.firmware_elf, paths.case_dir),
         "firmware_elf_hash": hash_file(paths.firmware_elf),
-        "vcd_path": relative_to(paths.vcd, paths.case_dir) if paths.vcd else None,
-        "vcd_hash": hash_file(paths.vcd) if paths.vcd else None,
-        "serial_log_path": relative_to(paths.serial_log, paths.case_dir) if paths.serial_log else None,
-        "serial_log_hash": hash_file(paths.serial_log) if paths.serial_log else None,
+        "vcd_path": (
+            relative_to(paths.vcd, paths.case_dir)
+            if paths.vcd and not task.simulation_variants
+            else None
+        ),
+        "vcd_hash": hash_file(paths.vcd) if paths.vcd and not task.simulation_variants else None,
+        "serial_log_path": (
+            relative_to(paths.serial_log, paths.case_dir)
+            if paths.serial_log and not task.simulation_variants
+            else None
+        ),
+        "serial_log_hash": (
+            hash_file(paths.serial_log) if paths.serial_log and not task.simulation_variants else None
+        ),
         "result": result.get("result"),
         "classification": result.get("classification"),
         "failure_stage": result.get("failure_stage"),
@@ -1866,6 +1900,11 @@ def validate_existing_artifact_manifest(
     if not isinstance(manifest, dict):
         raise artifact_provenance_error("verification manifest is not a JSON object")
 
+    if manifest.get("manifest_version") != 2:
+        raise artifact_provenance_error(
+            f"unsupported verification manifest version {manifest.get('manifest_version')!r}; "
+            "regenerate artifacts with a full run"
+        )
     if manifest.get("task_id") != task.task_id:
         raise artifact_provenance_error(
             f"verification manifest belongs to task {manifest.get('task_id')!r}, not {task.task_id!r}"
@@ -1886,6 +1925,11 @@ def validate_existing_artifact_manifest(
         )
 
     checks: list[tuple[str, str | None, str | None]] = [
+        ("benchmark harness", manifest.get("benchmark_harness_hash"), benchmark_harness_hash()),
+        ("task YAML", manifest.get("task_hash"), hash_file(task.path)),
+        ("prompt", manifest.get("prompt_hash"), hash_file(task.prompt_path)),
+        ("case.yaml", manifest.get("case_yaml_hash"), hash_file(paths.case_dir / "case.yaml")),
+        ("case.json", manifest.get("case_json_hash"), hash_file(paths.case_dir / "case.json")),
         ("sketch", manifest.get("sketch_hash"), hash_path(paths.sketch)),
         ("diagram", manifest.get("diagram_hash"), hash_file(paths.diagram)),
         (
@@ -1969,12 +2013,23 @@ def command_version(command: str, *args: str) -> str | None:
             stderr=subprocess.PIPE,
             text=True,
             check=False,
-            timeout=10,
+            timeout=20,
         )
     except (OSError, subprocess.TimeoutExpired):
         return None
     output = (completed.stdout or completed.stderr).strip()
-    return output.splitlines()[0] if output else None
+    return parse_tool_version(command, output)
+
+
+def parse_tool_version(command: str, output: str) -> str | None:
+    lines = [line.strip() for line in output.splitlines() if line.strip()]
+    if not lines:
+        return None
+    if Path(command).name.lower() in {"idf.py", "idf.py.cmd"}:
+        for line in lines:
+            if line.startswith("ESP-IDF "):
+                return line
+    return lines[0]
 
 
 def tool_versions_path() -> Path:
@@ -2164,6 +2219,25 @@ def hash_path(path: Path) -> str | None:
         if item.is_file():
             digest.update(relative_to(item, path).encode("utf-8"))
             digest.update(hashlib.sha256(item.read_bytes()).digest())
+    return digest.hexdigest()
+
+
+def benchmark_harness_hash() -> str:
+    return hash_source_tree(repo_root() / "bench", ("*.py",)) or ""
+
+
+def hash_source_tree(root: Path, patterns: tuple[str, ...]) -> str | None:
+    if not root.is_dir():
+        return None
+    digest = hashlib.sha256()
+    files: list[Path] = []
+    for pattern in patterns:
+        files.extend(root.rglob(pattern))
+    for item in sorted(set(files)):
+        if "__pycache__" in item.parts:
+            continue
+        digest.update(relative_to(item, root).encode("utf-8"))
+        digest.update(hashlib.sha256(item.read_bytes()).digest())
     return digest.hexdigest()
 
 
@@ -3596,7 +3670,9 @@ static int dht11_read(int *temperature, int *humidity)
 {
 \tuint8_t data[5] = {0};
 
-\tgpio_pin_configure_dt(&dht, GPIO_OUTPUT_LOW);
+\tgpio_pin_configure_dt(&dht, GPIO_OUTPUT_HIGH);
+\tk_busy_wait(50);
+\tgpio_pin_set_dt(&dht, 0);
 \tk_msleep(20);
 \tgpio_pin_configure_dt(&dht, GPIO_INPUT | GPIO_PULL_UP);
 
@@ -3720,9 +3796,21 @@ int main(void)
 ZEPHYR_DS18B20_BLOCK = """\
 static const struct gpio_dt_spec ds = GPIO_DT_SPEC_GET(DT_ALIAS(data_ds18b20), gpios);
 
+/* Renode's GPIO connections are unidirectional, so the open-drain bus release
+ * is invisible to the slave model. Drive the line push-pull during the reset
+ * and write phases (so the model observes the master's edges and low-pulse
+ * widths) and only release it during a read slot so the model can answer. The
+ * bit windows are a deliberate ~10x stretch of the real DS18B20 timing so the
+ * simulator's ~30 us RTC resolution can resolve them; the task prompt
+ * documents the scale a submission must target. */
 static void ow_low(void)
 {
 \tgpio_pin_configure_dt(&ds, GPIO_OUTPUT_LOW);
+}
+
+static void ow_high(void)
+{
+\tgpio_pin_configure_dt(&ds, GPIO_OUTPUT_HIGH);
 }
 
 static void ow_release(void)
@@ -3735,11 +3823,13 @@ static int ow_reset(void)
 \tint presence;
 
 \tow_low();
-\tk_busy_wait(500);
+\tk_busy_wait(2000);
+\tow_high();
 \tow_release();
-\tk_busy_wait(70);
+\tk_busy_wait(90);
 \tpresence = gpio_pin_get_dt(&ds) == 0;
-\tk_busy_wait(430);
+\tk_busy_wait(600);
+\tow_high();
 \treturn presence ? 0 : -1;
 }
 
@@ -3747,13 +3837,13 @@ static void ow_write_bit(int bit)
 {
 \tow_low();
 \tif (bit) {
-\t\tk_busy_wait(6);
-\t\tow_release();
-\t\tk_busy_wait(64);
+\t\tk_busy_wait(30);
+\t\tow_high();
+\t\tk_busy_wait(400);
 \t} else {
-\t\tk_busy_wait(60);
-\t\tow_release();
-\t\tk_busy_wait(10);
+\t\tk_busy_wait(400);
+\t\tow_high();
+\t\tk_busy_wait(30);
 \t}
 }
 
@@ -3762,11 +3852,12 @@ static int ow_read_bit(void)
 \tint bit;
 
 \tow_low();
-\tk_busy_wait(6);
+\tk_busy_wait(60);
 \tow_release();
-\tk_busy_wait(12);
+\tk_busy_wait(120);
 \tbit = gpio_pin_get_dt(&ds);
-\tk_busy_wait(55);
+\tk_busy_wait(300);
+\tow_high();
 \treturn bit;
 }
 
@@ -3874,8 +3965,8 @@ static const struct spi_dt_spec bme =
 
 static int bme_read(uint8_t reg, uint8_t *buf, size_t len)
 {
-\tuint8_t tx[16] = {0};
-\tuint8_t rx[16] = {0};
+\tuint8_t tx[32] = {0};
+\tuint8_t rx[32] = {0};
 \tconst struct spi_buf tx_buf = {.buf = tx, .len = len + 1};
 \tconst struct spi_buf rx_buf = {.buf = rx, .len = len + 1};
 \tconst struct spi_buf_set tx_set = {.buffers = &tx_buf, .count = 1};
@@ -3885,8 +3976,9 @@ static int bme_read(uint8_t reg, uint8_t *buf, size_t len)
 \t\treturn -1;
 \t}
 \ttx[0] = reg | 0x80;
-\tif (spi_transceive_dt(&bme, &tx_set, &rx_set) != 0) {
-\t\treturn -1;
+\tint err = spi_transceive_dt(&bme, &tx_set, &rx_set);
+\tif (err != 0) {
+\t\treturn err;
 \t}
 \tmemcpy(buf, &rx[1], len);
 \treturn 0;
@@ -3911,16 +4003,19 @@ static int32_t t_fine;
 static int read_calibration(void)
 {
 \tuint8_t buf[26];
+\tint err;
 
-\tif (bme_read(0x88, buf, 26) != 0) {
-\t\treturn -1;
+\terr = bme_read(0x88, buf, 26);
+\tif (err != 0) {
+\t\treturn err;
 \t}
 \tdig_t1 = (uint16_t)((buf[1] << 8) | buf[0]);
 \tdig_t2 = (int16_t)((buf[3] << 8) | buf[2]);
 \tdig_t3 = (int16_t)((buf[5] << 8) | buf[4]);
 \tdig_h1 = buf[25];
-\tif (bme_read(0xE1, buf, 7) != 0) {
-\t\treturn -1;
+\terr = bme_read(0xE1, buf, 7);
+\tif (err != 0) {
+\t\treturn err;
 \t}
 \tdig_h2 = (int16_t)((buf[1] << 8) | buf[0]);
 \tdig_h3 = buf[2];
@@ -3957,9 +4052,15 @@ static uint32_t compensate_humidity(int32_t adc_h)
 int main(void)
 {
 \tuint8_t raw[8];
+\tint err;
 
-\tif (!spi_is_ready_dt(&bme) || read_calibration() != 0) {
-\t\tprintk("BME280 SPI not found\\n");
+\tif (!spi_is_ready_dt(&bme)) {
+\t\tprintk("BME280 SPI not ready\\n");
+\t\treturn 0;
+\t}
+\terr = read_calibration();
+\tif (err != 0) {
+\t\tprintk("BME280 SPI not found: %d\\n", err);
 \t\treturn 0;
 \t}
 \t(void)bme_write(0xF2, 0x01);
@@ -4941,6 +5042,12 @@ static void lcd_begin(void) {
   lcd_command(0x28);
   lcd_command(0x0c);
   lcd_command(0x06);
+  // One blank character write (RS high) flips RS between the function-set
+  // commands and the clear below. A spurious enable edge at power-on leaves the
+  // 4-bit command framing one nibble out of phase; the RS transition realigns
+  // it so the very first rendered frame is correct (otherwise the first
+  // post-init clear+cursor pair is misread and the opening frame is garbled).
+  lcd_data(0x20);
   lcd_command(0x01);
 }
 
@@ -5082,21 +5189,39 @@ def espidf_rotary_encoder(task: TaskConfig) -> str:
 #define CLK_PIN GPIO_NUM_5
 #define DT_PIN GPIO_NUM_6
 
+// Quadrature transition table indexed by (previous << 2) | current, where each
+// 2-bit state is (CLK << 1) | DT. Valid edges contribute +1 (CW) or -1 (CCW);
+// four sub-steps make one detent. The CLK/DT lines idle high (external
+// pull-ups) and are pulled low through the encoder contacts.
+static const int8_t QUAD[16] = {0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0};
+
+static int read_state(void) {
+  return (gpio_get_level(CLK_PIN) << 1) | gpio_get_level(DT_PIN);
+}
+
 void app_main(void) {
   gpio_reset_pin(CLK_PIN);
   gpio_reset_pin(DT_PIN);
   gpio_set_direction(CLK_PIN, GPIO_MODE_INPUT);
   gpio_set_direction(DT_PIN, GPIO_MODE_INPUT);
-  int last_clk = gpio_get_level(CLK_PIN);
-  int position = 0;
+  int last_state = read_state();
+  int sub_step = 0;
+  long position = 0;
   while (1) {
-    int clk = gpio_get_level(CLK_PIN);
-    if (clk != last_clk && clk == 0) {
-      int dt = gpio_get_level(DT_PIN);
-      position += dt ? -1 : 1;
-      printf("Position: %d Direction: %s\\n", position, dt ? "CCW" : "CW");
+    int state = read_state();
+    if (state != last_state) {
+      sub_step += QUAD[(last_state << 2) | state];
+      last_state = state;
+      if (sub_step >= 4) {
+        sub_step = 0;
+        position++;
+        printf("Position: %ld Direction: CW\\n", position);
+      } else if (sub_step <= -4) {
+        sub_step = 0;
+        position--;
+        printf("Position: %ld Direction: CCW\\n", position);
+      }
     }
-    last_clk = clk;
     vTaskDelay(pdMS_TO_TICKS(2));
   }
 }
@@ -6048,6 +6173,7 @@ void app_main(void) {
   adc_gpio9_init();
   gpio_reset_pin(BUTTON_PIN);
   gpio_set_direction(BUTTON_PIN, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(BUTTON_PIN, GPIO_PULLDOWN_ONLY);
   lcd_begin();
   int counter = 1;
   int64_t last = esp_timer_get_time();
