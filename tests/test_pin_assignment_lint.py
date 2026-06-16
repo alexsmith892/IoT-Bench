@@ -15,10 +15,14 @@ a short).
 
 from __future__ import annotations
 
+import json
 import re
+import tempfile
 import unittest
+from pathlib import Path
 
 from bench.config import iter_tasks
+from bench.runner import generate_case
 
 
 def _component_owner(component: dict) -> str:
@@ -47,6 +51,45 @@ def _fixture_pin_owners(fixture: dict) -> tuple[dict[str, set[str]], set[str], s
         for pin in pins:
             pin_owners.setdefault(pin, set()).add(owner)
     return pin_owners, keypad_rows, keypad_cols
+
+
+def _component_gpio_pins(fixture: dict) -> set[str]:
+    pins: set[str] = set()
+    for component in fixture.get("components", []) or []:
+        if not isinstance(component, dict):
+            continue
+        if "pin" in component:
+            pins.add(str(component["pin"]))
+        named = component.get("pins")
+        if isinstance(named, dict):
+            pins.update(str(value) for value in named.values())
+    return {pin for pin in pins if pin.isdigit()}
+
+
+def _analyzer_gpio_pins(fixture: dict) -> set[str]:
+    analyzer = fixture.get("analyzer")
+    if not isinstance(analyzer, dict):
+        return set()
+    channels = analyzer.get("channels")
+    if not isinstance(channels, list):
+        return set()
+    return {
+        str(channel.get("pin"))
+        for channel in channels
+        if isinstance(channel, dict) and str(channel.get("pin", "")).isdigit()
+    }
+
+
+def _diagram_esp_pins(diagram_path: Path) -> set[str]:
+    diagram = json.loads(diagram_path.read_text(encoding="utf-8"))
+    pins: set[str] = set()
+    for connection in diagram.get("connections", []) or []:
+        if not isinstance(connection, list):
+            continue
+        for endpoint in connection[:2]:
+            if isinstance(endpoint, str) and endpoint.startswith("esp:"):
+                pins.add(endpoint.split(":", 1)[1])
+    return pins
 
 
 class PinAssignmentLintTests(unittest.TestCase):
@@ -106,6 +149,42 @@ class PinAssignmentLintTests(unittest.TestCase):
                         [],
                         f"esp32s3_espidf/{task.task_id}: fixture GPIO(s) not named in prompt",
                     )
+
+    def test_esp32_generated_diagrams_wire_fixture_and_analyzer_gpios(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for level in ("level1", "level2", "level3"):
+                for task in iter_tasks(platform="esp32s3_espidf", level=level):
+                    fixture = task.data.get("fixture")
+                    if not isinstance(fixture, dict) or not task.is_supported:
+                        continue
+                    with self.subTest(level=level, task=task.task_id):
+                        paths = generate_case(task, root=root)
+                        diagram_pins = _diagram_esp_pins(paths.diagram)
+                        expected_pins = _component_gpio_pins(fixture) | _analyzer_gpio_pins(fixture)
+                        missing = sorted(expected_pins - diagram_pins)
+                        self.assertEqual(
+                            missing,
+                            [],
+                            f"esp32s3_espidf/{task.task_id}: generated diagram does not "
+                            f"wire fixture/analyzer GPIO(s) {missing}",
+                        )
+
+    def test_esp32_known_simulator_deviations_are_documented(self):
+        docs = (
+            Path("docs") / "esp32s3-task-status.md"
+        ).read_text(encoding="utf-8")
+        expectations = {
+            "safebox": ["GPIO 12", "GPIO 8"],
+            "GPIO remap": ["GPIO 43/44", "GPIO 45/46"],
+            "DHT surrogate": ["DHT11", "DHT22"],
+            "RTC surrogate": ["DS3231", "DS1307", "temperature"],
+            "keypad surrogate": ["partial matrix"],
+        }
+        for label, tokens in expectations.items():
+            with self.subTest(deviation=label):
+                for token in tokens:
+                    self.assertIn(token, docs)
 
     def test_esp32_safebox_relay_uses_gpio12_and_keypad_column_moves_to_gpio8(self):
         for task_id in ("safebox", "safebox_display"):

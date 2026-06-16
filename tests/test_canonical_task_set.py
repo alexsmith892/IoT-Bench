@@ -32,11 +32,8 @@ PLATFORM = "zephyr_nano33ble"
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "upstream_zephyr_tasks.json"
 
 # Canonical tasks not yet *covered* locally (absent, or present only as an
-# unsupported stub). Each is blocked on a peripheral Renode does not model
-# natively (see the audit's peripheral strategy):
-#   dht11_read, dht11_read_button_display -> DHT11 single-wire bit-banged
-#   ds18b20_heat_alarm                    -> DS18B20 1-Wire
-#   bme280_read_spi                       -> BME280 over SPI
+# unsupported stub). Each is blocked until the Renode protocol model produces
+# current live BC evidence against the task oracle.
 KNOWN_MISSING = {
     "dht11_read",
     "bme280_read_spi",

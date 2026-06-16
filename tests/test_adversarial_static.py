@@ -111,6 +111,10 @@ ZEPHYR_STUBS = [
     ("step_counter_print", "level3", "stub_zephyr_decoy_hardcoded.c", False),
     ("hcsr04_find_distance", "level2", "stub_zephyr_print_only.c", True),
     ("hcsr04_find_distance", "level2", "stub_zephyr_decoy_hardcoded.c", False),
+    ("parking_sensor", "level2", "stub_zephyr_fixed_buzzer.c", False),
+    ("reverse_parking_sensor", "level2", "stub_zephyr_fixed_buzzer.c", False),
+    ("mpu6050_read_periodic_display", "level3", "stub_zephyr_hardcoded_lcd.c", False),
+    ("joystick_buzzer_pitch", "level3", "stub_zephyr_fixed_pitch.c", False),
 ]
 
 
@@ -157,11 +161,25 @@ class ZephyrAdversarialStaticTests(unittest.TestCase):
 ESPIDF_STUBS = [
     ("dht11_read", "level2", "stub_espidf_hardcoded.c", False),
     ("ds1307_rtc", "level2", "stub_espidf_hardcoded.c", False),
+    ("ds18b20_heat_alarm", "level2", "stub_espidf_wrong_pin_hardcoded.c", False),
+    ("hcsr04_find_distance", "level2", "stub_espidf_hardcoded_distance.c", True),
+    ("parking_sensor", "level2", "stub_espidf_fixed_buzzer.c", False),
+    ("reverse_parking_sensor", "level2", "stub_espidf_fixed_buzzer.c", False),
+    ("rotary_encoder", "level2", "stub_espidf_hardcoded_sequence.c", False),
+    ("clap_switch", "level2", "stub_espidf_fixed_toggle.c", False),
+    ("photoresistor_nightlight", "level2", "stub_espidf_fixed_light.c", False),
     ("dht11_read_button_display", "level3", "stub_espidf_hardcoded.c", False),
+    ("lcd1602_auto_brightness_control", "level3", "stub_espidf_fixed_pwm.c", False),
+    ("tmp36_read_button_display", "level3", "stub_espidf_hardcoded_lcd.c", True),
+    ("tmp36_read_periodic_display", "level3", "stub_espidf_hardcoded_lcd.c", True),
     ("mpu6050_read_button_display", "level3", "stub_espidf_hardcoded.c", False),
     ("mpu6050_read_periodic_display", "level3", "stub_espidf_hardcoded.c", False),
+    ("reaction_timer_display", "level3", "stub_espidf_fixed_elapsed.c", False),
+    ("buzzer_laser_tripwire", "level3", "stub_espidf_fixed_alarm.c", False),
+    ("joystick_buzzer_pitch", "level3", "stub_espidf_fixed_pitch.c", False),
     ("safebox", "level3", "stub_espidf_timer_unlock.c", False),
     ("safebox_display", "level3", "stub_espidf_hardcoded.c", False),
+    ("step_counter_print", "level3", "stub_espidf_hardcoded_steps.c", False),
 ]
 
 

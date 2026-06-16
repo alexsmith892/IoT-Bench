@@ -7,7 +7,7 @@ from pathlib import Path
 
 from bench.cli import parse_args, submission_path_for_task
 from bench.config import board_profile_for_platform, iter_tasks, load_task
-from bench.runner import generate_case, normalize_sketch_override
+from bench.runner import case_dir_for_task, generate_case, normalize_sketch_override
 from bench.validators import position_to_tmp36_celsius
 
 
@@ -77,6 +77,34 @@ ESP32S3_FORBIDDEN_ARDUINO_CALLS = {
     "SPI.begin",
     "LiquidCrystal",
     "Keypad",
+}
+
+ESP32S3_EXPECTED_MISSING_LIVE_VERIFICATION = {
+    "blink_led_1hz",
+    "blink_led_morse_code",
+    "blink_two_leds",
+    "buzzer_laser_tripwire",
+    "buzzer_toggle_led_freq",
+    "clap_switch",
+    "ds18b20_heat_alarm",
+    "hcsr04_find_distance",
+    "hcsr501_motion_alarm",
+    "joystick_buzzer_pitch",
+    "lcd1602_auto_brightness_control",
+    "parking_sensor",
+    "photoresistor_nightlight",
+    "reaction_timer_display",
+    "reverse_parking_sensor",
+    "rotary_encoder",
+    "sensor_water_level_display",
+    "step_counter_print",
+    "tilt_detection_alarm",
+    "tmp36_read_button_display",
+    "tmp36_read_periodic_display",
+}
+
+ESP32S3_EXPECTED_STALE_REFERENCE_VERIFICATION = {
+    "button_press_debounce",
 }
 
 
@@ -187,6 +215,38 @@ class Esp32S3EspIdfTaskTests(unittest.TestCase):
                         self.assertIn("void app_main(void)", source)
                         for arduino_api in ("pinMode", "digitalRead", "digitalWrite", "analogRead", "Serial."):
                             self.assertNotIn(arduino_api, source)
+
+    def test_supported_tasks_have_case_dirs_and_no_unexpected_reference_bf_or_cf(self):
+        missing = []
+        stale = []
+        for level in ("level1", "level2", "level3"):
+            for task in iter_tasks(platform="esp32s3_espidf", level=level):
+                if not task.is_supported:
+                    continue
+                with self.subTest(level=level, task=task.task_id):
+                    case_dir = case_dir_for_task(task)
+                    self.assertTrue(case_dir.exists(), f"{task.task_id}: case dir missing")
+                    manifest = case_dir / "artifacts" / "verification.json"
+                    if not manifest.exists():
+                        missing.append(task.task_id)
+                        continue
+                    data = json.loads(manifest.read_text(encoding="utf-8"))
+                    if data.get("result") in {"BF", "CF"}:
+                        stale.append((task.task_id, data.get("result"), data.get("reason")))
+
+        self.assertEqual(sorted(missing), sorted(ESP32S3_EXPECTED_MISSING_LIVE_VERIFICATION))
+        unexpected_stale = [
+            item for item in stale if item[0] not in ESP32S3_EXPECTED_STALE_REFERENCE_VERIFICATION
+        ]
+        self.assertEqual(
+            unexpected_stale,
+            [],
+            "reference verification manifests must not unexpectedly record BF/CF",
+        )
+        self.assertEqual(
+            sorted(task_id for task_id, _result, _reason in stale),
+            sorted(ESP32S3_EXPECTED_STALE_REFERENCE_VERIFICATION),
+        )
 
     def test_tmp36_config_uses_3v3_adc_semantics(self):
         task = load_task("tmp36_read", platform="esp32s3_espidf")

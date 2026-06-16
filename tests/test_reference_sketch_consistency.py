@@ -13,6 +13,9 @@ from bench.config import iter_tasks
 from bench.runner import case_dir_for_task, generate_case
 
 
+EXPECTED_ESPIDF_SOURCE_DRIFT: set[tuple[str, str]] = set()
+
+
 class ReferenceSketchConsistencyTests(unittest.TestCase):
     def test_committed_level2_3_sketches_match_templates(self):
         mismatches = []
@@ -45,6 +48,53 @@ class ReferenceSketchConsistencyTests(unittest.TestCase):
             [],
             "committed reference sketch(es) drifted from runner.py templates; "
             f"regenerate them: {mismatches}",
+        )
+
+    def test_committed_esp32s3_espidf_level2_3_sources_match_templates(self):
+        mismatches = []
+        for level in ("level2", "level3"):
+            with tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                for task in iter_tasks(platform="esp32s3_espidf", level=level):
+                    if not task.is_supported:
+                        continue
+                    committed = (
+                        case_dir_for_task(task)
+                        / "sketch"
+                        / task.sketch_name
+                        / "main"
+                        / "main.c"
+                    )
+                    self.assertTrue(
+                        committed.exists(),
+                        f"{task.task_id}: committed ESP-IDF reference missing at {committed}",
+                    )
+                    generated = (
+                        generate_case(task, root=root).sketch
+                        / "main"
+                        / "main.c"
+                    )
+                    task_key = (level, task.task_id)
+                    if (
+                        generated.read_text(encoding="utf-8")
+                        != committed.read_text(encoding="utf-8")
+                    ):
+                        mismatches.append(task_key)
+        unexpected = [
+            mismatch for mismatch in mismatches if mismatch not in EXPECTED_ESPIDF_SOURCE_DRIFT
+        ]
+        self.assertEqual(
+            unexpected,
+            [],
+            "committed ESP32-S3 ESP-IDF reference source(s) drifted from "
+            "bench.runner templates; regenerate with explicit "
+            "`python -m bench.cli generate --platform esp32s3_espidf --level <level>`: "
+            f"{unexpected}",
+        )
+        self.assertEqual(
+            sorted(mismatches),
+            sorted(EXPECTED_ESPIDF_SOURCE_DRIFT),
+            "expected ESP32 source drift allowlist is stale; update or remove it",
         )
 
 

@@ -396,6 +396,140 @@ class Bme280PartTests(unittest.TestCase):
             part_attr_commands(bme280_task(), {"bme1": {"pressurePa": "101325"}})
 
 
+class CustomProtocolPartTests(unittest.TestCase):
+    def test_dht11_repl_and_plugin(self) -> None:
+        from bench.config import load_task
+
+        task = load_task("dht11_read", platform="zephyr_nano33ble", level="level2")
+        repl = generate_repl(task)
+        self.assertIn("dht1: Miscellaneous.IoTBench_DHT11 @ sysbus", repl)
+        self.assertIn("Data -> gpio1@11", repl)
+        self.assertIn("11 -> dht1@0", repl)
+        resc = generate_resc(
+            task,
+            repl_relpath="case.repl",
+            elf_relpath="artifacts/build/zephyr/zephyr.elf",
+            serial_abspath=r"C:\abs\serial.log",
+            vcd_abspath=None,
+            scenario=None,
+            timeout_ms=2200,
+        )
+        self.assertEqual(1, resc.count("DHT11.cs"))
+        self.assertIn("dht1 Humidity 40", resc)
+        self.assertIn("dht1 Temperature 24", resc)
+
+    def test_ds18b20_scenario_control_and_plugin(self) -> None:
+        from bench.config import load_task
+        from bench.renode import part_attr_commands
+
+        task = load_task("ds18b20_heat_alarm", platform="zephyr_nano33ble", level="level2")
+        repl = generate_repl(task)
+        self.assertIn("temp1: Miscellaneous.IoTBench_DS18B20 @ sysbus", repl)
+        self.assertIn("Data -> gpio1@11", repl)
+        self.assertEqual(["temp1 Temperature 35"], part_attr_commands(task, {"temp1": {"temperature": 35}}))
+        resc = generate_resc(
+            task,
+            repl_relpath="case.repl",
+            elf_relpath="artifacts/build/zephyr/zephyr.elf",
+            serial_abspath=None,
+            vcd_abspath=r"C:\abs\renode.vcd",
+            scenario=generate_scenario(task),
+            timeout_ms=1500,
+        )
+        self.assertEqual(1, resc.count("DS18B20.cs"))
+        self.assertIn("temp1 Temperature 22", resc)
+        self.assertIn("temp1 Temperature 35", resc)
+
+    def test_bme280_spi_repl_plugin_and_variant_attrs(self) -> None:
+        from bench.config import load_task
+        from bench.renode import part_attr_commands
+
+        task = load_task("bme280_read_spi", platform="zephyr_nano33ble", level="level2")
+        repl = generate_repl(task)
+        self.assertIn("bme1: SPI.IoTBench_BME280_SPI @ spi2", repl)
+        self.assertEqual(
+            ["spi2.bme1 Humidity 42", "spi2.bme1 Temperature 31"],
+            part_attr_commands(task, {"bme1": {"temperatureC": "31.0", "humidityRH": "42.0"}}),
+        )
+        resc = generate_resc(
+            task,
+            repl_relpath="case.repl",
+            elf_relpath="artifacts/build/zephyr/zephyr.elf",
+            serial_abspath=r"C:\abs\serial.log",
+            vcd_abspath=None,
+            scenario=None,
+            timeout_ms=3000,
+        )
+        self.assertEqual(1, resc.count("BME280_SPI.cs"))
+
+    def test_unknown_custom_controls_rejected(self) -> None:
+        from bench.config import load_task
+        from bench.renode import part_attr_commands
+
+        cases = [
+            ("dht11_read", "level2", "dht1", {"temperatureC": 24}),
+            ("ds18b20_heat_alarm", "level2", "temp1", {"humidity": 50}),
+            ("bme280_read_spi", "level2", "bme1", {"pressurePa": 101325}),
+        ]
+        for task_id, level, part_id, attrs in cases:
+            with self.subTest(task=task_id):
+                task = load_task(task_id, platform="zephyr_nano33ble", level=level)
+                with self.assertRaises(RenodeConfigError):
+                    part_attr_commands(task, {part_id: attrs})
+
+    def test_unsupported_protocol_tasks_are_if(self) -> None:
+        from bench import cli
+        from bench.config import load_task
+
+        for task_id, level in (
+            ("dht11_read", "level2"),
+            ("dht11_read_button_display", "level3"),
+            ("ds18b20_heat_alarm", "level2"),
+            ("bme280_read_spi", "level2"),
+        ):
+            with self.subTest(task=task_id):
+                task = load_task(task_id, platform="zephyr_nano33ble", level=level)
+                build_payload = cli.build_single_task(
+                    task,
+                    case_dir=None,
+                    sketch_override=None,
+                    regenerate=False,
+                    arduino_cli="arduino-cli",
+                    west="west",
+                )
+                run_payload = cli.run_single_task(
+                    task,
+                    case_dir=None,
+                    sketch_override=None,
+                    use_existing_artifacts=False,
+                    regenerate=False,
+                    simulation_time_ms=None,
+                    arduino_cli="arduino-cli",
+                    wokwi_cli="wokwi-cli",
+                    west="west",
+                    renode_cli="renode",
+                    archived_vcd=None,
+                )
+                self.assertEqual("IF", build_payload["result"])
+                self.assertEqual("IF", run_payload["result"])
+                self.assertEqual("harness", build_payload["failure_source"])
+                self.assertIn("unsupported", run_payload["reason"])
+
+    def test_task_aware_overlay_contains_canonical_aliases(self) -> None:
+        from bench.config import load_task
+        from bench.runner import zephyr_app_overlay
+
+        dht = zephyr_app_overlay(load_task("dht11_read_button_display", platform="zephyr_nano33ble", level="level3"))
+        self.assertIn("data-dht11 = &iotbench_dht11;", dht)
+        self.assertIn("my-button = &iotbench_button;", dht)
+        self.assertIn("d-7 = &iotbench_lcd_d7;", dht)
+
+        spi = zephyr_app_overlay(load_task("bme280_read_spi", platform="zephyr_nano33ble", level="level2"))
+        self.assertIn("&spi2", spi)
+        self.assertIn('compatible = "nordic,nrf-spi";', spi)
+        self.assertIn("my-sensor = &bme1;", spi)
+
+
 class ManifestTests(unittest.TestCase):
     def test_verification_manifest_records_resc_and_zephyr_tools(self) -> None:
         from bench import runner
