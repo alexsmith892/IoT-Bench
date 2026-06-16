@@ -59,6 +59,12 @@ static void lcd_begin(void) {
   lcd_command(0x28);
   lcd_command(0x0c);
   lcd_command(0x06);
+  // One blank character write (RS high) flips RS between the function-set
+  // commands and the clear below. A spurious enable edge at power-on leaves the
+  // 4-bit command framing one nibble out of phase; the RS transition realigns
+  // it so the very first rendered frame is correct (otherwise the first
+  // post-init clear+cursor pair is misread and the opening frame is garbled).
+  lcd_data(0x20);
   lcd_command(0x01);
 }
 
@@ -75,8 +81,10 @@ static void lcd_print(const char *text) {
 void app_main(void) {
   gpio_reset_pin(BUTTON_PIN);
   gpio_set_direction(BUTTON_PIN, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(BUTTON_PIN, GPIO_PULLDOWN_ONLY);
   gpio_reset_pin(SHOCK_PIN);
   gpio_set_direction(SHOCK_PIN, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(SHOCK_PIN, GPIO_PULLDOWN_ONLY);
   lcd_begin();
   int timing = 0;
   int64_t start = 0;

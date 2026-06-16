@@ -44,6 +44,7 @@ static void ledc_tone(int freq_hz) {
 void app_main(void) {
   gpio_reset_pin(BUTTON_PIN);
   gpio_set_direction(BUTTON_PIN, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(BUTTON_PIN, GPIO_PULLDOWN_ONLY);
   gpio_reset_pin(LED_PIN);
   gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
   ledc_tone_init(BUZZER_PIN);

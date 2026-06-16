@@ -11,6 +11,7 @@
 void app_main(void) {
   gpio_reset_pin(SOUND_PIN);
   gpio_set_direction(SOUND_PIN, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(SOUND_PIN, GPIO_PULLDOWN_ONLY);
   gpio_reset_pin(RELAY_PIN);
   gpio_set_direction(RELAY_PIN, GPIO_MODE_OUTPUT);
   int last = 0;

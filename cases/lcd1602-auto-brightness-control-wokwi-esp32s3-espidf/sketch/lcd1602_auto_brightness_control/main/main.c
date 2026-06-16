@@ -78,6 +78,12 @@ static void lcd_begin(void) {
   lcd_command(0x28);
   lcd_command(0x0c);
   lcd_command(0x06);
+  // One blank character write (RS high) flips RS between the function-set
+  // commands and the clear below. A spurious enable edge at power-on leaves the
+  // 4-bit command framing one nibble out of phase; the RS transition realigns
+  // it so the very first rendered frame is correct (otherwise the first
+  // post-init clear+cursor pair is misread and the opening frame is garbled).
+  lcd_data(0x20);
   lcd_command(0x01);
 }
 
