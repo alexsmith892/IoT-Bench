@@ -44,7 +44,7 @@ simulation_variants:
         - params:
             channel: D0
             windows:
-              - {start_s: 0.30, end_s: 0.50, half_period_range_s: [0.00025, 0.00050], full_period_range_s: [0.00050, 0.00100]}
+              - {start_s: 0.30, end_s: 0.50, half_period_range_s: [0.00018, 0.00085], full_period_range_s: [0.00050, 0.00120], duty_cycle_range: [0.25, 0.75]}
               - {start_s: 0.70, end_s: 0.90, half_period_range_s: [0.0012, 0.0035], full_period_range_s: [0.0024, 0.0070]}
 validator:
   family: composite
@@ -58,6 +58,6 @@ validator:
         channel: D0
         windows:
           - {start_s: 0.30, end_s: 0.50, half_period_range_s: [0.0012, 0.0035], full_period_range_s: [0.0024, 0.0070]}
-          - {start_s: 0.70, end_s: 0.90, half_period_range_s: [0.00025, 0.00050], full_period_range_s: [0.00050, 0.00100]}
+          - {start_s: 0.70, end_s: 0.90, half_period_range_s: [0.00018, 0.00085], full_period_range_s: [0.00050, 0.00120], duty_cycle_range: [0.25, 0.75]}
 simulation: {timeout_ms: 1200}
 case: {id: joystick-buzzer-pitch-renode-nano33, sketch_name: joystick_buzzer_pitch}

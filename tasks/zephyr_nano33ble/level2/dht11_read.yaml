@@ -4,7 +4,7 @@ platform: zephyr_nano33ble
 level: level2
 support:
   status: unsupported
-  reason: Renode backend has no DHT11 single-wire sensor model or timing-safe surrogate yet.
+  reason: Renode DHT11 protocol model exists but is not live-validated; current runs still produce DHT11 read/checksum errors instead of serial temperature/humidity evidence.
 fixture:
   family: composite
   components:

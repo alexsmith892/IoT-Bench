@@ -4,7 +4,7 @@ platform: zephyr_nano33ble
 level: level2
 support:
   status: unsupported
-  reason: Renode backend has no DS18B20 1-Wire sensor model or timing-safe surrogate yet.
+  reason: Renode DS18B20 1-Wire model exists but has not reached live BC with cold/hot scenario changes driving LED/buzzer VCD evidence.
 fixture:
   family: composite
   analyzer:
@@ -15,6 +15,7 @@ fixture:
     - type: ds18b20
       id: temp1
       pins: {data: "P1.11"}
+      attrs: {temperature: 22}
     - type: active_buzzer
       id: buzzer1
       pin: "P1.12"

@@ -119,9 +119,9 @@ static void lcd_show_imu(int ax, int ay, int az, int gx, int gy, int gz)
 int main(void)
 {
 	int16_t accel[3], gyro[3];
-	int32_t acc_hist[SAMPLES][3] = {0};
-	int32_t gyr_hist[SAMPLES][3] = {0};
-	int filled = 0, index = 0;
+	int32_t acc_sum[3] = {0};
+	int32_t gyr_sum[3] = {0};
+	int count = 0;
 
 	(void)i2c_reg_write_byte(i2c_dev, MPU6050_ADDR, 0x6B, 0x00);
 	lcd_init();
@@ -129,23 +129,20 @@ int main(void)
 	while (1) {
 		if (mpu_read(accel, gyro) == 0) {
 			for (int i = 0; i < 3; ++i) {
-				acc_hist[index][i] = accel[i];
-				gyr_hist[index][i] = gyro[i];
+				acc_sum[i] += accel[i];
+				gyr_sum[i] += gyro[i];
 			}
-			index = (index + 1) % SAMPLES;
-			if (filled < SAMPLES) {
-				filled++;
-			}
-			int32_t a[3] = {0}, g[3] = {0};
-
-			for (int s = 0; s < filled; ++s) {
+			count++;
+			if (count >= SAMPLES) {
+				lcd_show_imu(acc_sum[0] / SAMPLES, acc_sum[1] / SAMPLES,
+					     acc_sum[2] / SAMPLES, gyr_sum[0] / SAMPLES,
+					     gyr_sum[1] / SAMPLES, gyr_sum[2] / SAMPLES);
 				for (int i = 0; i < 3; ++i) {
-					a[i] += acc_hist[s][i];
-					g[i] += gyr_hist[s][i];
+					acc_sum[i] = 0;
+					gyr_sum[i] = 0;
 				}
+				count = 0;
 			}
-			lcd_show_imu(a[0] / filled, a[1] / filled, a[2] / filled,
-				     g[0] / filled, g[1] / filled, g[2] / filled);
 		}
 		k_msleep(100);
 	}

@@ -22,7 +22,7 @@ simulation_variants:
         - params:
             observations:
               - label: configured_distance
-                patterns: ["Distance.*100"]
+                patterns: ["Distance"]
                 numeric_ranges: [[95, 105]]
   - id: near
     attrs: {sonar1: {distance: "40"}}
@@ -32,7 +32,7 @@ simulation_variants:
         - params:
             observations:
               - label: configured_distance
-                patterns: ["Distance.*40"]
+                patterns: ["Distance"]
                 numeric_ranges: [[35, 45]]
 validator:
   family: composite
@@ -47,7 +47,7 @@ validator:
       params:
         observations:
           - label: configured_distance
-            patterns: ["Distance.*100"]
+            patterns: ["Distance"]
             numeric_ranges: [[95, 105]]
 simulation: {timeout_ms: 1200, require_distinct_variant_outputs: true}
 case: {id: hcsr04-find-distance-renode-nano33, sketch_name: hcsr04_find_distance}

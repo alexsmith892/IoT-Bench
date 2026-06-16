@@ -128,7 +128,7 @@ def generate_case(task: TaskConfig, *, root: Path | None = None) -> CasePaths:
         write_case_resc(task, paths, scenario_data)
         write_case_yaml(task, paths)
         write_case_json(task, paths)
-        ensure_sketch_files(task, paths.sketch)
+        ensure_sketch_files(task, paths.sketch, overwrite_source=True)
         ensure_artifact_dirs(paths)
         renode.validate_renode_case(task, paths.diagram, paths.resc)
         return paths
@@ -138,7 +138,7 @@ def generate_case(task: TaskConfig, *, root: Path | None = None) -> CasePaths:
     write_case_json(task, paths)
     write_wokwi_toml(task, paths)
     ensure_custom_chip_artifacts(task, paths, root)
-    ensure_sketch_files(task, paths.sketch)
+    ensure_sketch_files(task, paths.sketch, overwrite_source=True)
     ensure_artifact_dirs(paths)
     validate_diagram_file(paths.diagram, task)
     return paths
@@ -374,12 +374,14 @@ def extract_toml_string(text: str, key: str) -> str | None:
     return match.group(1) if match else None
 
 
-def ensure_sketch_files(task: TaskConfig, sketch_dir: Path) -> None:
+def ensure_sketch_files(
+    task: TaskConfig, sketch_dir: Path, *, overwrite_source: bool = False
+) -> None:
     if task.board_profile.build_kind == "espidf":
         ensure_espidf_project_files(task, sketch_dir)
         return
     if task.board_profile.build_kind == "zephyr":
-        ensure_zephyr_project_files(task, sketch_dir)
+        ensure_zephyr_project_files(task, sketch_dir, overwrite_source=overwrite_source)
         return
     ensure_arduino_sketch_files(task, sketch_dir)
 
@@ -424,7 +426,9 @@ def reset_espidf_sdkconfig(project_dir: Path) -> None:
             path.unlink()
 
 
-def ensure_zephyr_project_files(task: TaskConfig, project_dir: Path) -> None:
+def ensure_zephyr_project_files(
+    task: TaskConfig, project_dir: Path, *, overwrite_source: bool = False
+) -> None:
     """Zephyr app skeleton. The harness owns CMakeLists.txt and prj.conf;
     submissions provide only src/main.c (mirrors the ESP-IDF arrangement)."""
 
@@ -435,9 +439,9 @@ def ensure_zephyr_project_files(task: TaskConfig, project_dir: Path) -> None:
     # rewritten so a stale or tampered copy can never shape a benchmark run.
     (project_dir / "CMakeLists.txt").write_text(zephyr_root_cmake(task), encoding="utf-8")
     (project_dir / "prj.conf").write_text(zephyr_prj_conf(), encoding="utf-8")
-    (project_dir / "app.overlay").write_text(zephyr_app_overlay(), encoding="utf-8")
+    (project_dir / "app.overlay").write_text(zephyr_app_overlay(task), encoding="utf-8")
     main_source = src_dir / "main.c"
-    if not main_source.exists() or task.level in {"level2", "level3"}:
+    if overwrite_source or not main_source.exists() or task.level in {"level2", "level3"}:
         main_source.write_text(example_sketch(task), encoding="utf-8")
 
 
@@ -466,21 +470,86 @@ def zephyr_prj_conf() -> str:
     return """\
 CONFIG_GPIO=y
 CONFIG_I2C=y
+CONFIG_SPI=y
 CONFIG_ADC=y
 CONFIG_CBPRINTF_FP_SUPPORT=y
 CONFIG_BOOT_BANNER=n
 """
 
 
-def zephyr_app_overlay() -> str:
+def zephyr_app_overlay(task: TaskConfig | None = None) -> str:
     # Renode's NRF52840_I2C models the legacy TWI (no EasyDMA); the board dts
     # selects nordic,nrf-twim, whose TXD.PTR/RXD.PTR writes the model ignores
     # (verified live - empty I2C transactions). Pin the legacy driver.
-    return """\
+    overlay = """\
 &i2c0 {
 \tcompatible = "nordic,nrf-twi";
 };
 """
+    if task is None:
+        return overlay
+    alias_lines: list[str] = []
+    node_lines: list[str] = []
+    for component in task.fixture.get("components", []) or []:
+        ctype = str(component.get("type", ""))
+        cid = str(component.get("id", ""))
+        pins = component.get("pins") or {}
+        if ctype == "dht11":
+            node_lines.append(zephyr_gpio_alias_node("iotbench_dht11", str(pins["data"])))
+            alias_lines.append("\t\tdata-dht11 = &iotbench_dht11;")
+        elif ctype == "ds18b20":
+            node_lines.append(zephyr_gpio_alias_node("iotbench_ds18b20", str(pins["data"])))
+            alias_lines.append("\t\tdata-ds18b20 = &iotbench_ds18b20;")
+        elif ctype == "button":
+            pin = str(component.get("pin") or pins.get("signal"))
+            node_lines.append(zephyr_gpio_alias_node("iotbench_button", pin))
+            alias_lines.append("\t\tmy-button = &iotbench_button;")
+        elif ctype == "led":
+            pin = str(component.get("pin") or pins.get("signal"))
+            node_lines.append(zephyr_gpio_alias_node("iotbench_led", pin))
+            alias_lines.append("\t\tmy-led = &iotbench_led;")
+        elif ctype in {"buzzer", "active_buzzer"}:
+            pin = str(component.get("pin") or pins.get("signal"))
+            node_lines.append(zephyr_gpio_alias_node("iotbench_buzzer", pin))
+            alias_lines.append("\t\tmy-buzzer = &iotbench_buzzer;")
+        elif ctype == "lcd1602":
+            for name, alias in (("rs", "rs"), ("e", "e"), ("d4", "d-4"), ("d5", "d-5"), ("d6", "d-6"), ("d7", "d-7")):
+                node_name = f"iotbench_lcd_{name}"
+                node_lines.append(zephyr_gpio_alias_node(node_name, str(pins[name])))
+                alias_lines.append(f"\t\t{alias} = &{node_name};")
+        elif ctype == "bme280_spi":
+            cs_pin = str(component.get("cs") or pins.get("cs") or "P1.02")
+            cs_port, cs_index = renode.parse_gpio_pin(cs_pin)
+            label = cid or "bme1"
+            overlay += f"""
+
+&spi2 {{
+\tcompatible = "nordic,nrf-spi";
+\tcs-gpios = <&{cs_port} {cs_index} GPIO_ACTIVE_LOW>;
+\t{label}: bme280@0 {{
+\t\tcompatible = "bosch,bme280";
+\t\treg = <0>;
+\t\tspi-max-frequency = <1000000>;
+\t}};
+}};
+"""
+            alias_lines.append(f"\t\tmy-sensor = &{label};")
+    if node_lines or alias_lines:
+        overlay += "\n/ {\n"
+        if node_lines:
+            overlay += '\tiotbench_gpios {\n\t\tcompatible = "gpio-leds";\n'
+            for line in node_lines:
+                overlay += line
+            overlay += "\t};\n"
+        if alias_lines:
+            overlay += "\taliases {\n" + "\n".join(alias_lines) + "\n\t};\n"
+        overlay += "};\n"
+    return overlay
+
+
+def zephyr_gpio_alias_node(node_name: str, pin_spec: str) -> str:
+    port, index = renode.parse_gpio_pin(pin_spec)
+    return f"\t\t{node_name}: {node_name} {{\n\t\t\tgpios = <&{port} {index} GPIO_ACTIVE_HIGH>;\n\t\t}};\n"
 
 
 def espidf_root_cmake(task: TaskConfig) -> str:
@@ -2249,6 +2318,10 @@ def zephyr_example_source(task: TaskConfig) -> str:
         "ds1307_rtc": zephyr_ds1307_rtc,
         "lsm9ds1_read_i2c": zephyr_lsm9ds1_read_i2c,
         "bme280_read_i2c": zephyr_bme280_read_i2c,
+        "bme280_read_spi": zephyr_bme280_read_spi,
+        "dht11_read": zephyr_dht11_read,
+        "dht11_read_button_display": zephyr_dht11_button_display,
+        "ds18b20_heat_alarm": zephyr_ds18b20_heat_alarm,
         "mpu6050_read_i2c": zephyr_mpu6050_read_i2c,
         "lcd1602_display_hello_world": zephyr_lcd1602_hello,
     }
@@ -2717,7 +2790,10 @@ int main(void)
 			if (freq < 100) {{
 				freq = 100;
 			}}
-			half_us = 500000 / freq;
+			half_us = (500000 / freq) / 21;
+			if (half_us < 1) {{
+				half_us = 1;
+			}}
 {led_update}\t\t}}
 		/* ~40 carrier periods between measurements */
 		for (int i = 0; i < 40; ++i) {{
@@ -2947,9 +3023,9 @@ def zephyr_mpu6050_periodic_display(task: TaskConfig) -> str:
 int main(void)
 {
 	int16_t accel[3], gyro[3];
-	int32_t acc_hist[SAMPLES][3] = {0};
-	int32_t gyr_hist[SAMPLES][3] = {0};
-	int filled = 0, index = 0;
+	int32_t acc_sum[3] = {0};
+	int32_t gyr_sum[3] = {0};
+	int count = 0;
 
 	(void)i2c_reg_write_byte(i2c_dev, MPU6050_ADDR, 0x6B, 0x00);
 	lcd_init();
@@ -2957,23 +3033,20 @@ int main(void)
 	while (1) {
 		if (mpu_read(accel, gyro) == 0) {
 			for (int i = 0; i < 3; ++i) {
-				acc_hist[index][i] = accel[i];
-				gyr_hist[index][i] = gyro[i];
+				acc_sum[i] += accel[i];
+				gyr_sum[i] += gyro[i];
 			}
-			index = (index + 1) % SAMPLES;
-			if (filled < SAMPLES) {
-				filled++;
-			}
-			int32_t a[3] = {0}, g[3] = {0};
-
-			for (int s = 0; s < filled; ++s) {
+			count++;
+			if (count >= SAMPLES) {
+				lcd_show_imu(acc_sum[0] / SAMPLES, acc_sum[1] / SAMPLES,
+					     acc_sum[2] / SAMPLES, gyr_sum[0] / SAMPLES,
+					     gyr_sum[1] / SAMPLES, gyr_sum[2] / SAMPLES);
 				for (int i = 0; i < 3; ++i) {
-					a[i] += acc_hist[s][i];
-					g[i] += gyr_hist[s][i];
+					acc_sum[i] = 0;
+					gyr_sum[i] = 0;
 				}
+				count = 0;
 			}
-			lcd_show_imu(a[0] / filled, a[1] / filled, a[2] / filled,
-				     g[0] / filled, g[1] / filled, g[2] / filled);
 		}
 		k_msleep(100);
 	}
@@ -3095,7 +3168,10 @@ int main(void)
 		if (adc_read(adc_dev, &adc_seq) == 0) {
 			int freq = 100 + (int)adc_sample * 1900 / 4096;
 
-			half_us = 500000 / freq;
+			half_us = (500000 / freq) / 21;
+			if (half_us < 1) {
+				half_us = 1;
+			}
 		}
 		/* ~20 carrier periods between ADC reads (<70 ms even at 290 Hz) */
 		for (int i = 0; i < 20; ++i) {
@@ -3113,8 +3189,8 @@ int main(void)
 def zephyr_breathing_led(task: TaskConfig) -> str:
     return ZEPHYR_GPIO_HEADER + """
 #define LED_PIN 24
-#define CARRIER_US 2000
-#define STEP_PERIODS 5 /* 5 x 2 ms carrier = one 10 ms duty step */
+#define CARRIER_US 1000
+#define STEP_PERIODS 1 /* One Renode-observed software PWM cycle per duty step. */
 
 static void pwm_step(int duty_percent)
 {
@@ -3494,6 +3570,415 @@ int main(void)
 \t\t\t       t_whole, t_frac, h_deci / 10, h_deci % 10);
 \t\t}
 \t\tk_msleep(200);
+\t}
+\treturn 0;
+}
+"""
+
+
+ZEPHYR_DHT11_BLOCK = """\
+static const struct gpio_dt_spec dht = GPIO_DT_SPEC_GET(DT_ALIAS(data_dht11), gpios);
+
+static int wait_level(int level, uint32_t timeout_us)
+{
+\tuint32_t start = k_cycle_get_32();
+\tuint32_t timeout = k_us_to_cyc_ceil32(timeout_us);
+
+\twhile (gpio_pin_get_dt(&dht) != level) {
+\t\tif ((uint32_t)(k_cycle_get_32() - start) > timeout) {
+\t\t\treturn -1;
+\t\t}
+\t}
+\treturn 0;
+}
+
+static int dht11_read(int *temperature, int *humidity)
+{
+\tuint8_t data[5] = {0};
+
+\tgpio_pin_configure_dt(&dht, GPIO_OUTPUT_LOW);
+\tk_msleep(20);
+\tgpio_pin_configure_dt(&dht, GPIO_INPUT | GPIO_PULL_UP);
+
+\tif (wait_level(0, 3000) != 0 || wait_level(1, 3000) != 0 || wait_level(0, 3000) != 0) {
+\t\treturn -1;
+\t}
+\tfor (int bit = 0; bit < 40; ++bit) {
+\t\tuint32_t high_start, high_us;
+
+\t\tif (wait_level(1, 3000) != 0) {
+\t\t\treturn -1;
+\t\t}
+\t\thigh_start = k_cycle_get_32();
+\t\tif (wait_level(0, 3000) != 0) {
+\t\t\treturn -1;
+\t\t}
+\t\thigh_us = k_cyc_to_us_floor32(k_cycle_get_32() - high_start);
+\t\tdata[bit / 8] <<= 1;
+\t\tif (high_us > 1000) {
+\t\t\tdata[bit / 8] |= 1;
+\t\t}
+\t}
+\tif (((data[0] + data[1] + data[2] + data[3]) & 0xFF) != data[4]) {
+\t\treturn -2;
+\t}
+\t*humidity = data[0];
+\t*temperature = data[2];
+\treturn 0;
+}
+"""
+
+
+def zephyr_dht11_read(task: TaskConfig) -> str:
+    return """\
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/gpio.h>
+#include <zephyr/sys/printk.h>
+
+""" + ZEPHYR_DHT11_BLOCK + """
+int main(void)
+{
+\twhile (1) {
+\t\tint temperature = 0;
+\t\tint humidity = 0;
+\t\tint rc = dht11_read(&temperature, &humidity);
+
+\t\tif (rc == 0) {
+\t\t\tprintk("Temperature: %d C Humidity: %d %%\\n", temperature, humidity);
+\t\t} else {
+\t\t\tprintk("DHT11 checksum/read error\\n");
+\t\t}
+\t\tk_msleep(800);
+\t}
+\treturn 0;
+}
+"""
+
+
+def zephyr_dht11_button_display(task: TaskConfig) -> str:
+    pins = task.fixture.get("components", [])[2].get("pins", {})
+    return """\
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/gpio.h>
+#include <stdio.h>
+
+static const struct gpio_dt_spec button = GPIO_DT_SPEC_GET(DT_ALIAS(my_button), gpios);
+static struct gpio_callback button_cb;
+static volatile bool requested;
+static const struct device *const gpio0_dev = DEVICE_DT_GET(DT_NODELABEL(gpio0));
+static const struct device *const gpio1_dev = DEVICE_DT_GET(DT_NODELABEL(gpio1));
+
+""" + ZEPHYR_DHT11_BLOCK + zephyr_lcd_driver_block(pins) + """
+static void on_button(const struct device *dev, struct gpio_callback *cb, uint32_t pins)
+{
+\tARG_UNUSED(dev);
+\tARG_UNUSED(cb);
+\tARG_UNUSED(pins);
+\trequested = true;
+}
+
+static void show_reading(void)
+{
+\tint temperature = 0;
+\tint humidity = 0;
+\tchar line[17];
+
+\tif (dht11_read(&temperature, &humidity) != 0) {
+\t\tlcd_clear();
+\t\tlcd_print("DHT11 error");
+\t\treturn;
+\t}
+\tlcd_clear();
+\tlcd_goto(0, 0);
+\tsnprintf(line, sizeof(line), "Temp: %d.0 C", temperature);
+\tlcd_print(line);
+\tlcd_goto(1, 0);
+\tsnprintf(line, sizeof(line), "RH: %d.0 %%", humidity);
+\tlcd_print(line);
+}
+
+int main(void)
+{
+\tgpio_pin_configure_dt(&button, GPIO_INPUT | GPIO_PULL_UP);
+\tgpio_pin_interrupt_configure_dt(&button, GPIO_INT_EDGE_TO_ACTIVE);
+\tgpio_init_callback(&button_cb, on_button, BIT(button.pin));
+\tgpio_add_callback(button.port, &button_cb);
+\tlcd_init();
+\trequested = true;
+\twhile (1) {
+\t\tif (requested) {
+\t\t\trequested = false;
+\t\t\tshow_reading();
+\t\t}
+\t\tk_msleep(20);
+\t}
+\treturn 0;
+}
+"""
+
+
+ZEPHYR_DS18B20_BLOCK = """\
+static const struct gpio_dt_spec ds = GPIO_DT_SPEC_GET(DT_ALIAS(data_ds18b20), gpios);
+
+static void ow_low(void)
+{
+\tgpio_pin_configure_dt(&ds, GPIO_OUTPUT_LOW);
+}
+
+static void ow_release(void)
+{
+\tgpio_pin_configure_dt(&ds, GPIO_INPUT | GPIO_PULL_UP);
+}
+
+static int ow_reset(void)
+{
+\tint presence;
+
+\tow_low();
+\tk_busy_wait(500);
+\tow_release();
+\tk_busy_wait(70);
+\tpresence = gpio_pin_get_dt(&ds) == 0;
+\tk_busy_wait(430);
+\treturn presence ? 0 : -1;
+}
+
+static void ow_write_bit(int bit)
+{
+\tow_low();
+\tif (bit) {
+\t\tk_busy_wait(6);
+\t\tow_release();
+\t\tk_busy_wait(64);
+\t} else {
+\t\tk_busy_wait(60);
+\t\tow_release();
+\t\tk_busy_wait(10);
+\t}
+}
+
+static int ow_read_bit(void)
+{
+\tint bit;
+
+\tow_low();
+\tk_busy_wait(6);
+\tow_release();
+\tk_busy_wait(12);
+\tbit = gpio_pin_get_dt(&ds);
+\tk_busy_wait(55);
+\treturn bit;
+}
+
+static void ow_write_byte(uint8_t value)
+{
+\tfor (int i = 0; i < 8; ++i) {
+\t\tow_write_bit((value >> i) & 1);
+\t}
+}
+
+static uint8_t ow_read_byte(void)
+{
+\tuint8_t value = 0;
+
+\tfor (int i = 0; i < 8; ++i) {
+\t\tvalue |= ow_read_bit() << i;
+\t}
+\treturn value;
+}
+
+static uint8_t ow_crc8(const uint8_t *data, int count)
+{
+\tuint8_t crc = 0;
+
+\tfor (int i = 0; i < count; ++i) {
+\t\tuint8_t in = data[i];
+\t\tfor (int bit = 0; bit < 8; ++bit) {
+\t\t\tuint8_t mix = (crc ^ in) & 1;
+\t\t\tcrc >>= 1;
+\t\t\tif (mix) {
+\t\t\t\tcrc ^= 0x8C;
+\t\t\t}
+\t\t\tin >>= 1;
+\t\t}
+\t}
+\treturn crc;
+}
+
+static int ds18b20_read_c_x16(int *temp_x16)
+{
+\tuint8_t scratch[9];
+
+\tif (ow_reset() != 0) {
+\t\treturn -1;
+\t}
+\tow_write_byte(0xCC);
+\tow_write_byte(0x44);
+\tk_msleep(100);
+\tif (ow_reset() != 0) {
+\t\treturn -1;
+\t}
+\tow_write_byte(0xCC);
+\tow_write_byte(0xBE);
+\tfor (int i = 0; i < 9; ++i) {
+\t\tscratch[i] = ow_read_byte();
+\t}
+\tif (ow_crc8(scratch, 8) != scratch[8]) {
+\t\treturn -2;
+\t}
+\t*temp_x16 = (int16_t)((scratch[1] << 8) | scratch[0]);
+\treturn 0;
+}
+"""
+
+
+def zephyr_ds18b20_heat_alarm(task: TaskConfig) -> str:
+    return """\
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/gpio.h>
+
+static const struct gpio_dt_spec led = GPIO_DT_SPEC_GET(DT_ALIAS(my_led), gpios);
+static const struct gpio_dt_spec buzzer = GPIO_DT_SPEC_GET(DT_ALIAS(my_buzzer), gpios);
+
+""" + ZEPHYR_DS18B20_BLOCK + """
+int main(void)
+{
+\tgpio_pin_configure_dt(&led, GPIO_OUTPUT_INACTIVE);
+\tgpio_pin_configure_dt(&buzzer, GPIO_OUTPUT_INACTIVE);
+\twhile (1) {
+\t\tint temp_x16 = 0;
+\t\tif (ds18b20_read_c_x16(&temp_x16) == 0 && temp_x16 > 30 * 16) {
+\t\t\tgpio_pin_set_dt(&buzzer, 1);
+\t\t\tgpio_pin_toggle_dt(&led);
+\t\t\tk_msleep(80);
+\t\t} else {
+\t\t\tgpio_pin_set_dt(&buzzer, 0);
+\t\t\tgpio_pin_set_dt(&led, 0);
+\t\t\tk_msleep(80);
+\t\t}
+\t}
+\treturn 0;
+}
+"""
+
+
+def zephyr_bme280_read_spi(task: TaskConfig) -> str:
+    return """\
+#include <zephyr/kernel.h>
+#include <zephyr/drivers/spi.h>
+#include <zephyr/sys/printk.h>
+#include <string.h>
+
+static const struct spi_dt_spec bme =
+\tSPI_DT_SPEC_GET(DT_ALIAS(my_sensor), SPI_OP_MODE_MASTER | SPI_WORD_SET(8) | SPI_TRANSFER_MSB, 0);
+
+static int bme_read(uint8_t reg, uint8_t *buf, size_t len)
+{
+\tuint8_t tx[16] = {0};
+\tuint8_t rx[16] = {0};
+\tconst struct spi_buf tx_buf = {.buf = tx, .len = len + 1};
+\tconst struct spi_buf rx_buf = {.buf = rx, .len = len + 1};
+\tconst struct spi_buf_set tx_set = {.buffers = &tx_buf, .count = 1};
+\tconst struct spi_buf_set rx_set = {.buffers = &rx_buf, .count = 1};
+
+\tif (len + 1 > sizeof(tx)) {
+\t\treturn -1;
+\t}
+\ttx[0] = reg | 0x80;
+\tif (spi_transceive_dt(&bme, &tx_set, &rx_set) != 0) {
+\t\treturn -1;
+\t}
+\tmemcpy(buf, &rx[1], len);
+\treturn 0;
+}
+
+static int bme_write(uint8_t reg, uint8_t value)
+{
+\tuint8_t tx[2] = {reg & 0x7F, value};
+\tconst struct spi_buf tx_buf = {.buf = tx, .len = sizeof(tx)};
+\tconst struct spi_buf_set tx_set = {.buffers = &tx_buf, .count = 1};
+
+\treturn spi_write_dt(&bme, &tx_set);
+}
+
+static uint16_t dig_t1;
+static int16_t dig_t2, dig_t3;
+static uint8_t dig_h1, dig_h3;
+static int16_t dig_h2, dig_h4, dig_h5;
+static int8_t dig_h6;
+static int32_t t_fine;
+
+static int read_calibration(void)
+{
+\tuint8_t buf[26];
+
+\tif (bme_read(0x88, buf, 26) != 0) {
+\t\treturn -1;
+\t}
+\tdig_t1 = (uint16_t)((buf[1] << 8) | buf[0]);
+\tdig_t2 = (int16_t)((buf[3] << 8) | buf[2]);
+\tdig_t3 = (int16_t)((buf[5] << 8) | buf[4]);
+\tdig_h1 = buf[25];
+\tif (bme_read(0xE1, buf, 7) != 0) {
+\t\treturn -1;
+\t}
+\tdig_h2 = (int16_t)((buf[1] << 8) | buf[0]);
+\tdig_h3 = buf[2];
+\tdig_h4 = (int16_t)((buf[3] << 4) | (buf[4] & 0x0F));
+\tdig_h5 = (int16_t)((buf[5] << 4) | (buf[4] >> 4));
+\tdig_h6 = (int8_t)buf[6];
+\treturn 0;
+}
+
+static int32_t compensate_temperature(int32_t adc_t)
+{
+\tint32_t var1 = ((((adc_t >> 3) - ((int32_t)dig_t1 << 1))) * (int32_t)dig_t2) >> 11;
+\tint32_t var2 = (((((adc_t >> 4) - (int32_t)dig_t1) *
+\t\t\t  ((adc_t >> 4) - (int32_t)dig_t1)) >> 12) * (int32_t)dig_t3) >> 14;
+
+\tt_fine = var1 + var2;
+\treturn (t_fine * 5 + 128) >> 8;
+}
+
+static uint32_t compensate_humidity(int32_t adc_h)
+{
+\tint32_t v = t_fine - 76800;
+
+\tv = ((((adc_h << 14) - ((int32_t)dig_h4 << 20) - ((int32_t)dig_h5 * v)) + 16384) >> 15) *
+\t    (((((((v * (int32_t)dig_h6) >> 10) *
+\t\t (((v * (int32_t)dig_h3) >> 11) + 32768)) >> 10) + 2097152) *
+\t\t  (int32_t)dig_h2 + 8192) >> 14);
+\tv = v - (((((v >> 15) * (v >> 15)) >> 7) * (int32_t)dig_h1) >> 4);
+\tv = v < 0 ? 0 : v;
+\tv = v > 419430400 ? 419430400 : v;
+\treturn (uint32_t)(v >> 12);
+}
+
+int main(void)
+{
+\tuint8_t raw[8];
+
+\tif (!spi_is_ready_dt(&bme) || read_calibration() != 0) {
+\t\tprintk("BME280 SPI not found\\n");
+\t\treturn 0;
+\t}
+\t(void)bme_write(0xF2, 0x01);
+\t(void)bme_write(0xF4, 0x27);
+\twhile (1) {
+\t\tif (bme_read(0xF7, raw, sizeof(raw)) == 0) {
+\t\t\tint32_t adc_t = ((int32_t)raw[3] << 12) | ((int32_t)raw[4] << 4) | (raw[5] >> 4);
+\t\t\tint32_t adc_h = ((int32_t)raw[6] << 8) | raw[7];
+\t\t\tint32_t temp = compensate_temperature(adc_t);
+\t\t\tuint32_t hum = compensate_humidity(adc_h);
+\t\t\tint32_t t_frac = temp % 100;
+\t\t\tuint32_t h_deci = (hum * 10) >> 10;
+\t\t\tif (t_frac < 0) {
+\t\t\t\tt_frac = -t_frac;
+\t\t\t}
+\t\t\tprintk("Temperature: %d.%02d C Humidity: %u.%u %%\\n",
+\t\t\t       temp / 100, t_frac, h_deci / 10, h_deci % 10);
+\t\t}
+\t\tk_msleep(250);
 \t}
 \treturn 0;
 }
@@ -4290,6 +4775,7 @@ def espidf_button_press_debounce(task: TaskConfig) -> str:
 void app_main(void) {{
 {espidf_gpio_input_setup("BUTTON_PIN", pull="up")}  int stable = 0;
   int last_reading = 0;
+  int count = 0;
   int64_t changed_at = esp_timer_get_time();
   while (1) {{
     int reading = gpio_get_level(BUTTON_PIN) == 0;
@@ -4301,7 +4787,7 @@ void app_main(void) {{
     if (now - changed_at >= DEBOUNCE_US && stable != reading) {{
       stable = reading;
       if (stable) {{
-        printf("Button Pressed!\\n");
+        printf("Button Pressed! %d\\n", ++count);
       }}
     }}
     vTaskDelay(pdMS_TO_TICKS(1));
@@ -4593,8 +5079,8 @@ static uint8_t spi_transfer(uint8_t byte) {{
 
 def espidf_rotary_encoder(task: TaskConfig) -> str:
     return espidf_common_includes() + """\
-#define CLK_PIN GPIO_NUM_43
-#define DT_PIN GPIO_NUM_44
+#define CLK_PIN GPIO_NUM_5
+#define DT_PIN GPIO_NUM_6
 
 void app_main(void) {
   gpio_reset_pin(CLK_PIN);
@@ -5062,25 +5548,33 @@ void app_main(void) {
 
 
 def espidf_ds18b20_heat_alarm(task: TaskConfig) -> str:
+    # Wokwi's DS18B20 part does not emulate the 1-Wire bus (a real bit-banged
+    # reset/convert/read-scratchpad sequence gets no presence pulse), so the
+    # over-temperature condition (> 30 C) is presented to the firmware as a
+    # controllable digital line on the sensor data pin: HIGH = above threshold.
+    # Documented in docs/esp32s3-task-status.md (Simulator Deviations).
     return espidf_common_includes(ledc=True) + espidf_ledc_tone_source() + """\
-#define ONE_WIRE_PIN GPIO_NUM_14
+#define SENSOR_PIN GPIO_NUM_14
 #define LED_PIN GPIO_NUM_10
 #define BUZZER_PIN GPIO_NUM_11
 
 void app_main(void) {
-  gpio_reset_pin(ONE_WIRE_PIN);
-  gpio_set_direction(ONE_WIRE_PIN, GPIO_MODE_INPUT);
+  gpio_reset_pin(SENSOR_PIN);
+  gpio_set_direction(SENSOR_PIN, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(SENSOR_PIN, GPIO_PULLDOWN_ONLY);
   gpio_reset_pin(LED_PIN);
   gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
   ledc_tone_init(BUZZER_PIN);
   while (1) {
-    (void)gpio_get_level(ONE_WIRE_PIN);
-    gpio_set_level(LED_PIN, 1);
-    ledc_tone(1200);
-    vTaskDelay(pdMS_TO_TICKS(80));
-    gpio_set_level(LED_PIN, 0);
-    ledc_tone(0);
-    vTaskDelay(pdMS_TO_TICKS(80));
+    int hot = gpio_get_level(SENSOR_PIN);
+    if (hot) {
+      gpio_set_level(LED_PIN, 1);
+      ledc_tone(1200);
+    } else {
+      gpio_set_level(LED_PIN, 0);
+      ledc_tone(0);
+    }
+    vTaskDelay(pdMS_TO_TICKS(50));
   }
 }
 """
@@ -5094,6 +5588,7 @@ def espidf_clap_switch(task: TaskConfig) -> str:
 void app_main(void) {
   gpio_reset_pin(SOUND_PIN);
   gpio_set_direction(SOUND_PIN, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(SOUND_PIN, GPIO_PULLDOWN_ONLY);
   gpio_reset_pin(RELAY_PIN);
   gpio_set_direction(RELAY_PIN, GPIO_MODE_OUTPUT);
   int last = 0;
@@ -5134,7 +5629,7 @@ static int read_distance_cm(void) {{
 
 
 def espidf_hcsr04_serial(task: TaskConfig) -> str:
-    return espidf_common_includes(rom=True) + espidf_hcsr04_reader_source("43", "44") + """\
+    return espidf_common_includes(rom=True) + espidf_hcsr04_reader_source("40", "41") + """\
 void app_main(void) {
   gpio_reset_pin(TRIG_PIN);
   gpio_set_direction(TRIG_PIN, GPIO_MODE_OUTPUT);
@@ -5487,6 +5982,7 @@ def espidf_buzzer_toggle_led_freq(task: TaskConfig) -> str:
 void app_main(void) {
   gpio_reset_pin(BUTTON_PIN);
   gpio_set_direction(BUTTON_PIN, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(BUTTON_PIN, GPIO_PULLDOWN_ONLY);
   gpio_reset_pin(LED_PIN);
   gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
   ledc_tone_init(BUZZER_PIN);
@@ -5587,8 +6083,10 @@ def espidf_reaction_timer_lcd(task: TaskConfig) -> str:
 void app_main(void) {
   gpio_reset_pin(BUTTON_PIN);
   gpio_set_direction(BUTTON_PIN, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(BUTTON_PIN, GPIO_PULLDOWN_ONLY);
   gpio_reset_pin(SHOCK_PIN);
   gpio_set_direction(SHOCK_PIN, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(SHOCK_PIN, GPIO_PULLDOWN_ONLY);
   lcd_begin();
   int timing = 0;
   int64_t start = 0;
@@ -5669,16 +6167,27 @@ void app_main(void) {
 
 def espidf_step_counter(task: TaskConfig) -> str:
     return espidf_common_includes(i2c=True) + espidf_i2c_setup_source("38", "39") + """\
+// MPU6050 default range is +/-2g => 16384 LSB/g. A "step" is a Z-axis
+// acceleration spike above ~1.5g; we re-arm once motion settles back below
+// ~1.25g so each spike is counted exactly once.
+#define SPIKE_C (24000)
+#define REARM_C (20000)
+
 void app_main(void) {
   i2c_setup();
-  i2c_write_reg(0x68, 0x6b, 0);
+  i2c_write_reg(0x68, 0x6b, 0);  // wake device
   int steps = 0;
-  int64_t last = esp_timer_get_time();
+  int armed = 1;
   while (1) {
-    (void)i2c_read_reg(0x68, 0x3b);
-    if (esp_timer_get_time() - last > 400000) {
-      last = esp_timer_get_time();
+    uint8_t hi = i2c_read_reg(0x68, 0x3f);  // ACCEL_ZOUT_H
+    uint8_t lo = i2c_read_reg(0x68, 0x40);  // ACCEL_ZOUT_L
+    int16_t az = (int16_t)((hi << 8) | lo);
+    int mag = az < 0 ? -az : az;
+    if (armed && mag > SPIKE_C) {
+      armed = 0;
       printf("Steps: %d\\n", ++steps);
+    } else if (mag < REARM_C) {
+      armed = 1;
     }
     vTaskDelay(pdMS_TO_TICKS(20));
   }

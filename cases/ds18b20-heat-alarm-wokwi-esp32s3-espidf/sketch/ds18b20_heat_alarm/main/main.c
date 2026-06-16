@@ -37,23 +37,26 @@ static void ledc_tone(int freq_hz) {
   ledc_set_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1, 512);
   ledc_update_duty(LEDC_LOW_SPEED_MODE, LEDC_CHANNEL_1);
 }
-#define ONE_WIRE_PIN GPIO_NUM_14
+#define SENSOR_PIN GPIO_NUM_14
 #define LED_PIN GPIO_NUM_10
 #define BUZZER_PIN GPIO_NUM_11
 
 void app_main(void) {
-  gpio_reset_pin(ONE_WIRE_PIN);
-  gpio_set_direction(ONE_WIRE_PIN, GPIO_MODE_INPUT);
+  gpio_reset_pin(SENSOR_PIN);
+  gpio_set_direction(SENSOR_PIN, GPIO_MODE_INPUT);
+  gpio_set_pull_mode(SENSOR_PIN, GPIO_PULLDOWN_ONLY);
   gpio_reset_pin(LED_PIN);
   gpio_set_direction(LED_PIN, GPIO_MODE_OUTPUT);
   ledc_tone_init(BUZZER_PIN);
   while (1) {
-    (void)gpio_get_level(ONE_WIRE_PIN);
-    gpio_set_level(LED_PIN, 1);
-    ledc_tone(1200);
-    vTaskDelay(pdMS_TO_TICKS(80));
-    gpio_set_level(LED_PIN, 0);
-    ledc_tone(0);
-    vTaskDelay(pdMS_TO_TICKS(80));
+    int hot = gpio_get_level(SENSOR_PIN);
+    if (hot) {
+      gpio_set_level(LED_PIN, 1);
+      ledc_tone(1200);
+    } else {
+      gpio_set_level(LED_PIN, 0);
+      ledc_tone(0);
+    }
+    vTaskDelay(pdMS_TO_TICKS(50));
   }
 }

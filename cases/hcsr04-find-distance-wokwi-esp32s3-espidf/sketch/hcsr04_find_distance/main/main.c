@@ -6,8 +6,8 @@
 #include "freertos/task.h"
 #include "esp_rom_sys.h"
 
-#define TRIG_PIN GPIO_NUM_43
-#define ECHO_PIN GPIO_NUM_44
+#define TRIG_PIN GPIO_NUM_40
+#define ECHO_PIN GPIO_NUM_41
 
 static int read_distance_cm(void) {
   gpio_set_level(TRIG_PIN, 0);

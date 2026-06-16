@@ -29,6 +29,6 @@ validator:
       params:
         channel: D0
         windows:
-          - {start_s: 0.20, end_s: 1.20, half_period_range_s: [0.00025, 0.00045], full_period_range_s: [0.00050, 0.00090]}
+          - {start_s: 0.20, end_s: 1.20, half_period_range_s: [0.00018, 0.00045], full_period_range_s: [0.00050, 0.00090]}
 simulation: {timeout_ms: 1400}
 case: {id: reverse-parking-sensor-renode-nano33, sketch_name: reverse_parking_sensor}

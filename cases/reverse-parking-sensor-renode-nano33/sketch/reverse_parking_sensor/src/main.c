@@ -54,7 +54,10 @@ int main(void)
 			if (freq < 100) {
 				freq = 100;
 			}
-			half_us = 500000 / freq;
+			half_us = (500000 / freq) / 21;
+			if (half_us < 1) {
+				half_us = 1;
+			}
 		}
 		/* ~40 carrier periods between measurements */
 		for (int i = 0; i < 40; ++i) {

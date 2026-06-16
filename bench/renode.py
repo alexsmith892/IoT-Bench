@@ -58,6 +58,8 @@ RENODE_PERIPHERAL_CONTROLS: dict[str, set[str]] = {
     # IoT-Bench HC-SR04 model (bench/chips/hcsr04/HCSR04.cs): same `distance`
     # (cm) control as the Wokwi native part; echo width is 58 us/cm.
     "hcsr04": {"distance"},
+    "dht11": {"temperature", "humidity"},
+    "ds18b20": {"temperature"},
     "lsm9ds1": {"accelX", "accelY", "accelZ", "rotationX", "rotationY", "rotationZ", "temperature"},
     "ds1307": {"initTime"},
     # Native Renode BME280 (Antmicro.Renode.Peripherals.I2C.BME280). Only the
@@ -69,6 +71,7 @@ RENODE_PERIPHERAL_CONTROLS: dict[str, set[str]] = {
     # math, with ~6.4 kPa of quantization per ADC count), so no pressure
     # oracle over this model can be sound.
     "bme280": {"temperatureC", "humidityRH"},
+    "bme280_spi": {"temperatureC", "humidityRH"},
     # IoT-Bench C# MPU6050 (bench/chips/mpu6050/MPU6050.cs): same control
     # vocabulary as the Wokwi-native MPU6050 (accel in g, rotation in deg/s).
     "mpu6050": {"accelX", "accelY", "accelZ", "rotationX", "rotationY", "rotationZ", "temperature"},
@@ -96,6 +99,10 @@ SENSOR_CONTROL_PROPERTIES: dict[str, dict[str, str]] = {
         "temperatureC": "Temperature",
         "humidityRH": "Humidity",
     },
+    "bme280_spi": {
+        "temperatureC": "Temperature",
+        "humidityRH": "Humidity",
+    },
     "mpu6050": {
         "accelX": "AccelerationX",
         "accelY": "AccelerationY",
@@ -108,6 +115,13 @@ SENSOR_CONTROL_PROPERTIES: dict[str, dict[str, str]] = {
     "hcsr04": {
         "distance": "DistanceCm",
     },
+    "dht11": {
+        "temperature": "Temperature",
+        "humidity": "Humidity",
+    },
+    "ds18b20": {
+        "temperature": "Temperature",
+    },
 }
 
 # Renode peripheral class per sensor part type, and which controls take a
@@ -116,6 +130,7 @@ SENSOR_PART_CLASSES: dict[str, str] = {
     "lsm9ds1": "Sensors.LSM9DS1_IMU",
     "ds1307": "I2C.IoTBench_DS1307",
     "bme280": "I2C.BME280",
+    "bme280_spi": "SPI.IoTBench_BME280_SPI",
     "mpu6050": "I2C.IoTBench_MPU6050",
 }
 STRING_VALUED_CONTROLS: dict[str, set[str]] = {
@@ -129,6 +144,9 @@ SENSOR_PLUGIN_SOURCES: dict[str, str] = {
     "analog_source": "saadc/NRF52840_SAADC.cs",
     "matrix_key": "keypad/MatrixKeypad.cs",
     "hcsr04": "hcsr04/HCSR04.cs",
+    "dht11": "dht11/DHT11.cs",
+    "ds18b20": "ds18b20/DS18B20.cs",
+    "bme280_spi": "bme280/BME280_SPI.cs",
 }
 DEFAULT_I2C_ADDRESSES: dict[str, int] = {
     "lsm9ds1": 0x6B,
@@ -158,6 +176,13 @@ KEYPAD_BASE_ADDRESS = "0x5F000000"
 # wired from its port into GPIO input 0.
 HCSR04_REPL_CLASS = "Miscellaneous.IoTBench_HCSR04"
 HCSR04_BASE_ADDRESS = 0x5F001000
+
+# Single-wire GPIO sensor models are sysbus-mapped only to provide a monitor
+# name for .resc property updates. Their data line is connected
+# bidirectionally through GPIO.
+DHT11_REPL_CLASS = "Miscellaneous.IoTBench_DHT11"
+DS18B20_REPL_CLASS = "Miscellaneous.IoTBench_DS18B20"
+ONEWIRE_BASE_ADDRESS = 0x5F020000
 
 # Peripheral names already declared by platforms/cpus/nrf52840.repl; a part
 # id reusing one fails at repl load with "Variable already declared".
@@ -265,15 +290,32 @@ def renode_parts(task: TaskConfig) -> dict[str, dict[str, Any]]:
                     "row_pin": parse_gpio_pin(str(row)),
                     "col_pin": parse_gpio_pin(str(col)),
                 }
-            elif ctype in SENSOR_PART_CLASSES:
+            elif ctype in {"dht11", "ds18b20"}:
                 require_usable_id(part_id)
-                address = int(str(component.get("address", DEFAULT_I2C_ADDRESSES[ctype])), 0)
+                data_pin = (component.get("pins") or {}).get("data")
+                if not data_pin:
+                    raise RenodeConfigError(
+                        f"{task.task_id}: {ctype} {part_id!r} needs pins.data"
+                    )
                 attrs = dict(component.get("attrs") or {})
                 for control in attrs:
                     require_known_control(task, ctype, part_id, control)
                 parts[part_id] = {
                     "type": ctype,
-                    "bus": str(component.get("bus", "twi0")),
+                    "data_pin": parse_gpio_pin(str(data_pin)),
+                    "attrs": attrs,
+                }
+            elif ctype in SENSOR_PART_CLASSES:
+                require_usable_id(part_id)
+                default_address = DEFAULT_I2C_ADDRESSES.get(ctype, 0)
+                address = int(str(component.get("address", default_address)), 0)
+                attrs = dict(component.get("attrs") or {})
+                for control in attrs:
+                    require_known_control(task, ctype, part_id, control)
+                bus = str(component.get("bus", "spi2" if ctype == "bme280_spi" else "twi0"))
+                parts[part_id] = {
+                    "type": ctype,
+                    "bus": bus,
                     "address": address,
                     "attrs": attrs,
                 }
@@ -300,7 +342,7 @@ def renode_parts(task: TaskConfig) -> dict[str, dict[str, Any]]:
                 # model regardless of the physical part they stand in for;
                 # the task YAML states the volts/counts mapping it assumes.
                 add_analog(part_id, component)
-            elif ctype in {"led", "buzzer", "lcd1602", "relay"}:
+            elif ctype in {"led", "buzzer", "active_buzzer", "lcd1602", "relay"}:
                 # Outputs are observed via analyzer probes, not parts; the
                 # LCD1602 in particular is decoded from the synthesized VCD
                 # (bench/lcd1602.py), so no peripheral model is needed.
@@ -377,6 +419,8 @@ def part_monitor_name(part: dict[str, Any], part_id: str) -> str:
         return KEYPAD_MONITOR_NAME
     if part["type"] == "hcsr04":
         # Sysbus-mapped under the part's own id (monitor name unqualified).
+        return part_id
+    if part["type"] in {"dht11", "ds18b20"}:
         return part_id
     if "bus" in part:
         return f"{part['bus']}.{part_id}"
@@ -552,6 +596,7 @@ def generate_repl(task: TaskConfig) -> str:
                 lines.append(f"    {index} -> {KEYPAD_MONITOR_NAME}@{row_index}")
             lines.append("")
     hcsr04_index = 0
+    onewire_index = 0
     for part_id, part in parts.items():
         if part["type"] == "matrix_key":
             continue
@@ -571,6 +616,23 @@ def generate_repl(task: TaskConfig) -> str:
             lines.append("")
             lines.append(f"{trig_port}:")
             lines.append(f"    {trig_index} -> {part_id}@0")
+            lines.append("")
+            continue
+        if part["type"] in {"dht11", "ds18b20"}:
+            data_port, data_index = part["data_pin"]
+            if (data_port, data_index) in seen_pins:
+                raise RenodeConfigError(
+                    f"{task.task_id}: {part['type']} {part_id!r} data pin {data_port} {data_index} "
+                    f"collides with probe {seen_pins[(data_port, data_index)]!r}"
+                )
+            address = ONEWIRE_BASE_ADDRESS + onewire_index * 0x1000
+            onewire_index += 1
+            repl_class = DHT11_REPL_CLASS if part["type"] == "dht11" else DS18B20_REPL_CLASS
+            lines.append(f"{part_id}: {repl_class} @ sysbus {address:#x}")
+            lines.append(f"    Data -> {data_port}@{data_index}")
+            lines.append("")
+            lines.append(f"{data_port}:")
+            lines.append(f"    {data_index} -> {part_id}@0")
             lines.append("")
             continue
         if part["type"] in {"button", "digital_pullup"}:
@@ -596,9 +658,12 @@ def generate_repl(task: TaskConfig) -> str:
                 lines.append("")
                 saadc_declared = True
         else:
-            lines.append(
-                f"{part_id}: {SENSOR_PART_CLASSES[part['type']]} @ {part['bus']} {part['address']:#x}"
-            )
+            if part["type"] == "bme280_spi":
+                lines.append(f"{part_id}: {SENSOR_PART_CLASSES[part['type']]} @ {part['bus']}")
+            else:
+                lines.append(
+                    f"{part_id}: {SENSOR_PART_CLASSES[part['type']]} @ {part['bus']} {part['address']:#x}"
+                )
             lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 

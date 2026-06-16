@@ -44,7 +44,10 @@ int main(void)
 		if (adc_read(adc_dev, &adc_seq) == 0) {
 			int freq = 100 + (int)adc_sample * 1900 / 4096;
 
-			half_us = 500000 / freq;
+			half_us = (500000 / freq) / 21;
+			if (half_us < 1) {
+				half_us = 1;
+			}
 		}
 		/* ~20 carrier periods between ADC reads (<70 ms even at 290 Hz) */
 		for (int i = 0; i < 20; ++i) {

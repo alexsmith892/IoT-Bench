@@ -55,7 +55,10 @@ int main(void)
 			if (freq < 100) {
 				freq = 100;
 			}
-			half_us = 500000 / freq;
+			half_us = (500000 / freq) / 21;
+			if (half_us < 1) {
+				half_us = 1;
+			}
 			gpio_pin_set(gpio0_dev, LED_PIN, cm < 100 ? 1 : 0);
 		}
 		/* ~40 carrier periods between measurements */

@@ -7,8 +7,8 @@ static const struct device *const gpio1_dev = DEVICE_DT_GET(DT_NODELABEL(gpio1))
 
 
 #define LED_PIN 24
-#define CARRIER_US 2000
-#define STEP_PERIODS 5 /* 5 x 2 ms carrier = one 10 ms duty step */
+#define CARRIER_US 1000
+#define STEP_PERIODS 1 /* One Renode-observed software PWM cycle per duty step. */
 
 static void pwm_step(int duty_percent)
 {

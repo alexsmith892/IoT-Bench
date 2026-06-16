@@ -4,13 +4,14 @@ platform: zephyr_nano33ble
 level: level2
 support:
   status: unsupported
-  reason: Renode backend has no wired BME280 SPI fixture for Nano 33 BLE yet.
+  reason: Renode BME280 SPI model and spi2 wiring exist but are not live-validated; current Zephyr/Renode run is blocked before variant serial evidence is produced.
 fixture:
   family: composite
   components:
     - type: bme280_spi
       id: bme1
-      bus: spi0
+      bus: spi2
+      address: 0
       cs: "P1.02"
       attrs: {temperatureC: "24.5", humidityRH: "55.0"}
 simulation_variants:
