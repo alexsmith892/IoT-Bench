@@ -4,12 +4,29 @@ This is the local source of truth for `zephyr_nano33ble` task maturity.
 
 Status meanings:
 
-- `live-validated`: reference has local Renode evidence of BC.
+- `live-validated`: reference has **existing** local Renode evidence of BC.
+  This is recorded local evidence, *not* a fresh re-run — see the freshness
+  banner below before treating any such row as leaderboard-ready.
+- `live-verified`: reference was re-run live after the 2026-06-16 overlay/alias
+  regen and produced BC. The live workstream promotes rows here as confirming
+  sweeps land.
 - `implemented-unvalidated`: task/case/model exists but still needs a current
   live sweep before leaderboard use.
 - `bf-triage`: reference has recorded BF or an unresolved oracle/fidelity issue.
 - `unsupported`: canonical task is present but intentionally blocked.
 - `addition`: non-canonical IoT-Bench task kept with explicit rationale.
+
+> **Evidence freshness (2026-06-16).** Every `live-validated` row reflects local
+> BC evidence recorded *before* the 2026-06-16 devicetree alias/overlay regen
+> (harness-owned `app.overlay` now emits `my-led` for the single-LED blink
+> family and was realigned to the generator across the catalog; the changes are
+> additive — extra inert `gpio-leds` alias nodes — so prior behavior is
+> unchanged). These rows are **not** independently re-verified here and must get
+> a confirming live Renode sweep, owned by the Renode/live workstream, before
+> leaderboard publication. The model-facing alias contract (every alias a prompt
+> advertises is emitted by `zephyr_app_overlay`) and the
+> tracked-overlay-vs-generator drift gate are now enforced offline by
+> `tests/test_zephyr_overlay_contract.py`.
 
 ## Status Matrix
 
@@ -34,15 +51,15 @@ Status meanings:
 | `ds1307_rtc` | live-validated | Custom DS1307 model. |
 | `mpu6050_read_i2c` | live-validated | Custom MPU6050 model. |
 | `bme280_read_i2c` | live-validated | Native BME280 temperature/humidity only. |
-| `bme280_read_spi` | unsupported | Custom SPI BME280 Renode model and spi2 wiring added, but current live run is blocked before variant serial evidence is produced. |
+| `bme280_read_spi` | live-verified | Custom SPI BME280 model; fresh 2026-06-16 Renode run produced BC for warm/humid and hot/dry variants, and `validate-artifacts` passed. |
 | `tilt_detection_alarm` | live-validated | KY-020 as binary GPIO surrogate. |
 | `photoresistor_nightlight` | live-validated | SAADC light surrogate. |
 | `ds18b20_heat_alarm` | unsupported | DS18B20 1-Wire Renode model and scenario temperature control added, but cold/hot LED/buzzer VCD behavior has not reached live BC. |
 | `clap_switch` | live-validated | Sound threshold as binary GPIO surrogate. |
 | `hcsr501_motion_alarm` | live-validated | PIR as binary GPIO surrogate. |
-| `hcsr04_find_distance` | live-validated | HC-SR04 model produces variant serial distances; far/near numeric oracle passes current Renode evidence. |
-| `parking_sensor` | live-validated | HC-SR04 plus LED ratio and buzzer waveform VCD pass current Renode evidence. |
-| `reverse_parking_sensor` | live-validated | HC-SR04 plus buzzer waveform VCD passes current Renode evidence. |
+| `hcsr04_find_distance` | bf-triage | **Inconsistent evidence:** local `verification.json` records BF, but near/far serial logs appear to contain valid distances inside the YAML ranges. Pending fresh live re-triage (live workstream) before any leaderboard claim; do not treat as ready. |
+| `parking_sensor` | implemented-unvalidated | HC-SR04 plus LED ratio and buzzer waveform VCD; shares the HC-SR04 model under `hcsr04_find_distance` re-triage, so re-run live before relying on it. |
+| `reverse_parking_sensor` | implemented-unvalidated | HC-SR04 plus buzzer waveform VCD; shares the HC-SR04 model under `hcsr04_find_distance` re-triage, so re-run live before relying on it. |
 | `dht11_read_button_display` | unsupported | DHT11 model plus button/LCD wiring added, but it remains blocked on the DHT11 single-wire read failure. |
 | `mpu6050_read_button_display` | live-validated | MPU6050 plus LCD/button. |
 | `mpu6050_read_periodic_display` | live-validated | MPU6050 variants decoded from LCD VCD frames; 10-sample average values differ by variant. |
@@ -61,9 +78,12 @@ Status meanings:
 
 ## Handoff Notes
 
-- A added canonical devicetree alias emission plus DHT11, DS18B20, and
-  BME280-SPI Renode model/wiring; promote those rows only after current live
-  Renode runs produce BC evidence.
+- Canonical devicetree alias emission is now complete on the task-contract side:
+  `zephyr_app_overlay` emits every alias the prompts advertise (verified offline
+  by `tests/test_zephyr_overlay_contract.py`), including `my-led` for the
+  single-LED blink family. DHT11 and DS18B20 Renode model/wiring exist but stay
+  `unsupported`; promote those rows only after current live Renode runs produce
+  BC evidence.
 - HC-SR04 model compilation needed the Renode timers namespace import; after
   that, the HC-SR04 trio produced current local BC evidence at the pinned
   2 MIPS CPU setting.

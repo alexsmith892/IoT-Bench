@@ -11,6 +11,19 @@ Status meanings:
   intentionally blocked until Renode support lands.
 - `addition`: local IoT-Bench task outside the upstream canonical set.
 
+The `Local status` column above describes upstream-vs-local *contract* alignment
+only. For live verification maturity (live-validated / bf-triage / unsupported /
+pending confirming sweep) and the 2026-06-16 evidence-freshness caveat, see
+`docs/zephyr-task-status.md`; that file is the single source of truth for
+readiness and this file no longer makes independent live-pass claims.
+
+Note on aliases: the `Upstream contract` column records the *upstream* alias
+wording. Local prompts deliberately give raw GPIO node/pin for most tasks and
+only advertise devicetree aliases where the overlay emits them (today: `my-led`
+for the blink family, plus the component aliases for stub tasks). The
+prompt-advertises ⇒ overlay-emits invariant is enforced offline by
+`tests/test_zephyr_overlay_contract.py`.
+
 ## Level 1
 
 | Task | Upstream contract | Local status | Notes |
@@ -39,15 +52,15 @@ Status meanings:
 | `ds1307_rtc` | I2C bus 0; set/read 2026/02/02 15:37:00. | aligned | Custom DS1307 model supplies deterministic time. |
 | `mpu6050_read_i2c` | I2C bus 0; print raw accel/gyro. | aligned | Custom MPU6050 model with variants. |
 | `bme280_read_i2c` | I2C bus 0; print humidity and temperature. | aligned | Pressure intentionally excluded due native Renode model fidelity. |
-| `bme280_read_spi` | SPI BME280 alias `my_sensor`; print humidity and temperature. | unsupported | Added locally as unsupported; needs SPI BME280 Renode wiring/model. |
+| `bme280_read_spi` | SPI BME280 alias `my_sensor`; print humidity and temperature. | aligned | Custom SPI BME280 model is live-verified for temperature/humidity variants; pressure is outside the upstream contract. |
 | `tilt_detection_alarm` | KY-020 alias `ky020` drives buzzer `my-buzzer`. | aligned | Digital input surrogate. |
 | `photoresistor_nightlight` | `my-led` plus `zephyr_user` ADC channel 0. | aligned | SAADC surrogate maps light to ADC count. |
 | `ds18b20_heat_alarm` | DS18B20 alias `data-ds18b20`; threshold 30 C; drive `my-led` and `my-buzzer`. | unsupported | Added locally as unsupported; needs 1-Wire model/wiring from Workstream A. |
 | `clap_switch` | `sound-sensor` toggles relay `lock-relay`. | aligned | Digital sound threshold surrogate. |
 | `hcsr501_motion_alarm` | PIR alias `sr501` drives `my-buzzer`. | aligned | Digital PIR surrogate. |
-| `hcsr04_find_distance` | HC-SR04 aliases `sr04-trig`, `sr04-echo`; print distance. | aligned | Model exists, but task still needs live validation at 2 MIPS. |
-| `parking_sensor` | HC-SR04 aliases plus `my-led`/`my-buzzer`; faster output as object nears. | aligned | Model exists, but task still needs live validation at 2 MIPS. |
-| `reverse_parking_sensor` | HC-SR04 aliases plus `my-led`/`my-buzzer`; buzzer faster as object nears. | aligned | Model exists, but task still needs live validation at 2 MIPS. |
+| `hcsr04_find_distance` | HC-SR04 aliases `sr04-trig`, `sr04-echo`; print distance. | aligned | Local prompt gives raw trig/echo pins. Live status is `bf-triage` (inconsistent BF manifest vs valid-looking serial) — see `zephyr-task-status.md`. |
+| `parking_sensor` | HC-SR04 aliases plus `my-led`/`my-buzzer`; faster output as object nears. | aligned | Shares the HC-SR04 model under re-triage; live status `implemented-unvalidated`. |
+| `reverse_parking_sensor` | HC-SR04 aliases plus `my-led`/`my-buzzer`; buzzer faster as object nears. | aligned | Shares the HC-SR04 model under re-triage; live status `implemented-unvalidated`. |
 
 ## Level 3
 
@@ -55,7 +68,7 @@ Status meanings:
 |---|---|---|---|
 | `dht11_read_button_display` | Button `my-button` interrupt reads DHT11 `data-dht11`; LCD aliases display `Temp:` and `RH:`. | unsupported | Added locally as unsupported; blocked on DHT11 Renode support. |
 | `mpu6050_read_button_display` | Button `my-button` reads MPU6050 on I2C bus 0 and displays accel/gyro on LCD. | aligned | LCD/MPU models are wired; reference should stay variant-correlated. |
-| `mpu6050_read_periodic_display` | Every 100 ms read MPU6050, average 10 samples, display accel/gyro on LCD. | aligned | Reference/oracle has recorded BF and needs live triage. |
+| `mpu6050_read_periodic_display` | Every 100 ms read MPU6050, average 10 samples, display accel/gyro on LCD. | aligned | Live status `live-validated` per `zephyr-task-status.md` (earlier BF was resolved); pending the 2026-06-16 confirming sweep. |
 | `safebox` | 16-key keypad password `1234` unlocks `lock-relay`. | aligned | Keypad surrogate scans rows/columns. |
 | `safebox_display` | Password `1234`; LCD shows `Input:` and `Status:`. | aligned | Variant wrong-code oracle prevents a fixed success display. |
 | `lcd1602_auto_brightness_control` | Photoresistor ADC controls LCD backlight `K`; LCD aliases. | aligned | Software PWM surrogate for backlight. |
@@ -65,7 +78,7 @@ Status meanings:
 | `reaction_timer_display` | Button starts timer; shock sensor stops; LCD shows milliseconds. | aligned | Shock sensor is a binary GPIO surrogate. |
 | `sensor_water_level_display` | Water-level sensor through `zephyr_user` ADC channel 0; LCD bar graph. | aligned | SAADC surrogate. |
 | `buzzer_laser_tripwire` | Photoresistor beam block drives `my-buzzer`; emitter alias. | aligned | Emitter/photoresistor represented by deterministic GPIO/ADC controls. |
-| `joystick_buzzer_pitch` | Joystick Y axis on `zephyr_user` ADC channel 1 changes passive buzzer pitch. | aligned | Reference/oracle has recorded BF and needs PWM/frequency triage. |
+| `joystick_buzzer_pitch` | Joystick Y axis on `zephyr_user` ADC channel 1 changes passive buzzer pitch. | aligned | Live status `live-validated` per `zephyr-task-status.md` (low/high windows distinct in both orders); pending the 2026-06-16 confirming sweep. |
 | `step_counter_print` | GY-521 on I2C bus 0; timer counts movement spikes. | aligned | MPU6050 custom model supplies deterministic spike sequence. |
 
 ## IoT-Bench Addition
@@ -74,9 +87,14 @@ Status meanings:
 |---|---|---|
 | `lsm9ds1_read_i2c` | addition | Kept intentionally because the Nano 33 BLE has a real onboard LSM9DS1 IMU and Renode has a native model. It is not part of the upstream canonical task set. |
 
-## Workstream A Handoff
+## Alias emission (resolved 2026-06-16)
 
-The local prompts can name canonical aliases, but the generated Zephyr
-`app.overlay` is owned by the harness path in Workstream A. A must add stable
-devicetree alias emission for the canonical names before model submissions that
-use `DT_ALIAS(...)` can build reliably.
+The harness-owned `zephyr_app_overlay` now emits a stable devicetree alias for
+every alias the local prompts advertise, so a submission that follows the prompt
+and uses `DT_ALIAS(...)` builds (hyphenated aliases such as `my-led` map to
+`DT_ALIAS(my_led)`). This was the missing piece for the single-LED blink family,
+whose prompts advertise `my-led` but which previously emitted no alias. The
+invariant is enforced offline by `tests/test_zephyr_overlay_contract.py`
+(`test_prompt_aliases_are_emitted`), and the tracked `cases/*/sketch/*/app.overlay`
+snapshots are pinned to the generator output by the same file's
+`test_tracked_overlay_matches_regeneration`.
