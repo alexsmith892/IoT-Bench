@@ -79,34 +79,6 @@ ESP32S3_FORBIDDEN_ARDUINO_CALLS = {
     "Keypad",
 }
 
-ESP32S3_EXPECTED_MISSING_LIVE_VERIFICATION = {
-    "blink_led_1hz",
-    "blink_led_morse_code",
-    "blink_two_leds",
-    "buzzer_laser_tripwire",
-    "buzzer_toggle_led_freq",
-    "clap_switch",
-    "ds18b20_heat_alarm",
-    "hcsr04_find_distance",
-    "hcsr501_motion_alarm",
-    "joystick_buzzer_pitch",
-    "lcd1602_auto_brightness_control",
-    "parking_sensor",
-    "photoresistor_nightlight",
-    "reaction_timer_display",
-    "reverse_parking_sensor",
-    "rotary_encoder",
-    "sensor_water_level_display",
-    "step_counter_print",
-    "tilt_detection_alarm",
-    "tmp36_read_button_display",
-    "tmp36_read_periodic_display",
-}
-
-ESP32S3_EXPECTED_STALE_REFERENCE_VERIFICATION = {
-    "button_press_debounce",
-}
-
 
 class Esp32S3EspIdfProfileTests(unittest.TestCase):
     def test_profile_uses_espidf_board_and_firmware_contract(self):
@@ -127,6 +99,19 @@ class Esp32S3EspIdfProfileTests(unittest.TestCase):
 
 
 class Esp32S3EspIdfTaskTests(unittest.TestCase):
+    def test_status_doc_declares_local_evidence_semantics(self):
+        text = (Path(__file__).resolve().parents[1] / "docs" / "esp32s3-task-status.md").read_text(
+            encoding="utf-8"
+        )
+        normalized = " ".join(text.split())
+
+        self.assertIn("`cases/*/artifacts/verification.json` is ignored by Git", text)
+        self.assertIn("local evidence only", normalized)
+        self.assertIn("not portable leaderboard proof", normalized)
+        self.assertIn("The offline tests check committed support structure", text)
+        self.assertIn("ESP32-S3 ESP-IDF is not leaderboard-ready", text)
+        self.assertIn("RUN_WOKWI_INTEGRATION", text)
+
     def test_all_upstream_level1_tasks_load_and_have_prompts(self):
         tasks = list(iter_tasks(platform="esp32s3_espidf", level="level1"))
 
@@ -216,9 +201,7 @@ class Esp32S3EspIdfTaskTests(unittest.TestCase):
                         for arduino_api in ("pinMode", "digitalRead", "digitalWrite", "analogRead", "Serial."):
                             self.assertNotIn(arduino_api, source)
 
-    def test_supported_tasks_have_case_dirs_and_no_unexpected_reference_bf_or_cf(self):
-        missing = []
-        stale = []
+    def test_supported_tasks_have_case_dirs_and_no_committed_live_evidence_assumption(self):
         for level in ("level1", "level2", "level3"):
             for task in iter_tasks(platform="esp32s3_espidf", level=level):
                 if not task.is_supported:
@@ -226,27 +209,12 @@ class Esp32S3EspIdfTaskTests(unittest.TestCase):
                 with self.subTest(level=level, task=task.task_id):
                     case_dir = case_dir_for_task(task)
                     self.assertTrue(case_dir.exists(), f"{task.task_id}: case dir missing")
-                    manifest = case_dir / "artifacts" / "verification.json"
-                    if not manifest.exists():
-                        missing.append(task.task_id)
-                        continue
-                    data = json.loads(manifest.read_text(encoding="utf-8"))
-                    if data.get("result") in {"BF", "CF"}:
-                        stale.append((task.task_id, data.get("result"), data.get("reason")))
-
-        self.assertEqual(sorted(missing), sorted(ESP32S3_EXPECTED_MISSING_LIVE_VERIFICATION))
-        unexpected_stale = [
-            item for item in stale if item[0] not in ESP32S3_EXPECTED_STALE_REFERENCE_VERIFICATION
-        ]
-        self.assertEqual(
-            unexpected_stale,
-            [],
-            "reference verification manifests must not unexpectedly record BF/CF",
-        )
-        self.assertEqual(
-            sorted(task_id for task_id, _result, _reason in stale),
-            sorted(ESP32S3_EXPECTED_STALE_REFERENCE_VERIFICATION),
-        )
+                    self.assertTrue((case_dir / "case.json").exists(), f"{task.task_id}: case.json missing")
+                    self.assertTrue((case_dir / "case.yaml").exists(), f"{task.task_id}: case.yaml missing")
+                    self.assertTrue(
+                        (case_dir / "sketch" / task.sketch_name).exists(),
+                        f"{task.task_id}: reference project missing",
+                    )
 
     def test_tmp36_config_uses_3v3_adc_semantics(self):
         task = load_task("tmp36_read", platform="esp32s3_espidf")

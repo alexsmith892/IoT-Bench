@@ -176,6 +176,7 @@ ESPIDF_STUBS = [
     ("tmp36_read_periodic_display", "level3", "stub_espidf_hardcoded_lcd.c", True),
     ("mpu6050_read_button_display", "level3", "stub_espidf_hardcoded.c", False),
     ("mpu6050_read_periodic_display", "level3", "stub_espidf_hardcoded.c", False),
+    ("buzzer_toggle_led_freq", "level3", "stub_espidf_fixed_frequency.c", False),
     ("reaction_timer_display", "level3", "stub_espidf_fixed_elapsed.c", False),
     ("buzzer_laser_tripwire", "level3", "stub_espidf_fixed_alarm.c", False),
     ("joystick_buzzer_pitch", "level3", "stub_espidf_fixed_pitch.c", False),
