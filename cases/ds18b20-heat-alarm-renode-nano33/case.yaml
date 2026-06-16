@@ -1,0 +1,12 @@
+task_id: ds18b20_heat_alarm
+case_id: ds18b20-heat-alarm-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/ds18b20_heat_alarm
+  diagram: case.repl
+  build: artifacts/build
+  vcd: artifacts/logic/renode.vcd
+  scenario: scenario.yaml
+  resc: case.resc

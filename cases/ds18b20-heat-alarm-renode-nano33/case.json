@@ -1,0 +1,32 @@
+{
+  "id": "ds18b20-heat-alarm-renode-nano33",
+  "task": "ds18b20_heat_alarm",
+  "name": "Flash LED and sound buzzer when DS18B20 exceeds 30 C (Zephyr / Nano 33 BLE)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/ds18b20_heat_alarm",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "vcd": "artifacts/logic/renode.vcd",
+    "scenario": "scenario.yaml",
+    "resc": "case.resc"
+  },
+  "observed_signal": {
+    "vcd_name": "D0",
+    "expected_connection": "GPIO P1.12"
+  },
+  "observed_signals": [
+    {
+      "vcd_name": "D0",
+      "expected_connection": "GPIO P1.12"
+    },
+    {
+      "vcd_name": "D1",
+      "expected_connection": "GPIO P0.24"
+    }
+  ]
+}

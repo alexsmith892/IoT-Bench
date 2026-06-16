@@ -35,7 +35,6 @@ FIXTURE = Path(__file__).resolve().parent / "fixtures" / "upstream_zephyr_tasks.
 # unsupported stub). Each is blocked until the Renode protocol model produces
 # current live BC evidence against the task oracle.
 KNOWN_MISSING = {
-    "ds18b20_heat_alarm",
     "dht11_read_button_display",
 }
 

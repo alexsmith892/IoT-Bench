@@ -1,0 +1,23 @@
+&i2c0 {
+	compatible = "nordic,nrf-twi";
+};
+
+/ {
+	iotbench_gpios {
+		compatible = "gpio-leds";
+		iotbench_ds18b20: iotbench_ds18b20 {
+			gpios = <&gpio1 11 GPIO_ACTIVE_HIGH>;
+		};
+		iotbench_buzzer: iotbench_buzzer {
+			gpios = <&gpio1 12 GPIO_ACTIVE_HIGH>;
+		};
+		iotbench_led: iotbench_led {
+			gpios = <&gpio0 24 GPIO_ACTIVE_HIGH>;
+		};
+	};
+	aliases {
+		data-ds18b20 = &iotbench_ds18b20;
+		my-buzzer = &iotbench_buzzer;
+		my-led = &iotbench_led;
+	};
+};
