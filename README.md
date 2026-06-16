@@ -124,6 +124,7 @@ Filter by `--task <id>`, `--platform <key>`, or `--level levelN`. Pin versions i
 
 | Doc | Contents |
 |---|---|
+| [docs/esp32s3-task-status.md](docs/esp32s3-task-status.md) | Wokwi/ESP-IDF task maturity matrix and simulator deviations |
 | [docs/zephyr-task-status.md](docs/zephyr-task-status.md) | Renode/Zephyr task maturity matrix |
 | [docs/upstream-task-mapping.md](docs/upstream-task-mapping.md) | Alignment with upstream IoT-Skillsbench tasks |
 | [docs/renode-spike.md](docs/renode-spike.md) | Renode backend design notes from the initial spike |

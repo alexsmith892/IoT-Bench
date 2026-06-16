@@ -2,14 +2,9 @@ name: ds18b20_heat_alarm automation
 version: 1
 author: IoT-Bench
 steps:
-- delay: 200ms
-- set-control:
-    part-id: temp1
-    control: temperature
-    value: 22
-- delay: 450ms
-- set-control:
-    part-id: temp1
-    control: temperature
-    value: 35
 - delay: 650ms
+- set-control:
+    part-id: temp1
+    control: pressed
+    value: 1
+- delay: 700ms

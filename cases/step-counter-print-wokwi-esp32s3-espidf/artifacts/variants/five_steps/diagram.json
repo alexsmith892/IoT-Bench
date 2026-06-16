@@ -13,37 +13,35 @@
       }
     },
     {
-      "type": "wokwi-hc-sr04",
-      "id": "sonar1",
+      "type": "wokwi-mpu6050",
+      "id": "imu1",
       "top": -80,
       "left": 225,
-      "attrs": {
-        "distance": "40"
-      }
+      "attrs": {}
     }
   ],
   "connections": [
     [
-      "sonar1:VCC",
+      "imu1:VCC",
       "esp:3V3.1",
       "red",
       []
     ],
     [
-      "sonar1:GND",
+      "imu1:GND",
       "esp:GND.1",
       "black",
       []
     ],
     [
-      "sonar1:TRIG",
-      "esp:40",
+      "imu1:SDA",
+      "esp:38",
       "green",
       []
     ],
     [
-      "sonar1:ECHO",
-      "esp:41",
+      "imu1:SCL",
+      "esp:39",
       "green",
       []
     ]

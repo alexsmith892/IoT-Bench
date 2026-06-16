@@ -8,11 +8,11 @@ fixture:
   - type: digital_pullup
     id: enc_clk
     pins:
-      signal: '43'
+      signal: '5'
   - type: digital_pullup
     id: enc_dt
     pins:
-      signal: '44'
+      signal: '6'
   - type: digital_pullup
     id: enc_sw
     pins:

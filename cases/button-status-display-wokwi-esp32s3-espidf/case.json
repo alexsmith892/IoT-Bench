@@ -1,7 +1,7 @@
 {
   "id": "button-status-display-wokwi-esp32s3-espidf",
   "task": "button_status_display",
-  "name": "Print Button Pressed! when a pull-down button is pressed on ESP32-S3",
+  "name": "Print Button Pressed! when an active-low button is pressed on ESP32-S3",
   "simulator": "wokwi",
   "board": {
     "type": "board-esp32-s3-devkitc-1",

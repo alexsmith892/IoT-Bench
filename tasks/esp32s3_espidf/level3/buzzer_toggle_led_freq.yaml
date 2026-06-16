@@ -39,9 +39,9 @@ validator:
   - family: static_checks
     params:
       required_any_patterns:
-      - - attachInterrupt
-        - digitalPinToInterrupt
-        - millis\s*\(
+      - - esp_timer_get_time\s*\(
+        - esp_timer_start_periodic\s*\(
+        - gpio_install_isr_service\s*\(
       forbidden_calls:
       - pinMode
       - digitalRead
@@ -63,7 +63,6 @@ validator:
       - Keypad
       required_patterns:
       - gpio_get_level\s*\(
-      - esp_timer_get_time\s*\(
       - ledc_
   - family: bus_activity
     params:

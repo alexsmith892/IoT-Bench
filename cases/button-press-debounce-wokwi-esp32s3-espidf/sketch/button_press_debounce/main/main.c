@@ -14,6 +14,7 @@ void app_main(void) {
   gpio_set_pull_mode(BUTTON_PIN, GPIO_PULLUP_ONLY);
   int stable = 0;
   int last_reading = 0;
+  int count = 0;
   int64_t changed_at = esp_timer_get_time();
   while (1) {
     int reading = gpio_get_level(BUTTON_PIN) == 0;
@@ -25,7 +26,7 @@ void app_main(void) {
     if (now - changed_at >= DEBOUNCE_US && stable != reading) {
       stable = reading;
       if (stable) {
-        printf("Button Pressed!\n");
+        printf("Button Pressed! %d\n", ++count);
       }
     }
     vTaskDelay(pdMS_TO_TICKS(1));

@@ -81,9 +81,7 @@ validator:
       required_patterns:
       - adc_oneshot_read\s*\(
       - esp_timer_get_time\s*\(
-      required_any_patterns:
-      - - attachInterrupt
-        - digitalPinToInterrupt
+      - esp_rom_delay_us\s*\(
       forbidden_calls:
       - pinMode
       - digitalRead

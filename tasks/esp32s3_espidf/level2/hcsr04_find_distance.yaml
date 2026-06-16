@@ -8,8 +8,8 @@ fixture:
   - type: hcsr04
     id: sonar1
     pins:
-      trig: '43'
-      echo: '44'
+      trig: '40'
+      echo: '41'
     attrs:
       distance: '100'
 simulation_variants:
@@ -24,7 +24,7 @@ simulation_variants:
         observations:
         - label: configured_distance
           patterns:
-          - Distance.*100
+          - 'Distance:'
           numeric_ranges:
           - - 95
             - 105
@@ -39,7 +39,7 @@ simulation_variants:
         observations:
         - label: configured_distance
           patterns:
-          - Distance.*40
+          - 'Distance:'
           numeric_ranges:
           - - 35
             - 45
@@ -51,9 +51,8 @@ validator:
       required_patterns:
       - esp_timer_get_time\s*\(
       - gpio_get_level\s*\(
-      required_any_patterns:
-      - - digitalWrite\s*\(\s*9
-        - digitalWrite\s*\(\s*TRIG_PIN
+      - gpio_set_level\s*\(
+      - esp_rom_delay_us\s*\(
       forbidden_calls:
       - pinMode
       - digitalRead
@@ -78,7 +77,7 @@ validator:
       observations:
       - label: configured_distance
         patterns:
-        - Distance.*100
+        - 'Distance:'
         numeric_ranges:
         - - 95
           - 105

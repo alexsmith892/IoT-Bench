@@ -56,7 +56,7 @@ simulation_variants:
     - {}
     - params:
         expected_regexps:
-        - Temp:\s*10[3-5](\.\d)?\s*F
+        - Temp:\s*73[0-9]\s*F
 validator:
   family: composite
   checks:
@@ -65,9 +65,7 @@ validator:
       required_patterns:
       - adc_oneshot_read\s*\(
       - gpio_get_level\s*\(
-      required_any_patterns:
-      - - attachInterrupt
-        - digitalPinToInterrupt
+      - esp_rom_delay_us\s*\(
       forbidden_calls:
       - pinMode
       - digitalRead

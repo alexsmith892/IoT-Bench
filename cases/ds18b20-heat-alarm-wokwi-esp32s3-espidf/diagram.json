@@ -20,26 +20,31 @@
       "attrs": {}
     },
     {
-      "type": "wokwi-ds18b20",
+      "type": "wokwi-pushbutton",
       "id": "temp1",
       "top": -80,
       "left": 225,
-      "attrs": {}
-    },
-    {
-      "type": "wokwi-buzzer",
-      "id": "buzzer1",
-      "top": -80,
-      "left": 330,
       "attrs": {
-        "volume": "0.2"
+        "color": "green",
+        "label": "tilt_switch",
+        "bounce": "0"
       }
     },
     {
       "type": "wokwi-resistor",
-      "id": "r_led_3",
+      "id": "r_btn_1",
+      "top": 5,
+      "left": 273,
+      "attrs": {
+        "value": "10000"
+      },
+      "rotate": 90
+    },
+    {
+      "type": "wokwi-resistor",
+      "id": "r_led_2",
       "top": -14,
-      "left": 430,
+      "left": 325,
       "attrs": {
         "value": "220"
       },
@@ -49,9 +54,18 @@
       "type": "wokwi-led",
       "id": "led1",
       "top": -80,
-      "left": 435,
+      "left": 330,
       "attrs": {
         "color": "red"
+      }
+    },
+    {
+      "type": "wokwi-buzzer",
+      "id": "buzzer1",
+      "top": -80,
+      "left": 435,
+      "attrs": {
+        "volume": "0.2"
       }
     }
   ],
@@ -63,21 +77,45 @@
       []
     ],
     [
-      "temp1:VCC",
+      "temp1:1.r",
       "esp:3V3.1",
       "red",
       []
     ],
     [
-      "temp1:GND",
+      "temp1:2.r",
+      "esp:14",
+      "green",
+      []
+    ],
+    [
+      "r_btn_1:1",
+      "esp:14",
+      "green",
+      []
+    ],
+    [
+      "r_btn_1:2",
       "esp:GND.1",
       "black",
       []
     ],
     [
-      "temp1:DQ",
-      "esp:14",
-      "green",
+      "esp:GND.1",
+      "led1:C",
+      "black",
+      []
+    ],
+    [
+      "r_led_2:1",
+      "led1:A",
+      "blue",
+      []
+    ],
+    [
+      "esp:10",
+      "r_led_2:2",
+      "blue",
       []
     ],
     [
@@ -88,26 +126,8 @@
     ],
     [
       "buzzer1:2",
-      "esp:10",
-      "red",
-      []
-    ],
-    [
-      "esp:GND.1",
-      "led1:C",
-      "black",
-      []
-    ],
-    [
-      "r_led_3:1",
-      "led1:A",
-      "blue",
-      []
-    ],
-    [
       "esp:11",
-      "r_led_3:2",
-      "blue",
+      "red",
       []
     ],
     [

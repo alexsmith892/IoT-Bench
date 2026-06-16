@@ -37,13 +37,13 @@
     ],
     [
       "sonar1:TRIG",
-      "esp:43",
+      "esp:40",
       "green",
       []
     ],
     [
       "sonar1:ECHO",
-      "esp:44",
+      "esp:41",
       "green",
       []
     ]

@@ -31,16 +31,27 @@ static void i2c_write_reg(uint8_t addr, uint8_t reg, uint8_t value) {
   uint8_t data[2] = {reg, value};
   i2c_master_write_to_device(I2C_PORT, addr, data, sizeof(data), pdMS_TO_TICKS(50));
 }
+// MPU6050 default range is +/-2g => 16384 LSB/g. A "step" is a Z-axis
+// acceleration spike above ~1.5g; we re-arm once motion settles back below
+// ~1.25g so each spike is counted exactly once.
+#define SPIKE_C (24000)
+#define REARM_C (20000)
+
 void app_main(void) {
   i2c_setup();
-  i2c_write_reg(0x68, 0x6b, 0);
+  i2c_write_reg(0x68, 0x6b, 0);  // wake device
   int steps = 0;
-  int64_t last = esp_timer_get_time();
+  int armed = 1;
   while (1) {
-    (void)i2c_read_reg(0x68, 0x3b);
-    if (esp_timer_get_time() - last > 400000) {
-      last = esp_timer_get_time();
+    uint8_t hi = i2c_read_reg(0x68, 0x3f);  // ACCEL_ZOUT_H
+    uint8_t lo = i2c_read_reg(0x68, 0x40);  // ACCEL_ZOUT_L
+    int16_t az = (int16_t)((hi << 8) | lo);
+    int mag = az < 0 ? -az : az;
+    if (armed && mag > SPIKE_C) {
+      armed = 0;
       printf("Steps: %d\n", ++steps);
+    } else if (mag < REARM_C) {
+      armed = 1;
     }
     vTaskDelay(pdMS_TO_TICKS(20));
   }
