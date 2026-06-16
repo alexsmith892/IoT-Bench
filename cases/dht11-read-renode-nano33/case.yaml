@@ -1,0 +1,11 @@
+task_id: dht11_read
+case_id: dht11-read-renode-nano33
+board:
+  type: renode-arduino-nano-33-ble
+  fqbn: ''
+paths:
+  sketch: sketch/dht11_read
+  diagram: case.repl
+  build: artifacts/build
+  serial_log: artifacts/serial/serial.log
+  resc: case.resc

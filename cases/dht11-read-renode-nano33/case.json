@@ -1,0 +1,17 @@
+{
+  "id": "dht11-read-renode-nano33",
+  "task": "dht11_read",
+  "name": "Read DHT11 temperature and humidity on serial (Zephyr / Nano 33 BLE)",
+  "simulator": "renode",
+  "board": {
+    "type": "renode-arduino-nano-33-ble",
+    "fqbn": ""
+  },
+  "paths": {
+    "sketch": "sketch/dht11_read",
+    "diagram": "case.repl",
+    "build": "artifacts/build",
+    "serial_log": "artifacts/serial/serial.log",
+    "resc": "case.resc"
+  }
+}

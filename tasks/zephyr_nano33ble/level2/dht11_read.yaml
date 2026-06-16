@@ -2,9 +2,6 @@ task_id: dht11_read
 name: Read DHT11 temperature and humidity on serial (Zephyr / Nano 33 BLE)
 platform: zephyr_nano33ble
 level: level2
-support:
-  status: unsupported
-  reason: Renode DHT11 protocol model exists but is not live-validated; current runs still produce DHT11 read/checksum errors instead of serial temperature/humidity evidence.
 fixture:
   family: composite
   components:
@@ -12,6 +9,18 @@ fixture:
       id: dht1
       pins: {data: "P1.11"}
       attrs: {temperature: "24", humidity: "40"}
+simulation_variants:
+  - id: cool_dry
+  - id: warm_humid
+    attrs: {dht1: {temperature: "30", humidity: "60"}}
+    validator:
+      checks:
+        - {}
+        - params:
+            observations:
+              - label: dht11_reading
+                patterns: ["Temp(erature)?.*30", "Hum(idity)?.*60"]
+                numeric_ranges: [[28, 32], [58, 62]]
 validator:
   family: composite
   checks:
@@ -25,5 +34,5 @@ validator:
           - label: dht11_reading
             patterns: ["Temp(erature)?.*24", "Hum(idity)?.*40"]
             numeric_ranges: [[22, 26], [38, 42]]
-simulation: {timeout_ms: 2200}
+simulation: {timeout_ms: 2200, performance_mips: 8, require_distinct_variant_outputs: true}
 case: {id: dht11-read-renode-nano33, sketch_name: dht11_read}

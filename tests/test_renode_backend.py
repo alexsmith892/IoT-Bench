@@ -482,7 +482,6 @@ class CustomProtocolPartTests(unittest.TestCase):
         from bench.config import load_task
 
         for task_id, level in (
-            ("dht11_read", "level2"),
             ("dht11_read_button_display", "level3"),
             ("ds18b20_heat_alarm", "level2"),
         ):
