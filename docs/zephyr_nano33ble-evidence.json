@@ -1,0 +1,1052 @@
+{
+  "index_version": 1,
+  "summary": {
+    "platform": "zephyr_nano33ble",
+    "total": 43,
+    "present": 43,
+    "missing": 0,
+    "fresh_bc": 42,
+    "stale": 0,
+    "canonical_total": 42,
+    "canonical_fresh_bc": 41,
+    "canonical_scored_out": 1,
+    "canonical_unresolved": 0,
+    "addition_total": 1
+  },
+  "tasks": [
+    {
+      "task_id": "blink_led_1hz",
+      "platform": "zephyr_nano33ble",
+      "level": "level1",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T14:44:08.199873+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "a4a33ab0a34dff99ed82bb7d5b2a6052eb3d56e21b7ca7d9f67f9a5bb7feb015",
+        "prompt_hash": "1f35076e85890a2911c60478cb3cd83f533416eaebaeea4753fd3b9d4ab0c17d",
+        "sketch_hash": "241fd7cc03c3da7999a99956a012d2e75580b7c1834b192350b7de68865ebad7",
+        "firmware_image_hash": "9635b175f0db9fb7ddb9cb38fc72a6ebcd759f4907b2430531536f6ac62be522"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "blink_led_morse_code",
+      "platform": "zephyr_nano33ble",
+      "level": "level1",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T14:46:02.539335+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "936d16b3a605a8d929fbcecad8fdb6398aeb55a6f383cfdf5d64898385add4d3",
+        "prompt_hash": "8e7de5f2d3ba5f23ecfb29f4dee948f2154d5d47b839a2c9f2ad51c09b3d62c3",
+        "sketch_hash": "ca7fcb19391a12d925050e8b99fb3514dedc4564a0157a4aaaf0c1df0f656000",
+        "firmware_image_hash": "a408d21fd9cb21e83fecaf68fc45ee6439c90ffc10a97b4bee49b1342d4ba055"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "blink_led_no_delay",
+      "platform": "zephyr_nano33ble",
+      "level": "level1",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T14:48:57.118868+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "03d2267db779a31024b5b95e771eefe57c05f21e44e24161c1f7f16f7990b951",
+        "prompt_hash": "67bce431b3f5cc7ce798e6aa1c71cab0974c7ac6c2f270a1c2c984a45191352b",
+        "sketch_hash": "04f19531c7ac9ba8eff10de5189d06fb7afda60e548f7db058004ae177dccd4a",
+        "firmware_image_hash": "2e4fc67a7d37d709f5a52b28aa749db07ffc75b190449d183a53d8a2357ee4ae"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "blink_two_leds",
+      "platform": "zephyr_nano33ble",
+      "level": "level1",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T14:51:38.535039+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "ac41133e47c92dcfe700e30acd93e7029a9740ae2d2501d6fa841c703d806ab3",
+        "prompt_hash": "13a7359e70d03d49a32b101174db4f2a09fac3e33e0f8211fe21492f2229fc0c",
+        "sketch_hash": "20a22609c6bfe6000cd2d31266964c7bf6ee120f96908c79f6694980be820129",
+        "firmware_image_hash": "f5140c784010bd6fd5cd90b7aa192a3cca4665981ab407b007232ef01406e374"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "breathing_led",
+      "platform": "zephyr_nano33ble",
+      "level": "level1",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T14:53:15.992257+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "1b64c38412b01e9e03b2a2866bc1c508ec1c26614a535e08f9f40cea12d6fc6f",
+        "prompt_hash": "0c29e3f7e4a29c0598c3c800189231be51e47e20de50300626d79b5e32faee43",
+        "sketch_hash": "caf96079e6033d277db7d2414f3947ba00d4ed2f95f43941678443364939a04c",
+        "firmware_image_hash": "8c056a37be6d589b058f8e0212e13cfdef292861c022186a3c28d61a5560a1a5"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "button_press_debounce",
+      "platform": "zephyr_nano33ble",
+      "level": "level1",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T14:54:54.830147+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "bbefa8254182185b7d11deda2988e7eaf6c6e581971920e9c0bdd7d99af7aeac",
+        "prompt_hash": "6b4783d01ffde932e84ffc92a6b781c6dfd22829929a0ff5d1f78b05a9423531",
+        "sketch_hash": "2b222ab80d9a221f415725990fc8a8fbd787963876314767f8e7c0467b1b5aa9",
+        "firmware_image_hash": "2ee3a6aa538c0086bd942f71cc9bab6a86c5c8e2452272512d68b443d306b35c"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "button_status_count",
+      "platform": "zephyr_nano33ble",
+      "level": "level1",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T14:56:27.959954+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "93673748e6259a2445a1703af8afe0b2bc417b5373dc0ad5b9f650c473d52f5a",
+        "prompt_hash": "3e7e7d5498673ba9592b49b5f8c618a2b35bfd0080df1bd76f5dfae5bbaf1799",
+        "sketch_hash": "9dd418cbff3137a86291d1f6ad343c4c1386abe4248ebb060fa606d64fb3a060",
+        "firmware_image_hash": "cb04aff5d943cd2f9884774222eb0df6c46d1bcf96f48510bcc43a497b563013"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "button_status_display",
+      "platform": "zephyr_nano33ble",
+      "level": "level1",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T14:57:50.352673+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "bb4c5f4c77637a95b7be7bbbe16aa6a8a0608a73ce0e3ebab0f9f3970d6f7c6c",
+        "prompt_hash": "f8370271327a271240a94e1ff76f36a3ba8874900c0818bc1792032dc5355bc7",
+        "sketch_hash": "f1ae6cb200a0bfc4851747918ddab5f110fd4f4525d96e963f1812ea6f247d70",
+        "firmware_image_hash": "a16330b5117a5addd52d6b00e7763141b04be56581682f8631262fb00fad9005"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "buzzer_button",
+      "platform": "zephyr_nano33ble",
+      "level": "level1",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T14:59:22.670394+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "f267779f31a75155eb4a2a485faaf1a16095bb92703fdf9daab12166ab32fc06",
+        "prompt_hash": "7b82021ca38eaadbc6fef588bd5a2333f5ac0914ccaf5781caf82df333d6d7fb",
+        "sketch_hash": "9a7b5cee1fc09548076cf8b85328be9159150c5712fb19125d9788469325c366",
+        "firmware_image_hash": "760e4821db1518b47bd508cfd41382bf58fed15f4f55cef1d7977ce2daf4b1ca"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "buzzer_doorbell",
+      "platform": "zephyr_nano33ble",
+      "level": "level1",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:02:16.173918+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "48bf8b4bb2a90f1e342eff4231f9e07bd21277fb7bc1a7ae16f0d59ef24b2933",
+        "prompt_hash": "4287711e505d5809f74aaa7e3ea3e7dc4df2e31971061a5c333077b78dc7338a",
+        "sketch_hash": "4a4350bdf76a742f800bf8f6eb24caa5d2cabafda0266804673d50ad8676571f",
+        "firmware_image_hash": "6c91c1a199424d0b61c0306c9b4f3348161d7fe18880f696d83399e2b14abed3"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "sensor_pir_human_motion",
+      "platform": "zephyr_nano33ble",
+      "level": "level1",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:04:42.522276+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "bfe765389ec31a516a1d6b0b0c2bba062c01025eff2cc4fe408125862edc5604",
+        "prompt_hash": "2e5bd6cf09e71804aee9ba108b4743aace139698e822714e5fdee6fdfe8124f5",
+        "sketch_hash": "93364e6b778a976f120ec202090d724d6a228ebba2e4cbde5a8a994f86d74d57",
+        "firmware_image_hash": "add322941ae298b86767a6445a9367b09c37cda4b075336ca31582ba6fd2330f"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "tmp36_read",
+      "platform": "zephyr_nano33ble",
+      "level": "level1",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:06:15.498410+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "63c644b4f6d303ed0e85b5330aa1b1564082e4d6307d6a3e8efe30f242b19fa8",
+        "prompt_hash": "da2dcc8f67fe226aa9cf6087ef5c968b8b9ec6c5be821622c5dc8279463631ce",
+        "sketch_hash": "0c6cb8272bd4979e02eaa810fe44bf409d55a0e81b3f5cdaa0c9a006a02ac882",
+        "firmware_image_hash": "aefd7c064492bf1c83d1660dc66bb8bfaa7ec4d458cb0768c7a89cbf0c8ce1a9"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "16key_keypad",
+      "platform": "zephyr_nano33ble",
+      "level": "level2",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:10:18.937911+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "5e95cc1abb586fb7a1300df1c07c9c4f3fb38d76ecd5811f7aa96e88ade858fe",
+        "prompt_hash": "086fd9c9c63e143738acb98e7c6420ac08a896ad94523ffc7dd44994bcd91e9d",
+        "sketch_hash": "422ed889c4d5fc1d22c99085b67279f93cc215008316d1d6434674cd4a6fd9b8",
+        "firmware_image_hash": "a0a39e95682c202406532d256e644cc1a1a9778ddead3acc5aba8480f6cde38c"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "bme280_read_i2c",
+      "platform": "zephyr_nano33ble",
+      "level": "level2",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:11:49.484956+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "8f9a59ef4e18c96dac24c4bd2ce67dcd9629c50ed51d6e8fd9e878ae151248db",
+        "prompt_hash": "cf7994c7ff45081ae08232e61302bc0b0256c1c926c798cbde7d8a72ac8fec16",
+        "sketch_hash": "62dcaa6d374808a08d274246ed127180c52d7d1497a7d8807055415584db056c",
+        "firmware_image_hash": "8787dc0e848f8e8ff718bc1cf2f6b7309586c6042a72e9e8df855f740241497b"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "bme280_read_spi",
+      "platform": "zephyr_nano33ble",
+      "level": "level2",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:13:27.673912+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "4eada541876b90fa39ac03172230dcbc9cd7ed564880d240e39bdbdf6597555f",
+        "prompt_hash": "c70f1f010c3a88b3109797385a2d5dd2add79c49a67dee09de9ee67c57d8e0d2",
+        "sketch_hash": "473a91d62e6ee10b2eb40f953ed3271d11f201c9506cb692a2d69403cdff5ee8",
+        "firmware_image_hash": "32ba300afe87ea070a17e98ce7ac7a87fbd74c9d2c56730d1946ec94f622e253"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "clap_switch",
+      "platform": "zephyr_nano33ble",
+      "level": "level2",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:14:49.934559+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "4634f2625fc7e253c1a3af8be63969e2b0d2ef80382178c1d8d78a30a0871abf",
+        "prompt_hash": "9115e37c638ed8e4aa992fe39e5b0e35cdcb52b3f78f8ceb11480c2aa94e3e0f",
+        "sketch_hash": "1cb0ed69d0f478927005cd28ee5d578596c497abd5777fbcf575798887dc9a97",
+        "firmware_image_hash": "5e0fa3686b7cb9ede3c49b8c3d48a517436d203cc62ec98aef2d8b08c4535ae3"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "dht11_read",
+      "platform": "zephyr_nano33ble",
+      "level": "level2",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:16:19.426112+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "2f62d5f774e7c52b14622cf6998474b80790a02dd2ea518c021630bb5861ed61",
+        "prompt_hash": "cc9ace279f2263e33134d5e244e967af99ae14acca5191298a03c86d57bd98c8",
+        "sketch_hash": "dce15021db27cdd8194763ec8c722706c017216c2c6560c5d45b4c2b30dc20e5",
+        "firmware_image_hash": "35f3a5743e2b960339e9c61074681d48281612a18b2f7535611e07d12635d9f4"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "ds1307_rtc",
+      "platform": "zephyr_nano33ble",
+      "level": "level2",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:18:08.382324+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "3493d3d96f1f6e6cdc6b97e01171038e6a8f4e6c8c4ee331a3acf600e31c83c0",
+        "prompt_hash": "0ac732ba2ba1fabc3ab90659a7473aa2330cafb35313312d2e3d089f539752a4",
+        "sketch_hash": "1262a6f524c873cb48bc4362121f2297485f3a4189bad8f6ff23aae152914e42",
+        "firmware_image_hash": "cd9e67e4b64c74b69cf95f648c67014bfd1221edb5506d7df0bfbd2ee3c8311d"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "ds18b20_heat_alarm",
+      "platform": "zephyr_nano33ble",
+      "level": "level2",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:20:02.920543+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "c6f67e3b0e5c1dc0d278d24110f060da6b408f12a5c34a6e09a19316b8f145a1",
+        "prompt_hash": "d58557da8b5ef64c892af28485796c149238cc685128748019720cd543de06d0",
+        "sketch_hash": "263ea7814ed4f9e57546082916a6881b9486138fb7fdb43df5faa56d004984fc",
+        "firmware_image_hash": "5d240e60d0226b9b440ac3a20d5590866acc3557e0a54d1c8990ae60bf608686"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "hcsr04_find_distance",
+      "platform": "zephyr_nano33ble",
+      "level": "level2",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:21:47.068658+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "5dc08db6f1d9d24aea0e99cd695b751832dfd4e5545b05849e4b3d09f012b242",
+        "prompt_hash": "c6cdb903e864ca7c14507fd3838ce29dc4d24e314993c7c33e8b527ade90fa7b",
+        "sketch_hash": "e231dd1b1e57b456afe1344c32fd2adce991cb316b21050560200671ea46a63d",
+        "firmware_image_hash": "1716f498146f585298f490689af567f1946693356f7426942af1cdf8dc227baa"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "hcsr501_motion_alarm",
+      "platform": "zephyr_nano33ble",
+      "level": "level2",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:23:21.348771+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "8517c29fc6a24e58772cf54dd60155a54aa5276b141f9385dd60e6b456a7d60e",
+        "prompt_hash": "4e720d3bcc81a8ea52a5feaf0a1195927503661e41f1026298da3b1c331639ea",
+        "sketch_hash": "902b6495c49712422e08ffbc853cc21b3a92b0b85372673d9af45fc026b3bf66",
+        "firmware_image_hash": "7e05a0cd63fe3a0c32a2a866f9337e55e3362411588f121907f6e578dfd9ec19"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "lcd1602_display_hello_world",
+      "platform": "zephyr_nano33ble",
+      "level": "level2",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:24:52.033049+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "8cecaf5287f71213d29760ac3b6cf4384b5db68fa6e6c466242be4bfa81c5dcb",
+        "prompt_hash": "f3ad1a2c279e68355d05f3eee5c9d8c68bac33073e3c2a68c9bb9586131a906e",
+        "sketch_hash": "25a05b4061e49e50c751c8834182605645ca7d6c372b03d2dcac72faa7980982",
+        "firmware_image_hash": "18bdbe0f25ddd561cab8d9aa48f77cac6bdd378e2cf3987ed169b1058fc55783"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "lsm9ds1_read_i2c",
+      "platform": "zephyr_nano33ble",
+      "level": "level2",
+      "canonical": false,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:26:31.408916+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "9fa81b1235925b96ec581b84c4a4545e6cc0f0be9d347328685b303defecf99d",
+        "prompt_hash": "49c36f937c8b594a53f9a3281ea4bc7c167a9d07bdca2e5030f7bcc2f547a334",
+        "sketch_hash": "1b473d66340c00f3f7a9897a8b3bac1fdccb9e41f75e6f40711673c87cd1a2dc",
+        "firmware_image_hash": "a964f3328d8c9e9c9de0dc7ae06fa644bba58e0626f4503d27a8ad6df81a8ef3"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "mpu6050_read_i2c",
+      "platform": "zephyr_nano33ble",
+      "level": "level2",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:28:09.313090+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "18c236a172eaea66e95e6231ef783261925626d64b733fba2a4a6d2b67c6f6e4",
+        "prompt_hash": "8d9ccee3ed3c679e5aa795621139908ecfcc0e6ece784a7c09eece491367a8c9",
+        "sketch_hash": "493f5bcb67f06285b63be5217069bf38d624d52d419ee87eeb96ae0cc9c49804",
+        "firmware_image_hash": "8e50671561d3b99acf450e2d9b277ce49860ee8061df3b4e5f3b6998f5bbe375"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "parking_sensor",
+      "platform": "zephyr_nano33ble",
+      "level": "level2",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:30:01.199137+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "c4810b815097271d321f0705a4efb1816eea9c16f4a4e4e8b49e913dd71d4db0",
+        "prompt_hash": "744069bfdcc5932274e9b6b64714c843657aaa590f4e55c9943b511f376b5470",
+        "sketch_hash": "2feb82edc1672d2c76e7e182fd5050ed0301c5a40555cd83c4d6cf9ed0360008",
+        "firmware_image_hash": "a68faaa51814b7080f60c65938f83358610eb172e2d53ff587d24b33c2f2063a"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "photoresistor_nightlight",
+      "platform": "zephyr_nano33ble",
+      "level": "level2",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:31:32.904114+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "8fc0a525c753fdb55f68bb1324cf08ab4dcd356b832b76e0fe124026ce4e3416",
+        "prompt_hash": "4b20b439d0e1fa678a273e2c31cfa0f2cec6d6018be9af6170859e90b22271c9",
+        "sketch_hash": "765b28d9af1a643d7c5eedc92f945b24088edb5ea2cdd254aaf8aa4bb1632cb7",
+        "firmware_image_hash": "62a33240c2736e078b7c2567f09be08beea55c774c275aaa9eabde14d228b96c"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "reverse_parking_sensor",
+      "platform": "zephyr_nano33ble",
+      "level": "level2",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:33:07.537362+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "35e47f1301f401fb9f47be1f77e15a22fde4d6cc8c8fc6b0ca8ff05dde614915",
+        "prompt_hash": "48b561653603bf807db34bcbe3728e22f860a1f129249bc808b61e4ab709f329",
+        "sketch_hash": "ded645347421c470a0d5c8309c43ed6d12bd9c174f5d5db93f0e80e24af2a8bc",
+        "firmware_image_hash": "424b2dc49995f22c43a7db404b2602ab88553e376950159c2aa482a949410bbb"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "rotary_encoder",
+      "platform": "zephyr_nano33ble",
+      "level": "level2",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:34:44.228667+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "7ea2fb1deb1edeeaab4e922b4d489b33e80a0951cb932e3d5034e19ce8502bba",
+        "prompt_hash": "51c8694a14aae26677973b0c7e4591d5cbe33a3f8340917548bfcd2abd82a7ef",
+        "sketch_hash": "4570f5c3ecfd4d3806ef62a06894d9e08ec90041bd7d352ccf9c66b17ef64c16",
+        "firmware_image_hash": "858ab01d388fc4b88d97d671e08b0df20b56ce80a11da7b4d27e01d5cb68cccb"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "tilt_detection_alarm",
+      "platform": "zephyr_nano33ble",
+      "level": "level2",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:36:20.558586+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "858ff2c7cfed7652f67e3e0419d250ca8dcd2a97b23304e20d05890526ea088d",
+        "prompt_hash": "b8b88301dde19dba1ceccd33b418eff2d76f5c2eaa037268d2b7bcacc3d13f13",
+        "sketch_hash": "2a452147b704d2814a0c6904a999e9eb8c1b751d957787afc7fe819530947f65",
+        "firmware_image_hash": "7e05a0cd63fe3a0c32a2a866f9337e55e3362411588f121907f6e578dfd9ec19"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "buzzer_laser_tripwire",
+      "platform": "zephyr_nano33ble",
+      "level": "level3",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:38:16.024799+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "4685aec421014be704a3638b35a33eaec38f2ee597caf5094123739a29829517",
+        "prompt_hash": "aa96f28a388ace4663b7b18b0a96123700f37e9b05840572094692961aa509de",
+        "sketch_hash": "077fb526bd00333bd3ba5cc14f41afb26b2da256a18ce05919daed65b574b103",
+        "firmware_image_hash": "83a352e7cbe1e302c48e051e6fd27284598e0119956ae4b9b0877256589875e1"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "buzzer_toggle_led_freq",
+      "platform": "zephyr_nano33ble",
+      "level": "level3",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:39:47.682158+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "50b055ab4928191cf296d9ffa499841a124428d167cda760208e26f52449a66e",
+        "prompt_hash": "5e54640dfe6dfed11aff235f181ff84481db7eaba3e9d172f00cb2368c1b6b31",
+        "sketch_hash": "1d05970f8e52c35a87a07312f863e236746c33398ce43ecb65d11120e4d7006b",
+        "firmware_image_hash": "378a58ae37d6e0f2a17eea3da645c6e9c8535e6dd5387309d5ee394a787c4443"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "dht11_read_button_display",
+      "platform": "zephyr_nano33ble",
+      "level": "level3",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:41:35.042429+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "f3680684ffddc14594df129e81a662cdcfe451f9661cc0549e7f2f4cef5fe1ee",
+        "prompt_hash": "943eeb115b15b78303dd7b650093997968db4707dab1b27c22953703d9b0cf1b",
+        "sketch_hash": "4afc0e0365cb9a0cdc9a39d019cccb4a13aa1555f64cbbdc3e1a2bffc5315c72",
+        "firmware_image_hash": "91f1f10debb6ac521b71106117d3ebdfc8769c50abe86fafae2211230df78f38"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "joystick_buzzer_pitch",
+      "platform": "zephyr_nano33ble",
+      "level": "level3",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:43:06.673744+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "0cd4c57a67023454d4b1e3f341dbe1a794eb08a8bb065a5730dd0eb2af797b4e",
+        "prompt_hash": "8cd6b806bd9c004326ecb61443e28247034828acc02b0fdd0d3717e2c542769b",
+        "sketch_hash": "42c6df71a3efce02437970b87b13dc4986dc3cc479ca3cb3ba32b220685ed828",
+        "firmware_image_hash": "4e94d5b79b625eaa51babb0640009a524b9f6667ab23dc1c3b797c0b672c0354"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "lcd1602_auto_brightness_control",
+      "platform": "zephyr_nano33ble",
+      "level": "level3",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:44:36.361130+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "f44b760f005af492f5d672e3130242c03bccd71658cc7c7b6f9085c70bdfbd1f",
+        "prompt_hash": "65fa68d1efb2b4439e7bba39304544c30217a5205fbd7b2a49e18a3291cc507b",
+        "sketch_hash": "8872bdbd599f469e88ba3e8b93b1ddbbb7516a2ae904f21283c7063ae5e385cd",
+        "firmware_image_hash": "430e07033dd11c3ebe5963646fcbe7641e089b848b141068fdf76102146357ab"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "mpu6050_read_button_display",
+      "platform": "zephyr_nano33ble",
+      "level": "level3",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:46:05.754082+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "714d38320277e154a00a04e3032f5d7564be33a914fe6f1cf3d309368c20fd62",
+        "prompt_hash": "9677f439bdd3fb3453e2e84e0ff1ec8c16243892666399a970dfec9a16f48026",
+        "sketch_hash": "0b9c55e2e3a8ad664f5fc14bda79a02b4355dba7b6d32c898d8f42edc0003ffb",
+        "firmware_image_hash": "863ae2c8358d10b341c556a8d03e507fe98d90e437018a78147486718940eede"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "mpu6050_read_periodic_display",
+      "platform": "zephyr_nano33ble",
+      "level": "level3",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:47:33.535179+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "68de9564ac9e7af359e0a27473ecd7d82170e1cd6c86a19a29ea186e62c41089",
+        "prompt_hash": "e240afd3effe9d4f786195dfaacb69a27f3001ace43f2df9057b2564519ef25f",
+        "sketch_hash": "70cdcee1a30cac4d32c090194d08c4edb024a1b60821c0c78b43b9a6523d2c19",
+        "firmware_image_hash": "bf7bba2da73fffd103a4247728bf03f35721cd17faeb4c9b4f6320275e75ade3"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "reaction_timer_display",
+      "platform": "zephyr_nano33ble",
+      "level": "level3",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:48:53.748695+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "396cf3495150157d4d3df12f6e6946254984825e6630c4884c0411c50f0f3d70",
+        "prompt_hash": "142812953de8d0d55f26426fbd33be66080733f24a572b4fdb6c0ac7bead55f8",
+        "sketch_hash": "ff9bdf02ec2aec85fffa84953ea67b453bf24be198a3f6d7f35daff085cdd0c7",
+        "firmware_image_hash": "32d03a0dfd98a91ea9459d18327f2c28f45efd2d18646368265bf48ec7b5b4ac"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "safebox",
+      "platform": "zephyr_nano33ble",
+      "level": "level3",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:50:20.534491+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "2aa20116c9f0a5dc91f141d1c8e26c1de7d7d14cecfc51efe1f9835da1ff3388",
+        "prompt_hash": "a9e2c3704f750a2e4b26fc4cd22c5876d6b1c6044b25521618898a7d25ded2e0",
+        "sketch_hash": "e09d6e4e765bd7eaa215169b14dc9aba17b2687a75618f8c538a559be756234d",
+        "firmware_image_hash": "3b33eb9e5455575173f8b7a9e66fa4f619064637849ed527f89a974490a02d9e"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "safebox_display",
+      "platform": "zephyr_nano33ble",
+      "level": "level3",
+      "canonical": true,
+      "scored_out": true,
+      "scored_out_reason": "Renode nRF GPIO connection-init limitation: the first matrix-keypad column the model drives does not present its idle-high level to the wired pin until that output's value first changes (~200 ms in, after the first keypress), so the boot keypad scan reads a phantom-pressed first column and the entered code is corrupted. Verified intractable across pin reassignment, output-index offset, and sacrificial first-column connections. Keypad behavior is still covered by 16key_keypad and safebox, both live-verified BC.",
+      "evidence": "present",
+      "result": "BF",
+      "classification": "FAIL",
+      "timestamp": "2026-06-17T18:37:46.417070+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "fb8d2df4b6f2eb7c6c1b2022d96355cffdfcfb205184a428fbdd2d9e016bbd5f",
+        "prompt_hash": "e62bf520c02a453ae14859fe327e2a1e2992ab3d8759e86e82133715a26449f2",
+        "sketch_hash": "1c1e27a901b04ab470302e837bbb7b17da7dfd110926f55d2e93f9ce4978735c",
+        "firmware_image_hash": "7ab4d52a50532a647288cbdd8c406daae72177cb4a2be3b026fc3c713377bc62"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "sensor_water_level_display",
+      "platform": "zephyr_nano33ble",
+      "level": "level3",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:53:18.410844+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "41499db9cd0b21e5352ba2096899480b3bc98a3f03fff77b0bf9055f22b08e0a",
+        "prompt_hash": "aac8ddd65f3fcfa20f4e823b36a7198cd4bcb97266116db8237ed4eef744f0b7",
+        "sketch_hash": "4063134f51ecbf97ba7ae262bd02910e6db95dd2410a12f89fd1823666b310b8",
+        "firmware_image_hash": "76b5e4a77d9c23d7b309242a5b253fddca0d29d2758f0c03590da9f0c3877d6d"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "step_counter_print",
+      "platform": "zephyr_nano33ble",
+      "level": "level3",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:55:01.581339+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "1a083ca638289b5fd7d339637ed0f65afcf39a220085c5bdc069c2dcb0a45165",
+        "prompt_hash": "c9dadb27bd9d985432404fc3f7e0205884ebeffe558a88423afff4ba86ffed68",
+        "sketch_hash": "80014af84331f9c6c7a18a112edc581b6e80b955a3720a86452f00efdd5f6219",
+        "firmware_image_hash": "a50ecafcec67a12701e87b4a012cfca056d071c8a14fc8f59bbc880767bba963"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "tmp36_read_button_display",
+      "platform": "zephyr_nano33ble",
+      "level": "level3",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:56:31.997821+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "29baeee5efc5e13d64a489ada8745a5a9e508dff5d26984d8fc4af0f9ebcd9a9",
+        "prompt_hash": "0fb9a8e08bcef53761b0eb18100343c9754a45297bd461b69e3b3ce197646e0d",
+        "sketch_hash": "8efab8d196e0c617d53bc80a6d0dc7976b87e5d63dca316ffad16c17944cd8b7",
+        "firmware_image_hash": "ab7463e3958980efc6c453c9ca1a17f418cb509f4a5dca568920ddee54284c8a"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    },
+    {
+      "task_id": "tmp36_read_periodic_display",
+      "platform": "zephyr_nano33ble",
+      "level": "level3",
+      "canonical": true,
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T15:58:14.515325+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": false,
+      "hashes": {
+        "task_hash": "8f2d4f212f4a778b0fd3174355b081ace923d621583e24a039b341d984cc382a",
+        "prompt_hash": "267c78f4a8150089a54a453ce4e4daa85b824b65f215972345a6228b27e1c376",
+        "sketch_hash": "2ef546307c3d54f1b76774e9c19e942eb89529241cb0d9663868d54727c3f294",
+        "firmware_image_hash": "41b47284f845d951d5a1ff2f22043ee62eace4a6d4ce7e3f8f3487d1a2f3342c"
+      },
+      "tool_versions": {
+        "renode": "Renode v1.16.1.19220",
+        "west": "West version: v1.5.0",
+        "zephyr": "c49b758d87914e185ff611e93473bf8ec84a378a"
+      }
+    }
+  ]
+}

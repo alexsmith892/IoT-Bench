@@ -22,7 +22,12 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .config import TaskConfig, canonical_task_ids, iter_platform_tasks
+from .config import (
+    TaskConfig,
+    canonical_task_ids,
+    iter_platform_tasks,
+    scored_out_task_ids,
+)
 from .runner import (
     benchmark_harness_hash,
     case_dir_for_task,
@@ -59,7 +64,10 @@ def evidence_stale_reasons(
 
 
 def evidence_entry(
-    task: TaskConfig, *, canonical_ids: set[str] | None = None
+    task: TaskConfig,
+    *,
+    canonical_ids: set[str] | None = None,
+    scored_out: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     entry: dict[str, Any] = {
         "task_id": task.task_id,
@@ -71,6 +79,9 @@ def evidence_entry(
     # index stays byte-identical to before this split was introduced.
     if canonical_ids is not None:
         entry["canonical"] = task.task_id in canonical_ids
+    if scored_out and task.task_id in scored_out:
+        entry["scored_out"] = True
+        entry["scored_out_reason"] = scored_out[task.task_id]
     if not task.is_supported:
         entry["evidence"] = "unsupported"
         entry["fresh"] = False
@@ -139,7 +150,11 @@ def build_evidence_index(platform: str, *, level: str = "all") -> dict[str, Any]
     if level != "all":
         tasks = [t for t in tasks if t.level == level]
     canonical_ids = canonical_task_ids(platform)
-    entries = [evidence_entry(task, canonical_ids=canonical_ids) for task in tasks]
+    scored_out = scored_out_task_ids(platform)
+    entries = [
+        evidence_entry(task, canonical_ids=canonical_ids, scored_out=scored_out)
+        for task in tasks
+    ]
 
     def count(pred) -> int:
         return sum(1 for entry in entries if pred(entry))
@@ -155,11 +170,21 @@ def build_evidence_index(platform: str, *, level: str = "all") -> dict[str, Any]
     # Canonical/addition split (D4): only emitted for platforms that have a
     # canonical manifest, so non-canonical platforms keep their prior summary
     # shape. fresh_bc above counts all tasks; canonical_fresh_bc is the
-    # leaderboard-relevant subset.
+    # leaderboard-relevant subset. A scored-out canonical task is "resolved"
+    # without being BC (documented simulator limitation), so the readiness gate
+    # is canonical_unresolved == 0, NOT canonical_fresh_bc == canonical_total.
     if canonical_ids is not None:
         summary["canonical_total"] = count(lambda e: e.get("canonical"))
         summary["canonical_fresh_bc"] = count(
             lambda e: e.get("canonical") and e.get("fresh") and e.get("result") == "BC"
+        )
+        summary["canonical_scored_out"] = count(
+            lambda e: e.get("canonical") and e.get("scored_out")
+        )
+        summary["canonical_unresolved"] = count(
+            lambda e: e.get("canonical")
+            and not e.get("scored_out")
+            and not (e.get("fresh") and e.get("result") == "BC")
         )
         summary["addition_total"] = count(lambda e: not e.get("canonical"))
     return {

@@ -26,7 +26,7 @@ import json
 import unittest
 from pathlib import Path
 
-from bench.config import iter_tasks
+from bench.config import iter_tasks, scored_out_task_ids
 
 PLATFORM = "zephyr_nano33ble"
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "upstream_zephyr_tasks.json"
@@ -114,6 +114,43 @@ class CanonicalTaskSetTests(unittest.TestCase):
             KNOWN_EXTRA & canonical,
             f"KNOWN_EXTRA lists tasks that are actually canonical: {sorted(KNOWN_EXTRA & canonical)}",
         )
+
+
+class ScoredOutTaskTests(unittest.TestCase):
+    """Pin the explicit, documented leaderboard scoring exclusions.
+
+    A scored-out canonical task builds and runs but cannot reach BC under the
+    current simulator because of a documented model-fidelity limitation, so it
+    is excluded from scoring (``canonical_unresolved`` in the evidence index)
+    rather than counted as a failure. Every such exclusion must be deliberate:
+    canonical, present, supported, and carry a non-empty reason.
+    """
+
+    def test_scored_out_tasks_are_canonical_present_and_explained(self) -> None:
+        scored_out = scored_out_task_ids(PLATFORM)
+        canonical = _canonical_ids()
+        covered = _covered_ids()
+        for task_id, reason in scored_out.items():
+            self.assertIn(
+                task_id,
+                canonical,
+                f"scored-out task {task_id!r} is not canonical (score it out only "
+                "for canonical tasks; additions are handled via KNOWN_EXTRA)",
+            )
+            self.assertIn(
+                task_id,
+                covered,
+                f"scored-out task {task_id!r} is not present/supported locally",
+            )
+            self.assertTrue(
+                reason and reason.strip(),
+                f"scored-out task {task_id!r} must document why it is excluded",
+            )
+
+    def test_safebox_display_is_scored_out(self) -> None:
+        # Pins the known Renode keypad GPIO-init limitation exclusion so a future
+        # change that silently re-includes or drops it trips this gate.
+        self.assertIn("safebox_display", scored_out_task_ids(PLATFORM))
 
 
 if __name__ == "__main__":
