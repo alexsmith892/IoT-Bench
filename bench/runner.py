@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
+import time
 import hashlib
 from copy import deepcopy
 from dataclasses import dataclass, replace
@@ -908,13 +911,71 @@ def build_case(
 
     clean_build_dir(paths)
 
-    if task.board_profile.build_kind == "espidf":
-        build_espidf_case(task, paths, idf_py=idf_py)
-    elif task.board_profile.build_kind == "zephyr":
-        build_zephyr_case(task, paths, west=west)
-    else:
-        build_arduino_case(paths, arduino_cli=arduino_cli)
+    with build_lock():
+        if task.board_profile.build_kind == "espidf":
+            build_espidf_case(task, paths, idf_py=idf_py)
+        elif task.board_profile.build_kind == "zephyr":
+            build_zephyr_case(task, paths, west=west)
+        else:
+            build_arduino_case(paths, arduino_cli=arduino_cli)
     ensure_firmware_outputs(paths)
+
+
+@contextlib.contextmanager
+def build_lock():
+    """Optional cross-process serialization of the heavy compile step.
+
+    Off by default. When ``IOTBENCH_BUILD_LOCK`` names a lock file, only one
+    builder holds it at a time, so concurrent harness processes on one host don't
+    saturate cores and inflate build times. (Saturation already resolves to IF,
+    not CF, after the timeout fix, so this only reduces retry churn at
+    leaderboard scale.) It falls through after
+    ``IOTBENCH_BUILD_LOCK_TIMEOUT_S`` (default 600s) rather than deadlocking, and
+    steals a lock left behind by a dead process.
+    """
+
+    lock_path = os.environ.get("IOTBENCH_BUILD_LOCK")
+    if not lock_path:
+        yield
+        return
+
+    path = Path(lock_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        timeout = float(os.environ.get("IOTBENCH_BUILD_LOCK_TIMEOUT_S", "600"))
+    except ValueError:
+        timeout = 600.0
+    if timeout <= 0:
+        timeout = 600.0
+
+    acquired = False
+    deadline = time.monotonic() + timeout
+    while True:
+        try:
+            fd = os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(fd, f"{os.getpid()} {time.time()}\n".encode())
+            os.close(fd)
+            acquired = True
+            break
+        except FileExistsError:
+            try:
+                if time.time() - path.stat().st_mtime > timeout:
+                    path.unlink()  # steal a lock from a dead/stuck builder
+                    continue
+            except OSError:
+                pass
+            if time.monotonic() >= deadline:
+                break  # proceed unlocked rather than block the build forever
+            time.sleep(0.5)
+
+    try:
+        yield
+    finally:
+        if acquired:
+            try:
+                path.unlink()
+            except OSError:
+                pass
 
 
 def build_arduino_case(paths: CasePaths, *, arduino_cli: str) -> None:
@@ -940,6 +1001,28 @@ def build_arduino_case(paths: CasePaths, *, arduino_cli: str) -> None:
     )
 
 
+DEFAULT_ESPIDF_BUILD_TIMEOUT_S = 300.0
+
+
+def espidf_build_timeout_s() -> float:
+    """ESP-IDF build wall-clock timeout, overridable for slow/loaded hosts.
+
+    A timeout is classified as infra (-> IF, retryable), so the only effect of a
+    too-tight value is wasted retries, not a model being charged CF. Loaded build
+    hosts can raise IOTBENCH_ESPIDF_BUILD_TIMEOUT_S to avoid IF churn; a bad or
+    non-positive value falls back to the default.
+    """
+
+    raw = os.environ.get("IOTBENCH_ESPIDF_BUILD_TIMEOUT_S")
+    if not raw:
+        return DEFAULT_ESPIDF_BUILD_TIMEOUT_S
+    try:
+        value = float(raw)
+    except ValueError:
+        return DEFAULT_ESPIDF_BUILD_TIMEOUT_S
+    return value if value > 0 else DEFAULT_ESPIDF_BUILD_TIMEOUT_S
+
+
 def build_espidf_case(task: TaskConfig, paths: CasePaths, *, idf_py: str) -> None:
     reset_espidf_sdkconfig(paths.sketch)
     target = task.board_profile.idf_target
@@ -959,7 +1042,7 @@ def build_espidf_case(task: TaskConfig, paths: CasePaths, *, idf_py: str) -> Non
         command,
         cwd=paths.case_dir,
         stage="compile",
-        timeout_s=300.0,
+        timeout_s=espidf_build_timeout_s(),
         command_failure_classification=COMPILE_FAIL,
         command_failure_stage=STAGE_COMPILE,
         infra_failure_classification=SIM_INFRA_FAIL,
@@ -1706,11 +1789,15 @@ def run_checked(
             failure_source=infra_failure_source,
         ) from exc
     except subprocess.TimeoutExpired as exc:
+        # A wall-clock timeout is an infrastructure signal (machine saturation,
+        # a hung tool), never reliable proof that the submission's own source
+        # failed to compile. Always classify it as infra (-> IF, retryable) so a
+        # slow/loaded build host can't be charged to the model as CF.
         raise BuildSimulationError(
             f"{stage} timed out after {timeout_s:.1f}s",
-            classification=command_failure_classification,
-            failure_stage=command_failure_stage,
-            failure_source=command_failure_source,
+            classification=infra_failure_classification,
+            failure_stage=infra_failure_stage,
+            failure_source=infra_failure_source,
         ) from exc
     except OSError as exc:
         raise BuildSimulationError(

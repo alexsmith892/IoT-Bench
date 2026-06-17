@@ -51,6 +51,6 @@ void app_main(void) {
       led = !led;
       gpio_set_level(LED_PIN, led);
     }
-    vTaskDelay(pdMS_TO_TICKS(1));
+    vTaskDelay(pdMS_TO_TICKS(10));
   }
 }

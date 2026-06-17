@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -7,8 +8,20 @@ from unittest.mock import patch
 
 from bench.cli import build_single_task, run_single_task
 from bench.config import VALIDATOR_FAMILIES, load_task
-from bench.results import RESULT_BC, RESULT_BF, RESULT_CF, RESULT_IF
-from bench.runner import generate_case
+from bench.results import (
+    RESULT_BC,
+    RESULT_BF,
+    RESULT_BY_CLASSIFICATION,
+    RESULT_CF,
+    RESULT_IF,
+    COMPILE_FAIL,
+    SIM_INFRA_FAIL,
+    SOURCE_ENVIRONMENT,
+    SOURCE_USER_CODE,
+    STAGE_COMPILE,
+    STAGE_SIM_INFRA,
+)
+from bench.runner import BuildSimulationError, generate_case, run_checked
 from bench.validators import validate_task
 
 from tests.runner_outcome_cases.helpers import (
@@ -139,6 +152,66 @@ class RunnerOutcomeMatrixTests(unittest.TestCase):
 
         assert_payload_result(self, payload, RESULT_IF)
         self.assertNotIn(payload["result"], {RESULT_CF, RESULT_BF}, payload)
+
+    def test_build_timeout_is_if_not_cf_through_public_espidf_build_path(self):
+        # A compile-stage wall-clock timeout is infrastructure (machine
+        # saturation / hung tool), never proof the model's source failed to
+        # compile. It must surface as IF (retryable), not CF charged to the model.
+        with tempfile.TemporaryDirectory() as tmp:
+            task = load_task("blink_led_1hz", platform="esp32s3_espidf", level="level1")
+            paths = generate_case(task, root=Path(tmp))
+            timeout = subprocess.TimeoutExpired(cmd=["idf.py", "build"], timeout=300.0)
+
+            with patch("bench.runner.subprocess.run", side_effect=timeout):
+                payload = build_single_task(
+                    task,
+                    case_dir=paths.case_dir,
+                    sketch_override=None,
+                    regenerate=False,
+                    arduino_cli="arduino-cli",
+                    idf_py="idf.py",
+                )
+
+        assert_payload_result(self, payload, RESULT_IF)
+        self.assertNotIn(payload["result"], {RESULT_CF, RESULT_BF}, payload)
+
+    def test_run_checked_timeout_maps_to_infra_even_for_compile_stage(self):
+        # Pins the shared helper directly with the compile-stage param set used by
+        # build_espidf_case and the Zephyr compile step: a timeout there must map
+        # to the infra classification (-> IF), not COMPILE_FAIL (-> CF).
+        timeout = subprocess.TimeoutExpired(cmd=["west", "build"], timeout=600.0)
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "bench.runner.subprocess.run", side_effect=timeout
+        ):
+            with self.assertRaises(BuildSimulationError) as ctx:
+                run_checked(
+                    ["west", "build"],
+                    cwd=Path(tmp),
+                    stage="zephyr compile",
+                    timeout_s=600.0,
+                    command_failure_classification=COMPILE_FAIL,
+                    command_failure_stage=STAGE_COMPILE,
+                    infra_failure_classification=SIM_INFRA_FAIL,
+                    infra_failure_stage=STAGE_SIM_INFRA,
+                    command_failure_source=SOURCE_USER_CODE,
+                    infra_failure_source=SOURCE_ENVIRONMENT,
+                )
+
+        err = ctx.exception
+        self.assertEqual(err.classification, SIM_INFRA_FAIL, err)
+        self.assertEqual(err.failure_source, SOURCE_ENVIRONMENT, err)
+        self.assertEqual(RESULT_BY_CLASSIFICATION[err.classification], RESULT_IF)
+
+    def test_espidf_build_timeout_is_env_configurable_with_safe_fallback(self):
+        from bench.runner import DEFAULT_ESPIDF_BUILD_TIMEOUT_S, espidf_build_timeout_s
+
+        env = "IOTBENCH_ESPIDF_BUILD_TIMEOUT_S"
+        with patch.dict("os.environ", {}, clear=False):
+            for bad in ("", "not-a-number", "0", "-5"):
+                with patch.dict("os.environ", {env: bad}):
+                    self.assertEqual(espidf_build_timeout_s(), DEFAULT_ESPIDF_BUILD_TIMEOUT_S)
+            with patch.dict("os.environ", {env: "900"}):
+                self.assertEqual(espidf_build_timeout_s(), 900.0)
 
 
 def payload_for(root: Path, family: str, validator: dict, *, sketch: Path | None = None, serial: Path | None = None, vcd: Path | None = None, static_checks: dict | None = None) -> dict:

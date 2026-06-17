@@ -21,14 +21,22 @@ machine.
 
 Leaderboard readiness requires fresh `BC` reference evidence, appropriate `BF`
 adversarial evidence for hardcode-prone tasks, input hashes, tool versions, and
-a tracked evidence summary or repeatable refresh procedure. As of the
-2026-06-16 local snapshot below, ESP32-S3 ESP-IDF is not leaderboard-ready.
+a tracked evidence summary or repeatable refresh procedure. Progress as of the
+2026-06-16 local snapshot below: every reference solution produces local-`BC`
+(the previous `local-BF`/`local-missing` entries were resolved on 2026-06-16 —
+`blink_led_1hz` needed an oracle fix to skip the GPIO bring-up blip, the rest
+were stale entries already passing); runtime `BF` for hardcode-prone tasks is
+pinned offline by `tests/test_espidf_decoy_runtime.py`; and the tracked,
+hash-bearing evidence index now exists (`docs/esp32s3_espidf-evidence.json`).
+The remaining gate is a full live refresh + freeze: the index snapshot still
+shows most tasks `stale` (older on-disk manifests), so until every supported
+task is `fresh` `BC` in the index, ESP32-S3 ESP-IDF is not leaderboard-ready.
 
 ## Status Matrix
 
 | Task | Evidence | Notes |
 |---|---|---|
-| `blink_led_1hz` | local-BF | GPIO waveform reference needs task-level triage. |
+| `blink_led_1hz` | local-BC | Oracle now skips the GPIO bring-up blip (skip_startup_segments=3); steady 1 Hz square wave passes. |
 | `blink_led_morse_code` | local-BC | Local ignored manifest only; add adversarial evidence before scoring. |
 | `blink_led_no_delay` | local-BC | Timer/no-delay reference; add no-delay cheat BF evidence. |
 | `blink_two_leds` | local-BC | Dual GPIO waveform case; add wrong-pin/timing BF evidence. |
@@ -40,7 +48,7 @@ a tracked evidence summary or repeatable refresh procedure. As of the
 | `breathing_led` | local-BC | LEDC PWM waveform; add fixed-PWM BF evidence. |
 | `sensor_pir_human_motion` | local-BC | PIR represented as digital GPIO stimulus. |
 | `tmp36_read` | local-BC | ADC semantics use ESP32-S3 3.3 V / 12-bit conversion. |
-| `rotary_encoder` | local-BF | Digital pull-up quadrature surrogate; reference drift/BF owned by task-level triage. |
+| `rotary_encoder` | local-BC | Digital pull-up quadrature surrogate; variant-correlated CW/CCW positions pass. |
 | `16key_keypad` | local-BC | Per-key matrix switch surrogate. |
 | `lcd1602_display_hello_world` | local-BC | LCD bus decode, not serial-only. |
 | `dht11_read` | local-BC | DHT11 contract via Wokwi DHT22 timing-compatible surrogate. |
@@ -52,7 +60,7 @@ a tracked evidence summary or repeatable refresh procedure. As of the
 | `tilt_detection_alarm` | local-BC | KY-020 switch surrogate; add adversarial BF evidence. |
 | `photoresistor_nightlight` | local-BC | Photoresistor ADC-to-LED behavior; add fixed-output BF evidence. |
 | `ds18b20_heat_alarm` | local-BC | Uses documented digital over-temperature surrogate. |
-| `clap_switch` | local-BF | Digital sound-button surrogate; reference drift/BF owned by task-level triage. |
+| `clap_switch` | local-BC | Digital sound-button surrogate; toggle-on-clap behavior passes. |
 | `hcsr501_motion_alarm` | local-BC | PIR-to-buzzer GPIO. |
 | `hcsr04_find_distance` | local-BC | HC-SR04 distance variants. |
 | `parking_sensor` | local-BC | HC-SR04 plus LEDC buzzer; add fixed-buzzer BF evidence. |
@@ -63,14 +71,36 @@ a tracked evidence summary or repeatable refresh procedure. As of the
 | `safebox` | local-BC | Keypad surrogate plus relay. |
 | `safebox_display` | local-BC | Keypad surrogate, relay, and LCD. |
 | `lcd1602_auto_brightness_control` | local-BC | Photoresistor ADC to LCD backlight PWM; add fixed-PWM BF evidence. |
-| `buzzer_toggle_led_freq` | local-BF | Button-driven LED/buzzer frequency reference drift/BF owned by task-level triage. |
-| `tmp36_read_button_display` | local-BF | TMP36 LCD/button hot variant mismatch; task-level triage required. |
-| `tmp36_read_periodic_display` | local-missing | TMP36 LCD periodic variants need a fresh live run. |
-| `reaction_timer_display` | local-BF | Button/shock surrogate plus LCD elapsed time; reference drift/BF owned by task-level triage. |
+| `buzzer_toggle_led_freq` | local-BC | Button-cycled 1/2/4 Hz LED frequency windows plus buzzer activity pass. |
+| `tmp36_read_button_display` | local-BC | TMP36 LCD/button cool+hot variants both pass with distinct readings. |
+| `tmp36_read_periodic_display` | local-BC | TMP36 LCD periodic variants pass with distinct readings. |
+| `reaction_timer_display` | local-BC | Button/shock surrogate plus LCD elapsed time passes. |
 | `sensor_water_level_display` | local-BC | Analog water-level surrogate plus LCD; add adversarial BF evidence. |
 | `buzzer_laser_tripwire` | local-BC | Laser/photoresistor surrogate plus buzzer; add fixed-alarm BF evidence. |
 | `joystick_buzzer_pitch` | local-BC | Joystick ADC to LEDC buzzer pitch; add fixed-pitch BF evidence. |
 | `step_counter_print` | local-BC | MPU6050 movement-correlated step logic; add hardcoded-step BF evidence. |
+
+## Evidence index
+
+`docs/esp32s3_espidf-evidence.json` is the tracked, compact summary of local
+evidence: per task it records the result, timestamp, input/firmware hashes, the
+toolchain, and a `fresh` verdict. Evidence is `fresh` only when the recorded
+`task_hash`/`prompt_hash`/`sketch_hash` still match the current sources and the
+recorded tool versions match pinned `bench/tool_versions.yaml`; `harness_match`
+is recorded informationally (not gated, so an unrelated `bench/*.py` edit does
+not invalidate a task). Regenerate after a refresh:
+
+```bash
+python -m bench.cli evidence-index --platform esp32s3_espidf
+```
+
+A leaderboard freeze = run the live refresh below across all levels, then
+regenerate the index and confirm every supported task is `fresh` with `BC`.
+
+Throughput knobs for batch refreshes: `IOTBENCH_ESPIDF_BUILD_TIMEOUT_S` raises
+the build timeout on slow/loaded hosts (a timeout is IF, never CF), and
+`IOTBENCH_BUILD_LOCK=<file>` serializes the compile step across concurrent
+harness processes so parallel shards don't saturate the host.
 
 ## Verification Workflow
 
@@ -79,6 +109,7 @@ Fast offline checks, no Wokwi/network:
 ```bash
 python -m bench.cli doctor --platform esp32s3_espidf
 python -m unittest tests.test_esp32s3_espidf tests.test_artifact_provenance tests.test_repo_hygiene
+python -m unittest tests.test_espidf_decoy_runtime tests.test_evidence_index
 python -m unittest discover tests
 ```
 
@@ -147,3 +178,13 @@ generated diagrams:
 - The ESP-IDF adversarial corpus pins static-gate expectations for hardcoded,
   wrong-pin, fixed-frequency, and serial-only style submissions. Decoys that
   pass static checks must fail live behavior or variant validation.
+- `tests/test_espidf_decoy_runtime.py` pins the *runtime* half offline: for every
+  hardcode-prone task (and every task that previously had no adversarial
+  coverage) it feeds a fixed/wrong capture through the task's real validator
+  params and asserts `FAIL` (-> BF), so a vacuous/misconfigured oracle is caught
+  in CI without a live run.
+- `window_ratios` tasks use multiple single-band windows (e.g. `safebox`/
+  `safebox_display` require the relay OFF [0.0-0.15] during code entry, then ON
+  [0.85-1.0] after the correct code; `lcd1602_auto_brightness_control` requires a
+  dim PWM band under bright light then a bright band in the dark). This phase
+  split is what makes a stuck-on/stuck-off or fixed-PWM submission fail.

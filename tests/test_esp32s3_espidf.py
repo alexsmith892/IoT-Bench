@@ -236,18 +236,23 @@ class Esp32S3EspIdfTaskTests(unittest.TestCase):
         self.assertNotIn("Serial.", source)
 
     def test_led_timing_tasks_ignore_esp32_startup_transients(self):
+        # blink_led_1hz's while+vTaskDelay reference emits an extra HIGH/LOW boot
+        # blip from GPIO bring-up, so it skips 3 startup segments; the timer-based
+        # references settle after 2. Each must skip at least 2 (the boot edges).
         expectations = {
-            "blink_led_1hz": ["D0"],
-            "blink_led_no_delay": ["D0"],
-            "blink_two_leds": ["D0", "D1"],
+            "blink_led_1hz": (["D0"], 3),
+            "blink_led_no_delay": (["D0"], 2),
+            "blink_two_leds": (["D0", "D1"], 2),
         }
-        for task_id, channels in expectations.items():
+        for task_id, (channels, skip_segments) in expectations.items():
             with self.subTest(task=task_id):
                 task = load_task(task_id, platform="esp32s3_espidf", level="level1")
                 validator_channels = task.validator_params()["channels"]
 
                 for channel in channels:
-                    self.assertEqual(validator_channels[channel]["skip_startup_segments"], 2)
+                    self.assertEqual(
+                        validator_channels[channel]["skip_startup_segments"], skip_segments
+                    )
 
     def test_bme280_tasks_use_distinct_deterministic_variants(self):
         for task_id in ("bme280_read_i2c", "bme280_read_spi"):

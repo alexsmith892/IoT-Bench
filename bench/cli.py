@@ -107,6 +107,18 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     repeatability.add_argument("--renode", default="renode")
     repeatability.add_argument("--allow-tool-version-mismatch", action="store_true")
 
+    evidence = subparsers.add_parser(
+        "evidence-index",
+        help="aggregate local verification manifests into a tracked, compact evidence index",
+    )
+    evidence.add_argument("--platform", default="esp32s3_espidf")
+    evidence.add_argument("--level", default="all")
+    evidence.add_argument(
+        "--output",
+        type=Path,
+        help="index path (default docs/<platform>-evidence.json)",
+    )
+
     validate = subparsers.add_parser(
         "validate-artifacts", help="validate existing artifacts without running Wokwi"
     )
@@ -203,6 +215,19 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "doctor":
             print(json.dumps(run_doctor(platform=args.platform), indent=2))
+            return 0
+        if args.command == "evidence-index":
+            from .evidence import build_evidence_index, write_evidence_index
+
+            destination = write_evidence_index(
+                args.platform, level=args.level, output=args.output
+            )
+            index = build_evidence_index(args.platform, level=args.level)
+            print(
+                json.dumps(
+                    {"output": str(destination), "summary": index["summary"]}, indent=2
+                )
+            )
             return 0
         if args.command == "validate-artifacts":
             task = load_task(args.task, platform=args.platform, level=args.level)

@@ -183,6 +183,12 @@ ESPIDF_STUBS = [
     ("safebox", "level3", "stub_espidf_timer_unlock.c", False),
     ("safebox_display", "level3", "stub_espidf_hardcoded.c", False),
     ("step_counter_print", "level3", "stub_espidf_hardcoded_steps.c", False),
+    # Print-only static-reject stubs for tasks that previously had no ESP-IDF
+    # adversarial coverage (their required real-I/O patterns are absent).
+    ("hcsr501_motion_alarm", "level2", "stub_espidf_print_only.c", True),
+    ("tilt_detection_alarm", "level2", "stub_espidf_print_only.c", True),
+    ("mpu6050_read_spi", "level2", "stub_espidf_print_only.c", True),
+    ("sensor_water_level_display", "level3", "stub_espidf_print_only.c", True),
 ]
 
 

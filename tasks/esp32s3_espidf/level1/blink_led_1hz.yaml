@@ -19,7 +19,11 @@ validator:
       D0:
         frequency_hz: 1.0
         min_valid_cycles_after_startup: 4
-        skip_startup_segments: 2
+        # GPIO bring-up (gpio_reset_pin + set_direction + first set_level) emits a
+        # brief HIGH/LOW boot blip (~49us/~12us) before the steady 1 Hz square
+        # wave; skip it so the oracle measures only settled cycles. Still requires
+        # 4 clean 1 Hz cycles, so a wrong-frequency submission fails.
+        skip_startup_segments: 3
         half_period_range_s: [0.45, 0.55]
         full_period_range_s: [0.9, 1.1]
         duty_cycle_range: [0.4, 0.6]
