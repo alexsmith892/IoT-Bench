@@ -109,8 +109,119 @@ class Esp32S3EspIdfTaskTests(unittest.TestCase):
         self.assertIn("local evidence only", normalized)
         self.assertIn("not portable leaderboard proof", normalized)
         self.assertIn("The offline tests check committed support structure", text)
-        self.assertIn("ESP32-S3 ESP-IDF is not leaderboard-ready", text)
         self.assertIn("RUN_WOKWI_INTEGRATION", text)
+
+        # The doc must make an explicit leaderboard-readiness statement, and a
+        # *positive* claim has to be backed by the tracked evidence index — so
+        # the doc can never claim readiness while the index says otherwise.
+        claims_ready = "ESP32-S3 ESP-IDF is leaderboard-ready" in text
+        claims_not_ready = "ESP32-S3 ESP-IDF is not leaderboard-ready" in text
+        self.assertTrue(
+            claims_ready or claims_not_ready,
+            "status doc must state whether ESP32-S3 ESP-IDF is leaderboard-ready",
+        )
+        if claims_ready and not claims_not_ready:
+            index_path = (
+                Path(__file__).resolve().parents[1]
+                / "docs"
+                / "esp32s3_espidf-evidence.json"
+            )
+            summary = json.loads(index_path.read_text(encoding="utf-8"))["summary"]
+            self.assertEqual(summary["missing"], 0, "index has missing tasks")
+            self.assertEqual(summary["stale"], 0, "index has stale tasks")
+            self.assertEqual(
+                summary["fresh_bc"],
+                summary["total"],
+                "doc claims leaderboard-ready but index is not all fresh BC",
+            )
+            # A readiness claim must be leaderboard-grade: every task fresh BC
+            # under the current scoring harness (harness_match). Falls back to
+            # fresh_bc for indexes predating the publishable field.
+            self.assertEqual(
+                summary.get("publishable", summary["fresh_bc"]),
+                summary["total"],
+                "doc claims leaderboard-ready but index is not all publishable "
+                "(fresh BC under the current harness — re-run + re-freeze)",
+            )
+
+    def test_run_if_retries_stops_on_first_non_if(self):
+        from unittest import mock
+
+        import bench.cli as cli
+
+        args = parse_args(
+            [
+                "run",
+                "--platform",
+                "esp32s3_espidf",
+                "--level",
+                "level1",
+                "--task",
+                "blink_led_1hz",
+                "--if-retries",
+                "3",
+            ]
+        )
+        task = load_task("blink_led_1hz", platform="esp32s3_espidf", level="level1")
+
+        # IF, IF, then BC -> should retry twice and return the BC.
+        outcomes = [{"result": "IF"}, {"result": "IF"}, {"result": "BC"}]
+        with mock.patch.object(cli, "run_single_task", side_effect=outcomes) as m:
+            result = cli.run_task_with_if_retries(task, args)
+        self.assertEqual(result, {"result": "BC"})
+        self.assertEqual(m.call_count, 3)
+
+    def test_run_if_retries_exhausts_and_returns_if(self):
+        from unittest import mock
+
+        import bench.cli as cli
+
+        args = parse_args(
+            [
+                "run",
+                "--platform",
+                "esp32s3_espidf",
+                "--level",
+                "level1",
+                "--task",
+                "blink_led_1hz",
+                "--if-retries",
+                "2",
+            ]
+        )
+        task = load_task("blink_led_1hz", platform="esp32s3_espidf", level="level1")
+
+        # Always IF -> 1 + 2 retries = 3 attempts, final result still IF.
+        with mock.patch.object(
+            cli, "run_single_task", return_value={"result": "IF"}
+        ) as m:
+            result = cli.run_task_with_if_retries(task, args)
+        self.assertEqual(result, {"result": "IF"})
+        self.assertEqual(m.call_count, 3)
+
+    def test_run_if_retries_defaults_to_single_attempt(self):
+        from unittest import mock
+
+        import bench.cli as cli
+
+        args = parse_args(
+            [
+                "run",
+                "--platform",
+                "esp32s3_espidf",
+                "--level",
+                "level1",
+                "--task",
+                "blink_led_1hz",
+            ]
+        )
+        self.assertEqual(args.if_retries, 0)
+        task = load_task("blink_led_1hz", platform="esp32s3_espidf", level="level1")
+        with mock.patch.object(
+            cli, "run_single_task", return_value={"result": "IF"}
+        ) as m:
+            cli.run_task_with_if_retries(task, args)
+        self.assertEqual(m.call_count, 1)
 
     def test_all_upstream_level1_tasks_load_and_have_prompts(self):
         tasks = list(iter_tasks(platform="esp32s3_espidf", level="level1"))

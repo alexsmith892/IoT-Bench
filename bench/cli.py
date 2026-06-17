@@ -157,6 +157,13 @@ def add_run_options(parser: argparse.ArgumentParser) -> None:
         help="with --use-existing-artifacts, skip verification.json provenance checks",
     )
     parser.add_argument("--regenerate", action="store_true")
+    parser.add_argument(
+        "--if-retries",
+        type=int,
+        default=0,
+        help="retry a task up to N times while its result is IF (transient infra), "
+        "so a sweep self-heals flaky sim timeouts; final non-IF result wins",
+    )
     parser.add_argument("--simulation-time-ms", type=int)
     parser.add_argument("--arduino-cli", default="arduino-cli")
     parser.add_argument("--idf-py", default="idf.py")
@@ -250,26 +257,10 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result, indent=2))
             return 0
         if args.command == "run":
+            if args.if_retries < 0:
+                raise ConfigError("--if-retries must be non-negative")
             tasks = selected_tasks(args)
-            results = [
-                run_single_task(
-                    task,
-                    case_dir=args.case,
-                    sketch_override=args.sketch,
-                    use_existing_artifacts=args.use_existing_artifacts,
-                    regenerate=args.regenerate,
-                    simulation_time_ms=args.simulation_time_ms,
-                    arduino_cli=args.arduino_cli,
-                    idf_py=args.idf_py,
-                    wokwi_cli=args.wokwi_cli,
-                    west=args.west,
-                    renode_cli=args.renode,
-                    archived_vcd=None,
-                    require_provenance=not args.allow_unverified_artifacts,
-                    allow_tool_version_mismatch=args.allow_tool_version_mismatch,
-                )
-                for task in tasks
-            ]
+            results = [run_task_with_if_retries(task, args) for task in tasks]
             print_many_or_one(results)
             return 0
         if args.command == "evaluate":
@@ -284,6 +275,37 @@ def main(argv: list[str] | None = None) -> int:
         return emit_result(SIM_INFRA_FAIL, str(exc), failure_source=SOURCE_HARNESS)
 
     return emit_result(FAIL, f"unsupported command: {args.command}", failure_source=SOURCE_HARNESS)
+
+
+def run_task_with_if_retries(task, args: argparse.Namespace) -> dict[str, Any]:
+    """Run one task, retrying while the result is IF (transient infra).
+
+    Returns the first non-IF result, or the last attempt if every attempt was
+    IF. With the default ``--if-retries 0`` this runs exactly once, preserving
+    prior ``run`` behavior.
+    """
+    max_attempts = args.if_retries + 1
+    result: dict[str, Any] = {}
+    for _ in range(max_attempts):
+        result = run_single_task(
+            task,
+            case_dir=args.case,
+            sketch_override=args.sketch,
+            use_existing_artifacts=args.use_existing_artifacts,
+            regenerate=args.regenerate,
+            simulation_time_ms=args.simulation_time_ms,
+            arduino_cli=args.arduino_cli,
+            idf_py=args.idf_py,
+            wokwi_cli=args.wokwi_cli,
+            west=args.west,
+            renode_cli=args.renode,
+            archived_vcd=None,
+            require_provenance=not args.allow_unverified_artifacts,
+            allow_tool_version_mismatch=args.allow_tool_version_mismatch,
+        )
+        if result.get("result") != "IF":
+            break
+    return result
 
 
 def selected_tasks(args: argparse.Namespace):

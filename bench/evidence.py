@@ -12,8 +12,15 @@ it must be re-run before it counts toward the leaderboard.
 The benchmark harness hash is recorded and compared too, but as an informational
 `harness_match` flag rather than a freshness gate: any edit to `bench/*.py`
 changes that hash even when it cannot affect a given task's scoring (e.g. a CLI
-tweak), so gating on it would falsely invalidate unrelated evidence. A stricter
-consumer can additionally require `harness_match` before publishing.
+tweak), so gating on it would falsely invalidate unrelated evidence.
+
+Leaderboard publishing is stricter than freshness: the summary therefore also
+reports `publishable` = tasks that are fresh, `BC`, and `harness_match` (fresh
+BC produced under the *current* harness). A leaderboard-readiness claim should
+require `publishable == total`, which forces a fresh live sweep after any harness
+edit — while everyday freshness stays lenient about unrelated `bench/*.py` churn.
+(Note `validate-artifacts` already refuses to re-judge artifacts across any
+harness-hash change, so re-judging is strict regardless.)
 """
 
 from __future__ import annotations
@@ -143,6 +150,15 @@ def build_evidence_index(platform: str, *, level: str = "all") -> dict[str, Any]
         "missing": count(lambda e: e.get("evidence") == "missing"),
         "fresh_bc": count(lambda e: e.get("fresh") and e.get("result") == "BC"),
         "stale": count(lambda e: e.get("evidence") == "present" and not e.get("fresh")),
+        # Leaderboard-grade: fresh BC produced under the *current* harness. This
+        # is the gate a publisher should require — freshness alone stays lenient
+        # about unrelated bench/*.py edits (see module docstring), but a claim of
+        # leaderboard-readiness must additionally pin the scoring harness.
+        "publishable": count(
+            lambda e: e.get("fresh")
+            and e.get("result") == "BC"
+            and e.get("harness_match")
+        ),
     }
     return {
         "index_version": EVIDENCE_INDEX_VERSION,
