@@ -13,6 +13,10 @@ uart0:
 // ~100 us resolution and Zephyr boot under 3 ms of virtual time while
 // making busy-polling firmware simulate fast enough to run.
 // Sleep-based firmware is unaffected (idle time is skipped either way).
+// Tasks whose firmware bit-bangs a microsecond single-wire protocol in a
+// short burst (DHT11, DS18B20) opt into a higher rating via the task's
+// simulation.performance_mips so k_busy_wait/k_cycle_get_32 resolve the
+// bit timing; the brief transactions keep the higher rating affordable.
 cpu:
     PerformanceInMips: 2
 
