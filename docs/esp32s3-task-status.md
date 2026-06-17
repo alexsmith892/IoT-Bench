@@ -21,16 +21,27 @@ machine.
 
 Leaderboard readiness requires fresh `BC` reference evidence, appropriate `BF`
 adversarial evidence for hardcode-prone tasks, input hashes, tool versions, and
-a tracked evidence summary or repeatable refresh procedure. Progress as of the
-2026-06-16 local snapshot below: every reference solution produces local-`BC`
-(the previous `local-BF`/`local-missing` entries were resolved on 2026-06-16 —
-`blink_led_1hz` needed an oracle fix to skip the GPIO bring-up blip, the rest
-were stale entries already passing); runtime `BF` for hardcode-prone tasks is
-pinned offline by `tests/test_espidf_decoy_runtime.py`; and the tracked,
-hash-bearing evidence index now exists (`docs/esp32s3_espidf-evidence.json`).
-The remaining gate is a full live refresh + freeze: the index snapshot still
-shows most tasks `stale` (older on-disk manifests), so until every supported
-task is `fresh` `BC` in the index, ESP32-S3 ESP-IDF is not leaderboard-ready.
+a tracked evidence summary or repeatable refresh procedure. **As of the
+2026-06-17 live refresh + freeze, ESP32-S3 ESP-IDF is leaderboard-ready.** All
+43 supported tasks were rebuilt and re-simulated live with `--regenerate`
+against current sources (idf.py `ESP-IDF v5.5.4`, wokwi-cli `0.26.1
+(9d71b975b7eb)`) and every one returned `BC`; the regenerated evidence index
+(`docs/esp32s3_espidf-evidence.json`) reports `fresh_bc: 43`, `stale: 0`,
+`missing: 0`, and `publishable: 43`, with no task at `result != BC`. The two
+previously-`local-BF` watch items (`rotary_encoder`, `buzzer_toggle_led_freq`)
+are fresh `BC` against the current sketches.
+
+`publishable` is the leaderboard-grade gate: fresh `BC` produced under the
+*current* scoring harness (`harness_match`). Readiness requires
+`publishable == total`, which forces a fresh live sweep after any harness edit;
+everyday freshness stays lenient about unrelated `bench/*.py` churn (see
+`bench/evidence.py`). Runtime `BF` for hardcode-prone tasks is pinned offline by
+`tests/test_espidf_decoy_runtime.py`, the static adversarial corpus by
+`tests/test_adversarial_static.py`, and the complementary anti-over-fit
+invariant (a conforming-but-differently-worded correct submission must `PASS`)
+by `tests/test_espidf_positive_overfit.py`. Live sweeps self-heal transient
+infra `IF` via `run --if-retries N`. Re-freeze after any task/prompt/reference
+or harness edit by re-running the live refresh below and `evidence-index`.
 
 ## Status Matrix
 

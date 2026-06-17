@@ -5,8 +5,9 @@
     "total": 43,
     "present": 43,
     "missing": 0,
-    "fresh_bc": 12,
-    "stale": 31
+    "fresh_bc": 43,
+    "stale": 0,
+    "publishable": 43
   },
   "tasks": [
     {
@@ -16,7 +17,7 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-16T20:09:38.715104+00:00",
+      "timestamp": "2026-06-17T16:13:48.987414+00:00",
       "fresh": true,
       "stale_reasons": [],
       "harness_match": true,
@@ -38,22 +39,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T21:50:52.161166+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:15:12.056218+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "961729c701eead4c31e14c768e994b2ce85775e34864b3e400a4fae8d206f805",
+        "prompt_hash": "e9a70e152fa5254e235346869b49c18019565f1095b54b12fcb3c78e61521a97",
         "sketch_hash": "eb403ce397e4f88c738f064f5187df8226235b4a3b25741555086ce40e510ac4",
         "firmware_image_hash": "d52ebd44819b1c3c1309f24a301df595e6704ba882ca43fc26b511d84d1d3e10"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -64,23 +61,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-12T18:58:24.323207+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:16:34.749977+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
-        "sketch_hash": "a814d60c1fb35575facb09bda187991edb6393f143abd5d1fb8d8bf143e1cc37",
+        "task_hash": "9fad368688c530b2db418484fd656e0744b586801781a39aebae4721a5a88192",
+        "prompt_hash": "5ff548bac41ba7ca4a83ce513a6e8a503c12f561240a10b96486c244e9c25af3",
+        "sketch_hash": "70ed86dd462fd66c2e608119e440dbe461853126708d180e6eed1c646d22488a",
         "firmware_image_hash": "0bbed5d685ec3f0ceb6cac4906cda025733fe6b8e8cf48af169e0a8da82f1da0"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -91,22 +83,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T21:52:24.654877+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:19:51.111944+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "161a7601745220f039791391e8e5e2d59d87d76b59a57a8d54b23cb480f8a158",
+        "prompt_hash": "a208b2bb2391d760a366d12711cac239635d352d5e0b44323467f3fadc3235ac",
         "sketch_hash": "da039cdd936645eda6a977f7d78cad1c1b6fd27c7e15375adc55afa3c4e7835c",
         "firmware_image_hash": "5539d1649d27a86c1b06eaaad2c74f0c7a7b51583d7cfb0e1c5ac1f8f9a2944d"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -117,23 +105,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-12T19:50:20.564034+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:21:06.100647+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "2a091481ae85edb08030db10c593fb535b639c634fcce53bf24296f8f8f33b9c",
+        "prompt_hash": "c5caba3cd3d750c9820ca83837316cfc31e00fa3cdb5fcd0c62cf798333b9f44",
         "sketch_hash": "fa9ae303775d39e355ecf0712d211f5a0f1fe850e3d947b7354c4e61da2bf846",
         "firmware_image_hash": "d0ad0795aa48676b4b1da25db7093e25b40d9f5ca72879ab78fa7847e5276072"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -144,22 +127,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T21:17:55.149785+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:22:31.023738+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "cc229729027b2b921b1cce5a29c1f6967affa0de300ff7b46f9ab94304cb29d2",
+        "prompt_hash": "47fd578e756c6897c81f1b37a94b4fe29d5774e3549f81387dfdf1c6dea3e802",
         "sketch_hash": "f623f857e9754793d195d4c1dc6b93c157080fedc9d66d6d8c33701c6727a069",
         "firmware_image_hash": "18400fe0299de243f8b948a62fdb025a5c1c3a79466a138aad06781b5cde2b3a"
       },
       "tool_versions": {
-        "idf.py": null,
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -170,23 +149,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-12T19:22:45.577557+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:23:47.675920+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "23817c0a7af133cf5379714629246809b1cc80b41b59a59a39216dda718507cc",
+        "prompt_hash": "700ba388abb442997bfb4a0c486107c3a0f897a2931a0a1998c17ab213ee6a27",
         "sketch_hash": "8aee368760c710e96099d32ffe8b36b97ebceefbb3df6578d199c898d5675b6d",
         "firmware_image_hash": "07ea56eb9e4bfe3acb6638903c53a0e35f537ff80a4633e01194f7228151dde7"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -197,23 +171,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-12T19:24:30.031115+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:25:02.423065+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "3a9e77de795eee39b2a60bdaa6dd2beb83fcd7ac2aa0168b8bffc0fadc08d79a",
+        "prompt_hash": "e9d0556b40b2ce22344a4d523b5d68d7691bd72aaf084d15ecabab48e99684ef",
         "sketch_hash": "06a06f7c337e976bd20f129c13698d834a0ce91ef62ce1c600a67793b30fa2f3",
         "firmware_image_hash": "582d991dc717f89352dba8e5b769f78ea972550074888f744431e503290be55e"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -224,23 +193,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-12T19:28:35.893179+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:26:16.533287+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "45ac95a537b4e39ab502907ceb37d8cff021e5a586e53a93dc2beb51b269cf1b",
+        "prompt_hash": "63d6a9d773305367608690e70c845e948fcde2af1b0995d7f21222779b9ba5cd",
         "sketch_hash": "f9131372f69a7a1285a7654160fb8c6f02c9cd3cc1769652e2fd123efdab617f",
         "firmware_image_hash": "e60c782e9800ac496a90fdc969fa1d41813dc176a29e57ca09b7e5f2258be8fd"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -251,23 +215,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-12T20:02:54.663358+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:27:28.920986+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "088758888826a2ec2a3fc635767db5b18b4da1b84c7b90d8cee6c15c30369e9b",
+        "prompt_hash": "be25537a0a36551f95e5447cc694614fc203a16e4015d135f3527ecfecad2af7",
         "sketch_hash": "5316a16effe64d8486a75c5d7ba792a1ab24bd28c71c0d80912de5e08317e7cf",
         "firmware_image_hash": "b9e9041c4137e5aad72a2eb1bae4633dc24b563c81f8280c44059dde2a01c7dc"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -278,23 +237,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-12T20:06:28.328887+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:28:42.740851+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "0439d4652f156665907a441ffd094c7d267724c107369e440f51db8dff59ec2d",
+        "prompt_hash": "1e3e6b3bd0e5ae15da470fefc73d8df275cb03bfa290a5d8c8955ba80ebb4c6c",
         "sketch_hash": "c9be05d3676ce48e6d7085ff4a82f048074df547043840d8ecb130fe8feb45df",
         "firmware_image_hash": "7a99756ef19fa1b7fc1ba0ee8b8c3fdfeab40158721c99feadb2d2c9e85661fa"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -305,23 +259,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-12T19:31:41.092004+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:29:50.729511+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "f18a416b6ffa822a4be6d64c757cb5877c962e361d72c3f8b2e94b344b87ff02",
+        "prompt_hash": "0b9cc28872978c4626f731bf6afb03139b5358eeca9d0243d83a0f2f3605604f",
         "sketch_hash": "02d6437a9b1d370256582cb4be4e1443c5249c69d4f38f4055f7e20edba9d9a7",
         "firmware_image_hash": "476d8299ab33d3ab6146ab143d2d0351a660bd7018a189361271a1e9e0a0628d"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -332,23 +281,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T16:34:55.470778+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:31:00.054057+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
-        "sketch_hash": "62eb42d609c18191459f3e2499c09cfca2a11d3f9ce74e22e8919c0ce0676f07",
+        "task_hash": "c634751b89986596f2da672c808e0e5b6d92c6febcdb1c5351d9881ccae280f2",
+        "prompt_hash": "58111f85ccdb7bca7901a0d77a80aa6becceaaef78396754c8e4736d187248f9",
+        "sketch_hash": "1477e8f18f1869a1797912bbcdde3d0485b4a804797e92bab1af30aa02148c52",
         "firmware_image_hash": "ab51a96cf305b65740c1cb9fc226ac42356a46799b3e102fb9f0067b1367f76c"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -359,23 +303,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-12T19:42:40.194412+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:32:16.370137+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "377fc2251f1a5daff04eee41fba4330e0e6384862bd6d2822dec0bddeb56a928",
+        "prompt_hash": "a76a90b0f400e70a740be7271c542646f0748fb305a49030c86d3539b5f88744",
         "sketch_hash": "c6fbefd56ad503e63122728eed0d78375fa1bc918c9f0fb0b1aecfb1f994fe21",
         "firmware_image_hash": "f557069af520ca78903703abf0103ad761e7446dbcf681edeb36635608563ff7"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -386,23 +325,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-12T19:48:35.984484+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:33:33.841385+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "ceb0d769d15bb8db578362493e2fb152b18580b1a2822af8e1ac1993f2a09eaf",
+        "prompt_hash": "551bebcad59234b5b1a4c83593c5b19fe58cbc71e5291d5007a7993b7a5fcd9c",
         "sketch_hash": "c5a0a0a2df74fc4345f7bb66be4a99bb3095cc5a3e26a4e2ae184d6c1a0775ea",
         "firmware_image_hash": "009a06a2187e0c6ed8c16d91e64bc4d299df93bbfaa0e87e6f543766b5dba5f9"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -413,10 +347,10 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-16T19:26:01.343289+00:00",
+      "timestamp": "2026-06-17T16:34:44.220388+00:00",
       "fresh": true,
       "stale_reasons": [],
-      "harness_match": false,
+      "harness_match": true,
       "hashes": {
         "task_hash": "9341b2215967f217999b8b969c95ab87d0ebd269c96c3bedb5b220f6178bd644",
         "prompt_hash": "7fc69ed373306d34110c22b91c569cfe1fdef6fb3d518b1850288bcb51ab6ddc",
@@ -435,23 +369,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T16:56:44.259714+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:35:52.503704+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "0df4d59e09f998055d89b255d5bcc67997a648ef68157a124bb95d19987addd1",
+        "prompt_hash": "227509c5268ec845aa60979facbb46ddd4cf37cad45417f94a798b2c8730a1a8",
         "sketch_hash": "507b5b88c3a73290d9a6293b26320443b9cbda0091f7a98223717d137184e957",
         "firmware_image_hash": "8941f3c0ddd2ac89c607ea43318ea6c8c416d834c46513e9ed94120330b3b9e4"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -462,23 +391,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T16:57:53.024076+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:37:03.679150+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "ae26edb351f2562262f56802ce99331a5353959db3380c4b027c2d5387473555",
+        "prompt_hash": "3a65c5ff0d589f1bf39b1cc10bb9d112959296cda701806269c92ccaf06aa1a3",
         "sketch_hash": "d2c2751b078ec3e8e7ca4f27f740f29f0f73074e78a6cad1fd0d8641e73c9911",
         "firmware_image_hash": "ead734de309ef4d9eed5a25e639f1f4430f0cd5db36c9c65ab2994f76ce62c4a"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -489,23 +413,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T21:25:45.930885+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:38:13.720144+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "da0d2c4a0a0a4c9f01b3f44ddc4ceab77c7963fad209ccb456c84913020fda03",
+        "prompt_hash": "6f9ea6f5d04c48ff48ce48aa4ffa7e3c3b12374c5f9c0a80c141c817465f5674",
         "sketch_hash": "496b851f20b38ebce830046abcf8fc72743cdf4a9e8c04e87cf7a6c49c60ee4e",
         "firmware_image_hash": "a3f33fd66e97a3023642d62ea836736e7f68c3889c0ed353d2de314803036279"
       },
       "tool_versions": {
-        "idf.py": null,
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -516,23 +435,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T21:31:32.384783+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:39:26.302435+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "a4a04453688831ee0796a032b3ac8f93eb367065b1744ce5461e2a9d278941da",
+        "prompt_hash": "c548c40651c05e7e9de4f1b6a57b9d3d7341b6755ad4de776485bb96bacd03bf",
         "sketch_hash": "777765a7985b026225e70af09e5994ec1d6994f856e3d5044ca0b26334d38f80",
         "firmware_image_hash": "6560ab150052e73a47efc8204c766948160d7e14d06ebebf918c5c10d54c627d"
       },
       "tool_versions": {
-        "idf.py": null,
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -543,23 +457,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T21:58:39.517485+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:40:39.624453+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "67c71cb2ff4157027e71a784685012898598a695e932bd88a10e2f73781cbda7",
+        "prompt_hash": "3b749862c4b8e692d1cae0f4d05bb983ad50effa51573a61a9c33f0e3163dd48",
         "sketch_hash": "150d18559de78e7e1bc1c5e69e5670364ba029a0f84c69a6596962a78ece76fe",
         "firmware_image_hash": "f4664d2c30e63e583f8e9db58c26e9eb5a69720e0396b80903384d61b1d6c72d"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -570,10 +479,10 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-16T15:35:30.549982+00:00",
+      "timestamp": "2026-06-17T16:41:48.233077+00:00",
       "fresh": true,
       "stale_reasons": [],
-      "harness_match": false,
+      "harness_match": true,
       "hashes": {
         "task_hash": "f162f72f66a7ece866f949767075228d554e418afd6534f10b74850cb620bda9",
         "prompt_hash": "37313e61b76900d0f95cc8caf11c4f1851b17163a27db0d1983ca8b308068e0b",
@@ -592,23 +501,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T16:44:06.827635+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:43:02.297791+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
-        "sketch_hash": "e07a6f75749bf7db94fef2dcd1ab5d888974494925998984e667a54a49e45f25",
+        "task_hash": "aa43427f3eba1550c966a1399eb042e751a656a4f89e5739ff4cbfd543d87a3a",
+        "prompt_hash": "a67fba1abaa7c82ffe03bc85230da37ee027b6099d1a235b05a81585bccddd2c",
+        "sketch_hash": "84195d21a2561ba218541709e9650df041df3436405f8818e5cbd57e1a5b8514",
         "firmware_image_hash": "98b4e1b053877954522050a1c46a4acb77b5dceae68c3677f980aaa5f28aee5f"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -619,23 +523,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-12T19:45:39.112169+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:44:20.801867+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "cf956b0ac2fa07c28ccec3b9b047f517b8aab3d45b4ee72a366ba7de67fffb69",
+        "prompt_hash": "922186fbdb71b336251cce7af0efc1bd1f78bd0cf1965d77df86a83bf3c56f82",
         "sketch_hash": "01357c5f6db25ad8db075c89b7795a543260ccbde63d973dd073170dbb52172f",
         "firmware_image_hash": "c38871b5fa9d4fd0c9f6664a3ad2e34ce40c1ab92f1b7e10eb73a98ced1992b2"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -646,23 +545,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T21:59:48.395604+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:45:30.598954+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "60d738a4fc22dd4cd8d7ad89ab34f25481f8aac00a76f7223389dc8b04834ea0",
+        "prompt_hash": "2d400346c81f80f5bee7641c637c4244696c42bd566abb82a174acd6207408a1",
         "sketch_hash": "55245cfb280cd255e2a5c806b917f39bf85a0239d1cab9cc33bcff00ef9ace35",
         "firmware_image_hash": "700b3a564f7377f63ba380d0fb2a399e39edd30d04336e8e3bad576e3cd63c2c"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -673,23 +567,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T21:56:09.014210+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:46:40.833128+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "95ab6dd05b760713e264830e61b3bbe2b66d9cddc43ce863974f381b83d1ae8f",
+        "prompt_hash": "ebb6c872724c34892c66938354f029e1be86bb66c0e25d0c54b60b74870ad1f8",
         "sketch_hash": "9eb13e5b2568377f7d4c26670cb69195b5c195b3c95aafc77faabb2c3b140d91",
         "firmware_image_hash": "ce41fce726969103c6884b9a0d2eea49c8931659ea77b6a26b3b5ef7fd15f78b"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -700,23 +589,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T22:00:55.084690+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:47:56.072007+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "1ff3e182c9788a162ce9fb71b512867c9ead35685315cbbdb25d616f4e37f3af",
+        "prompt_hash": "9dbcf9ac30676b73362602bcd5cce1478814d476666417270c28a5a6cc69ee59",
         "sketch_hash": "aef8bdf17a672140c4462bd1ef414d2000bdfcf3b9a1783dd21700f8f8b63ae1",
         "firmware_image_hash": "6959f91bc5cc0b4ff57dbea0384a1743838b0d22e3fd92451f2cc5877f5bfca5"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -725,18 +609,16 @@
       "platform": "esp32s3_espidf",
       "level": "level2",
       "evidence": "present",
-      "result": "BF",
-      "classification": "FAIL",
-      "timestamp": "2026-06-16T19:52:14.796653+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "sketch_hash"
-      ],
-      "harness_match": false,
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T16:49:07.117137+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
         "task_hash": "f9b2d6463638dec9e64909f399468fe096769be87227ffd5575716778ebdd496",
-        "prompt_hash": "3223074fb85f1890828e2be0ea09e25b4768723b443cc1d1ac40ff989e7b545a",
-        "sketch_hash": "8847e814382bd291dcfb4ca6c7bfba4bd921fd8b463c81f7c8c224e0f0f84324",
+        "prompt_hash": "8279f16fdf5c114f38a1a8ff2f53b9524372341ab2d3415c26bdbc3284738e11",
+        "sketch_hash": "55b566557cedcb3a1d0bfbb198c1e7b0ff793321039784d46eae677b55562c49",
         "firmware_image_hash": "6dc69cce8d2af80f62781045465fb3f3838fa3d630aa5f733a8ec5fda83cb8a7"
       },
       "tool_versions": {
@@ -751,23 +633,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T21:54:55.579819+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:50:14.934363+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "63df5bc72a2ab71f14b6e2ddaa2fa3e2d7a431df6d6fa78dfc3598b9370ff8e3",
+        "prompt_hash": "a342abee389669df65adbd18b734c87aa11393e1b22d93990586d77473b4b958",
         "sketch_hash": "c90ffe0ff0deb5f3c4602a122226536d5d2cb3fbaac76adf814eceeb80dc9cb6",
         "firmware_image_hash": "78c01dd836c7916e596320b0390d12997f81f6472a40ffad80d8a23600ec9b56"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -778,23 +655,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T22:05:25.871192+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:51:20.551508+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "6e9f615241b5c5a92705ac36d1b5ddb3db8db9e0594dd6f5e96d4b9dca93488d",
+        "prompt_hash": "6792b25410f834f00cc24ad672f10a7cbab4d57c6de4d9b44ef3eeb107c5a7c2",
         "sketch_hash": "497d3bce73ae419a08e6713e9f1b76ff870703ecbc4d4bbd9ece0af798de5fc7",
         "firmware_image_hash": "371fef528621e62d5e9d301aaf9a0cbe23d7397526920f4ba3576ad55c7de7f4"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -803,18 +675,16 @@
       "platform": "esp32s3_espidf",
       "level": "level3",
       "evidence": "present",
-      "result": "BF",
-      "classification": "FAIL",
-      "timestamp": "2026-06-16T20:02:14.080254+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "sketch_hash"
-      ],
-      "harness_match": false,
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-17T16:52:51.802717+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
         "task_hash": "1ff4391748b3beb92f5754d63d9972572127ebeb3f15984f3c2ff9014b6b4b4e",
         "prompt_hash": "0bcef7a7214a6d774cae8452e4b0c251f9f73fea5816ec3d4d6409727f574271",
-        "sketch_hash": "0895e600ca72b54b2053e79db5f146849d2eee8008bb09bd049709ce0c324730",
+        "sketch_hash": "56f11720522616b6d4aaccc18e916e614c490a68addf7b3582a4f13d385bef21",
         "firmware_image_hash": "f35dab1e06ad5356bd48e7a0b8743abb746628f3603e789ab5f684255f7d379c"
       },
       "tool_versions": {
@@ -829,10 +699,10 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-16T15:31:42.077532+00:00",
+      "timestamp": "2026-06-17T16:54:04.547115+00:00",
       "fresh": true,
       "stale_reasons": [],
-      "harness_match": false,
+      "harness_match": true,
       "hashes": {
         "task_hash": "a91e514990ea117ecff823f777fa9186f2b86b7be1aea4af34e4001ada39b744",
         "prompt_hash": "5bdfba94fb7bee2656000dff0e980cb640f647f131be03f8c8548e6246c15416",
@@ -851,23 +721,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T22:06:33.306851+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T16:55:11.649265+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "9e2714587c22a027974ceca6d965225388a7b6906bc11869324653eda96139ee",
+        "prompt_hash": "99f0b2b8c8f15613a149b03727fd3dae0360bcff8e5f77fd97ff7c3ad763d76b",
         "sketch_hash": "28efda2d9c498e1a122f05aee6f7bacafe72218166ae1d5e5cd320b3ebb1bfaf",
         "firmware_image_hash": "09ce8624f066c63db0f860cb86df46959022dba14e3ce7c312589a272813d3f0"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -878,10 +743,10 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-16T15:40:05.486359+00:00",
+      "timestamp": "2026-06-17T16:56:17.982016+00:00",
       "fresh": true,
       "stale_reasons": [],
-      "harness_match": false,
+      "harness_match": true,
       "hashes": {
         "task_hash": "e390c14ea91eea230a319705bb7a35a80612e9f38c1a6d2f03c8e55ff85fc3b1",
         "prompt_hash": "5808d887153cc6a71b207d1c135b163d44e7eb6243e865e59588a450843fbb2e",
@@ -900,13 +765,13 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-16T15:34:13.135940+00:00",
+      "timestamp": "2026-06-17T16:57:31.915860+00:00",
       "fresh": true,
       "stale_reasons": [],
-      "harness_match": false,
+      "harness_match": true,
       "hashes": {
         "task_hash": "78dd24b023b6481407a59524e9c75f0dcd40e49a64bc8b34204f5fb97b6cf6fe",
-        "prompt_hash": "cd9efc2d0ea8896add736c06605e77cd8cbca18eba782c9d1074888b02c8fd6e",
+        "prompt_hash": "f029a4adb3ac30c7e4ec58f3bdfbb7e146582e4b496c55ea416bb777523a39e6",
         "sketch_hash": "29e2d4f769e74a6e69d8ca159968fe8e5598a59d51ffa69f7ea1e6344a256ecb",
         "firmware_image_hash": "2bf4a11e78790fdbc5357fe7cf30d8f019c42fde0a1d4722e0ec07057875315b"
       },
@@ -922,13 +787,13 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-16T15:37:19.316039+00:00",
+      "timestamp": "2026-06-17T16:59:03.462630+00:00",
       "fresh": true,
       "stale_reasons": [],
-      "harness_match": false,
+      "harness_match": true,
       "hashes": {
         "task_hash": "7c4fb20c843f1a66fa077cf83931c7ae95d9db937c4498edcc536e9c17ea4445",
-        "prompt_hash": "6298fba674840c5028ad616d65d8587c0c02e91f68dcc7365bdc7f628605d43f",
+        "prompt_hash": "b69f9d36cf3b4dd84802128e2d2f4cfe4a4e349230644c2f571dd709b2933bee",
         "sketch_hash": "08d5bd29e90c598840515a0a1b66b1bcad54b0793b6bb0d50fd542e0a28c3c89",
         "firmware_image_hash": "957f6d6f32ff693073afd3825663f8b42c5b9d9bfbf8315bc23bd19a7e599db7"
       },
@@ -944,10 +809,10 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-16T19:32:46.274555+00:00",
+      "timestamp": "2026-06-17T17:00:17.020758+00:00",
       "fresh": true,
       "stale_reasons": [],
-      "harness_match": false,
+      "harness_match": true,
       "hashes": {
         "task_hash": "6463fef9ebb67c80a335f04ddbb8006a67b5f80c65f4b84a42f604c8d324c44d",
         "prompt_hash": "ad0db51492674bc68389cc0849ac0bd02bb26cd42d01264cdcdcdaf36b3abf35",
@@ -966,23 +831,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T17:03:15.467020+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T17:01:25.159618+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "a7353a6b1ee87f2cab741347fe9ca56a6df893afed2cfb4e524d8030b683ed5e",
+        "prompt_hash": "24a4faf7556166553c8814ed1cab75e74e894d03d9799bf44f5013e1233079b9",
         "sketch_hash": "7761cbd4cbf509ae1c3aa973ef6988d4063bdb113ecbe282b7063954f6e4bd71",
         "firmware_image_hash": "a22c6e28f0423298402db09751f5c6c2710a764c7fe4c302afbbd67943ab9be6"
       },
       "tool_versions": {
-        "idf.py": "Done! You can now compile ESP-IDF projects.",
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -993,13 +853,13 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-16T15:38:43.416662+00:00",
+      "timestamp": "2026-06-17T17:02:40.880787+00:00",
       "fresh": true,
       "stale_reasons": [],
-      "harness_match": false,
+      "harness_match": true,
       "hashes": {
         "task_hash": "a5865aad6fa26678e957bb5f2c141c2965819a8fd097247575073cb033c3fb78",
-        "prompt_hash": "22e4979827be7282a4aa379dab34d21ba3b91d768b926eccbd68d34264f139b9",
+        "prompt_hash": "d069eed79a8d041add00d9290f62d0427097c453c3caf0a974a76aa1e64619ff",
         "sketch_hash": "bdce7208364c0d07f96439421c073c83731b9f4585c3714ac3f04fae845b0b7b",
         "firmware_image_hash": "24ecaafda73cd0b3c1ad61884f895702bd384bc1f2c08708dd7a30cef0cf68e0"
       },
@@ -1015,10 +875,10 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-16T15:41:51.939703+00:00",
+      "timestamp": "2026-06-17T17:03:46.114907+00:00",
       "fresh": true,
       "stale_reasons": [],
-      "harness_match": false,
+      "harness_match": true,
       "hashes": {
         "task_hash": "2e942a02279b6292b72fc382c13f74f61ce100aab568beda020d3e899e5570a9",
         "prompt_hash": "dd3f6a35e964697fbba0c9d69782beee83f96904152db17a36af72eacf135863",
@@ -1037,23 +897,18 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-15T21:31:49.158791+00:00",
-      "fresh": false,
-      "stale_reasons": [
-        "task_hash",
-        "prompt_hash",
-        "sketch_hash",
-        "tool:idf.py"
-      ],
-      "harness_match": false,
+      "timestamp": "2026-06-17T17:04:59.070816+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
       "hashes": {
-        "task_hash": null,
-        "prompt_hash": null,
+        "task_hash": "7163278920b8827bc86078dbe8267d3cfcb183f99d8ff288a76e1670439d7b7c",
+        "prompt_hash": "7694f04616f26a06c0ce872b6bcc1cd766e2883377f9557bc1371b84c299b89a",
         "sketch_hash": "8ee0475b22e3f1de5708141ebfe082b4f588fe138857039e0fa23e97f355007a",
         "firmware_image_hash": "6f195f74012fe1bfb92b8adb10e66fb773cfd85ac7b1ab7bad6d4757602efd38"
       },
       "tool_versions": {
-        "idf.py": null,
+        "idf.py": "ESP-IDF v5.5.4",
         "wokwi-cli": "0.26.1 (9d71b975b7eb)"
       }
     },
@@ -1064,10 +919,10 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-16T19:30:39.243384+00:00",
+      "timestamp": "2026-06-17T17:06:07.976131+00:00",
       "fresh": true,
       "stale_reasons": [],
-      "harness_match": false,
+      "harness_match": true,
       "hashes": {
         "task_hash": "648faffbd728219484b9fb06d3a0fe6e0e4dae003a0e4d5e4861bf738c84e7aa",
         "prompt_hash": "735131c504cda8000663235c95831263b911e22893cf5b178a64da90e7e3c806",
@@ -1086,10 +941,10 @@
       "evidence": "present",
       "result": "BC",
       "classification": "PASS",
-      "timestamp": "2026-06-16T19:34:46.133443+00:00",
+      "timestamp": "2026-06-17T17:07:32.728756+00:00",
       "fresh": true,
       "stale_reasons": [],
-      "harness_match": false,
+      "harness_match": true,
       "hashes": {
         "task_hash": "6d00eb46e4555d89a802800b60e1535c430a801a0b9c21ff6ba58a2b1c15ede5",
         "prompt_hash": "6c1831a2e4f7404cde619cbe6b5ac870ca17cd07c89a2f672cc65b7c7b6fa5a7",
