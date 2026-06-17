@@ -1,5 +1,6 @@
 #include <zephyr/kernel.h>
 #include <zephyr/drivers/gpio.h>
+#include <zephyr/sys/printk.h>
 
 static const struct device *const led_port = DEVICE_DT_GET(DT_NODELABEL(gpio0));
 
