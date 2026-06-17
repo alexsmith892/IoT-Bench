@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
-    Reproducible live Renode/Zephyr sweep: doctor -> generate/build/run every
-    zephyr_nano33ble task -> collect a status report.
+    Reproducible live Renode/Zephyr sweep: doctor -> generate/build/run/
+    validate-artifacts every zephyr_nano33ble task -> (re)write the tracked
+    evidence index -> summarize with the canonical/addition split.
 
 .DESCRIPTION
     The Zephyr/Renode backend had no scripted, repeatable live run: results
@@ -10,6 +11,16 @@
     harness for you; it just drives the real loop end to end and summarizes
     each task's verdict (BC/BF/CF/IF or an error) so a human can see, in one
     place, what currently passes live.
+
+    Per task it runs generate -> build -> run and then `validate-artifacts`,
+    which re-judges the just-produced serial/VCD + verification.json WITHOUT
+    re-simulating; a mismatch between that and the run verdict is flagged. At
+    the end it calls `evidence-index` to aggregate the (gitignored) per-task
+    verification.json manifests into the durable, tracked proof artifact
+    docs/zephyr_nano33ble-evidence.json, then prints the readiness split as
+    "42 canonical + 1 addition" (the addition `lsm9ds1_read_i2c` is scored-out).
+    The per-run dump (-OutFile, default zephyr-live-status.json) stays UNTRACKED
+    (.gitignore); the evidence index is the tracked truth.
 
     The verdict for each task is taken from the JSON the `run` command prints on
     stdout -- NOT by globbing for a verification.json file. An earlier version
@@ -121,15 +132,17 @@ foreach ($t in $tasks) {
     $lvl = $t.Level
     Write-Host "-- $id ($lvl) --" -ForegroundColor Yellow
     $entry = [ordered]@{
-        task_id        = $id
-        level          = $lvl
-        generate       = $null
-        build          = $null
-        run            = $null
-        result         = $null
-        classification = $null
-        reason         = $null
-        error          = $null
+        task_id         = $id
+        level           = $lvl
+        generate        = $null
+        build           = $null
+        run             = $null
+        result          = $null
+        classification  = $null
+        reason          = $null
+        validate        = $null   # did validate-artifacts reproduce the run verdict?
+        validate_result = $null   # result string validate-artifacts reported
+        error           = $null
     }
 
     if (-not $lvl) {
@@ -154,6 +167,22 @@ foreach ($t in $tasks) {
         } else {
             $entry.error = "run produced no parseable JSON (exit $($runResult.Code))"
         }
+
+        # Re-validate the artifacts the run just produced WITHOUT re-running the
+        # simulator. This is the independent provenance/oracle check the
+        # evidence index later aggregates: it confirms the on-disk serial/VCD
+        # plus verification.json still judge to the same verdict. Pass = it
+        # reproduced the run's result (most often BC).
+        if ($entry.run -and $entry.result) {
+            $valResult = Invoke-BenchJson (@("validate-artifacts") + $sel)
+            if ($valResult.Json) {
+                $entry.validate_result = $valResult.Json.result
+                $entry.validate = ($valResult.Code -eq 0) -and ($valResult.Json.result -eq $entry.result)
+            } else {
+                $entry.validate = $false
+                $entry.error = "validate-artifacts produced no parseable JSON (exit $($valResult.Code))"
+            }
+        }
     } catch {
         $entry.error = $_.Exception.Message
         Write-Warning "$id failed: $($_.Exception.Message)"
@@ -164,8 +193,39 @@ foreach ($t in $tasks) {
     Write-Host "   => $verdict" -ForegroundColor Green
 }
 
+# The per-run dump ($OutFile, default zephyr-live-status.json) is a transient,
+# UNTRACKED local artifact (.gitignore). The durable, tracked proof artifact is
+# the evidence index written below; do not re-track this dump.
 $report | ConvertTo-Json -Depth 5 | Out-File -FilePath $OutFile -Encoding utf8
-Write-Host "`n== summary ==" -ForegroundColor Cyan
+
+Write-Host "`n== this-run verdicts ==" -ForegroundColor Cyan
 $report | Group-Object { if ($_.result) { $_.result } elseif ($_.error) { "ERROR" } else { "?" } } |
     ForEach-Object { Write-Host ("  {0,-6} {1}" -f $_.Name, $_.Count) }
-Write-Host "report written to $OutFile"
+$valFail = @($report | Where-Object { $_.run -and $_.result -and ($_.validate -ne $true) })
+if ($valFail.Count -gt 0) {
+    Write-Host ("  validate-artifacts MISMATCH on {0} task(s): {1}" -f $valFail.Count, ($valFail.task_id -join ", ")) -ForegroundColor Red
+} else {
+    Write-Host "  validate-artifacts reproduced every run verdict" -ForegroundColor Green
+}
+Write-Host "this-run dump written to $OutFile (untracked)"
+
+# Aggregate the gitignored verification.json manifests into the tracked,
+# machine-checkable proof artifact docs/<platform>-evidence.json. Its summary
+# carries the canonical/addition split (canonical_total / canonical_fresh_bc /
+# addition_total) computed against the vendored upstream manifest.
+Write-Host "`n== evidence index (proof artifact) ==" -ForegroundColor Cyan
+$idxResult = Invoke-BenchJson @("evidence-index", "--platform", $platform)
+if ($idxResult.Json) {
+    $s = $idxResult.Json.summary
+    Write-Host ("  written: {0}" -f $idxResult.Json.output)
+    Write-Host ("  canonical: {0} task(s), fresh BC = {1}" -f $s.canonical_total, $s.canonical_fresh_bc) -ForegroundColor Green
+    Write-Host ("  addition (non-canonical, scored-out): {0} task(s)" -f $s.addition_total)
+    Write-Host ("  all-tasks fresh_bc (incl. addition): {0} / {1}" -f $s.fresh_bc, $s.total)
+    if ($s.canonical_fresh_bc -lt $s.canonical_total) {
+        Write-Host ("  NOT YET leaderboard-ready: {0} canonical task(s) lack fresh BC" -f ($s.canonical_total - $s.canonical_fresh_bc)) -ForegroundColor Yellow
+    } else {
+        Write-Host "  all 42 canonical tasks have fresh BC" -ForegroundColor Green
+    }
+} else {
+    Write-Warning "evidence-index produced no parseable JSON (exit $($idxResult.Code)); see output above"
+}

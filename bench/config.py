@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import sys
 from dataclasses import dataclass
@@ -396,6 +397,35 @@ def iter_platform_tasks(
         )
     for level in existing:
         yield from iter_tasks(platform=platform, level=level, root=root)
+
+
+# Platforms whose local task set is checked against a vendored upstream
+# canonical manifest under tests/fixtures/. Only these platforms distinguish
+# "canonical" tasks from sanctioned local additions; for any other platform
+# every local task is treated as canonical.
+_CANONICAL_FIXTURES = {
+    "zephyr_nano33ble": "upstream_zephyr_tasks.json",
+}
+
+
+def canonical_task_ids(platform: str, *, root: Path | None = None) -> set[str] | None:
+    """Vendored upstream canonical task ids for ``platform``.
+
+    Returns the set of canonical ids, or ``None`` if the platform has no
+    canonical manifest (callers should then treat every local task as
+    canonical). This reads the same fixture as
+    ``tests/test_canonical_task_set.py`` so the evidence index and the offline
+    canonical gate can never disagree on which tasks are canonical.
+    """
+    fixture_name = _CANONICAL_FIXTURES.get(platform)
+    if fixture_name is None:
+        return None
+    fixture = (root or repo_root()) / "tests" / "fixtures" / fixture_name
+    data = json.loads(fixture.read_text(encoding="utf-8"))
+    ids: set[str] = set()
+    for level in ALL_LEVELS:
+        ids.update(data.get(level, []))
+    return ids
 
 
 def validate_task(task: TaskConfig) -> None:

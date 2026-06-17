@@ -22,7 +22,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from .config import TaskConfig, iter_platform_tasks
+from .config import TaskConfig, canonical_task_ids, iter_platform_tasks
 from .runner import (
     benchmark_harness_hash,
     case_dir_for_task,
@@ -58,12 +58,19 @@ def evidence_stale_reasons(
     return reasons
 
 
-def evidence_entry(task: TaskConfig) -> dict[str, Any]:
+def evidence_entry(
+    task: TaskConfig, *, canonical_ids: set[str] | None = None
+) -> dict[str, Any]:
     entry: dict[str, Any] = {
         "task_id": task.task_id,
         "platform": task.platform,
         "level": task.level,
     }
+    # Only platforms with a vendored canonical manifest distinguish canonical
+    # tasks from sanctioned additions; for others the field is omitted so their
+    # index stays byte-identical to before this split was introduced.
+    if canonical_ids is not None:
+        entry["canonical"] = task.task_id in canonical_ids
     if not task.is_supported:
         entry["evidence"] = "unsupported"
         entry["fresh"] = False
@@ -131,7 +138,8 @@ def build_evidence_index(platform: str, *, level: str = "all") -> dict[str, Any]
     )
     if level != "all":
         tasks = [t for t in tasks if t.level == level]
-    entries = [evidence_entry(task) for task in tasks]
+    canonical_ids = canonical_task_ids(platform)
+    entries = [evidence_entry(task, canonical_ids=canonical_ids) for task in tasks]
 
     def count(pred) -> int:
         return sum(1 for entry in entries if pred(entry))
@@ -144,6 +152,16 @@ def build_evidence_index(platform: str, *, level: str = "all") -> dict[str, Any]
         "fresh_bc": count(lambda e: e.get("fresh") and e.get("result") == "BC"),
         "stale": count(lambda e: e.get("evidence") == "present" and not e.get("fresh")),
     }
+    # Canonical/addition split (D4): only emitted for platforms that have a
+    # canonical manifest, so non-canonical platforms keep their prior summary
+    # shape. fresh_bc above counts all tasks; canonical_fresh_bc is the
+    # leaderboard-relevant subset.
+    if canonical_ids is not None:
+        summary["canonical_total"] = count(lambda e: e.get("canonical"))
+        summary["canonical_fresh_bc"] = count(
+            lambda e: e.get("canonical") and e.get("fresh") and e.get("result") == "BC"
+        )
+        summary["addition_total"] = count(lambda e: not e.get("canonical"))
     return {
         "index_version": EVIDENCE_INDEX_VERSION,
         "summary": summary,
