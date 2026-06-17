@@ -11,11 +11,17 @@ is a conscious decision.
 
 from __future__ import annotations
 
+import json
+import re
 import unittest
 from pathlib import Path
 
 from bench.config import TaskConfig, load_task, repo_root
 from bench.static import StaticCheckError, validate_static_checks
+
+ZEPHYR_PLATFORM = "zephyr_nano33ble"
+ZEPHYR_ORACLE_INVENTORY = repo_root() / "docs" / "zephyr-oracle-inventory.md"
+UPSTREAM_ZEPHYR_FIXTURE = repo_root() / "tests" / "fixtures" / "upstream_zephyr_tasks.json"
 
 # (task_id, level, stub filename, expected to fail the static gate)
 STUBS = [
@@ -119,6 +125,46 @@ ZEPHYR_STUBS = [
     ("joystick_buzzer_pitch", "level3", "stub_zephyr_fixed_pitch.c", False),
 ]
 
+# Runtime-only Zephyr tasks that deliberately have no static gate. These stubs
+# are active compile-shaped submissions and are rejected by live waveform/LCD
+# oracles, not by validate_static_checks().
+ZEPHYR_RUNTIME_ONLY_STUBS = [
+    ("blink_led_1hz", "level1", "stub_zephyr_wrong_frequency.c"),
+    ("blink_led_morse_code", "level1", "stub_zephyr_wrong_morse.c"),
+    ("breathing_led", "level1", "stub_zephyr_flat_pwm.c"),
+    ("lcd1602_display_hello_world", "level2", "stub_zephyr_wrong_text.c"),
+]
+
+
+def canonical_zephyr_levels() -> dict[str, str]:
+    data = json.loads(UPSTREAM_ZEPHYR_FIXTURE.read_text(encoding="utf-8"))
+    levels: dict[str, str] = {}
+    for level in ("level1", "level2", "level3"):
+        task_ids = data[level]
+        for task_id in task_ids:
+            levels[task_id] = level
+    return levels
+
+
+def inventory_rows(section: str) -> list[tuple[str, str, str]]:
+    text = ZEPHYR_ORACLE_INVENTORY.read_text(encoding="utf-8")
+    rows: list[tuple[str, str, str]] = []
+    in_section = False
+    for line in text.splitlines():
+        if line.startswith("## "):
+            in_section = line.strip() == f"## {section}"
+            continue
+        if not in_section or not line.startswith("| `"):
+            continue
+        cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+        if len(cells) != 3:
+            raise AssertionError(f"malformed inventory row: {line}")
+        task_match = re.fullmatch(r"`([^`]+)`", cells[0])
+        if not task_match:
+            raise AssertionError(f"inventory task cell must be backtick quoted: {line}")
+        rows.append((task_match.group(1), cells[1], cells[2]))
+    return rows
+
 
 def zephyr_static_params(task: TaskConfig) -> dict:
     params = static_params(task)
@@ -130,6 +176,9 @@ def zephyr_static_params(task: TaskConfig) -> dict:
 class ZephyrAdversarialStaticTests(unittest.TestCase):
     def test_corpus_files_exist(self):
         for task_id, _level, stub, _expect_fail in ZEPHYR_STUBS:
+            path = repo_root() / "tests" / "adversarial" / task_id / stub
+            self.assertTrue(path.exists(), path)
+        for task_id, _level, stub in ZEPHYR_RUNTIME_ONLY_STUBS:
             path = repo_root() / "tests" / "adversarial" / task_id / stub
             self.assertTrue(path.exists(), path)
 
@@ -158,6 +207,64 @@ class ZephyrAdversarialStaticTests(unittest.TestCase):
                     task.simulation_variants or task.scenario or task.requires_vcd,
                     f"{task_id} has neither variants, a stimulus scenario, nor a waveform oracle",
                 )
+
+    def test_runtime_only_stubs_have_runtime_oracles(self):
+        for task_id, level, _stub in ZEPHYR_RUNTIME_ONLY_STUBS:
+            with self.subTest(task=task_id):
+                task = load_task(task_id, platform=ZEPHYR_PLATFORM, level=level)
+                self.assertFalse(
+                    zephyr_static_params(task),
+                    f"{task_id} unexpectedly has static checks; move it to ZEPHYR_STUBS",
+                )
+                self.assertTrue(
+                    task.requires_vcd,
+                    f"{task_id} runtime-only adversarial stub needs a waveform/LCD oracle",
+                )
+
+    def test_oracle_inventory_covers_exact_canonical_zephyr_set(self):
+        canonical = canonical_zephyr_levels()
+        rows = inventory_rows("Canonical Tasks")
+        task_ids = [task_id for task_id, _level, _defense in rows]
+
+        self.assertEqual(42, len(rows))
+        self.assertEqual(len(task_ids), len(set(task_ids)), "duplicate canonical inventory row")
+        self.assertEqual(set(canonical), set(task_ids))
+        for task_id, level, _defense in rows:
+            self.assertEqual(canonical[task_id], level, task_id)
+
+    def test_oracle_inventory_lists_addition_separately(self):
+        canonical_ids = set(canonical_zephyr_levels())
+        additions = inventory_rows("Non-Canonical Addition")
+        self.assertEqual(
+            [("lsm9ds1_read_i2c", "level2")],
+            [(task_id, level) for task_id, level, _defense in additions],
+        )
+        self.assertFalse(canonical_ids & {task_id for task_id, _level, _defense in additions})
+
+    def test_oracle_inventory_names_concrete_defenses(self):
+        text = ZEPHYR_ORACLE_INVENTORY.read_text(encoding="utf-8")
+        self.assertNotRegex(text.lower(), r"\b(todo|unknown)\b")
+
+        defense_tokens = (
+            "Behavior-distinct variants",
+            "`window_ratios`",
+            "`frequency_windows`",
+            "`stimulus_to_output`",
+            "`serial_contains_on_stimulus`",
+            "`serial_count_sequence`",
+            "`serial_observation_sequence`",
+            "`debounce_serial`",
+            "`bme280_environment`",
+            "`bus_activity`",
+            "fixed-by-spec",
+        )
+        for section in ("Canonical Tasks", "Non-Canonical Addition"):
+            for task_id, _level, defense in inventory_rows(section):
+                with self.subTest(task=task_id):
+                    self.assertTrue(
+                        any(token in defense for token in defense_tokens),
+                        f"{task_id}: inventory defense is not concrete: {defense}",
+                    )
 
 
 ESPIDF_STUBS = [
