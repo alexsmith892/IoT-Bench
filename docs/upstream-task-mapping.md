@@ -12,9 +12,10 @@ Status meanings:
 - `addition`: local IoT-Bench task outside the upstream canonical set.
 
 The `Local status` column above describes upstream-vs-local *contract* alignment
-only. For live verification maturity (live-validated / bf-triage / unsupported /
-pending confirming sweep) and the 2026-06-16 evidence-freshness caveat, see
-`docs/zephyr-task-status.md`; that file is the single source of truth for
+only. For live verification maturity (live-verified / scored-out / addition)
+after the 2026-06-17 full live sweep, see `docs/zephyr-task-status.md` and the
+tracked evidence index `docs/zephyr_nano33ble-evidence.json`; those are the
+source of truth for
 readiness and this file no longer makes independent live-pass claims.
 
 Note on aliases: the `Upstream contract` column records the *upstream* alias
@@ -58,7 +59,7 @@ prompt-advertises ⇒ overlay-emits invariant is enforced offline by
 | `ds18b20_heat_alarm` | DS18B20 alias `data-ds18b20`; threshold 30 C; drive `my-led` and `my-buzzer`. | aligned | DS18B20 1-Wire Renode model live-verified 2026-06-16 with cold/hot scenario variants; prompt documents the stretched 1-Wire timing surrogate. |
 | `clap_switch` | `sound-sensor` toggles relay `lock-relay`. | aligned | Digital sound threshold surrogate. |
 | `hcsr501_motion_alarm` | PIR alias `sr501` drives `my-buzzer`. | aligned | Digital PIR surrogate. |
-| `hcsr04_find_distance` | HC-SR04 aliases `sr04-trig`, `sr04-echo`; print distance. | aligned | Local prompt gives raw trig/echo pins. Live status is `bf-triage` (inconsistent BF manifest vs valid-looking serial) — see `zephyr-task-status.md`. |
+| `hcsr04_find_distance` | HC-SR04 aliases `sr04-trig`, `sr04-echo`; print distance. | aligned | Local prompt gives raw trig/echo pins. Live-verified BC 2026-06-17 (far/near distance variants). |
 | `parking_sensor` | HC-SR04 aliases plus `my-led`/`my-buzzer`; faster output as object nears. | aligned | Shares the HC-SR04 model under re-triage; live status `implemented-unvalidated`. |
 | `reverse_parking_sensor` | HC-SR04 aliases plus `my-led`/`my-buzzer`; buzzer faster as object nears. | aligned | Shares the HC-SR04 model under re-triage; live status `implemented-unvalidated`. |
 
@@ -68,9 +69,9 @@ prompt-advertises ⇒ overlay-emits invariant is enforced offline by
 |---|---|---|---|
 | `dht11_read_button_display` | Button `my-button` interrupt reads DHT11 `data-dht11`; LCD aliases display `Temp:` and `RH:`. | aligned | Live-verified 2026-06-16; button-press scenario forces a re-read so the decoded LCD frames track changed sensor values across two distinct variants. |
 | `mpu6050_read_button_display` | Button `my-button` reads MPU6050 on I2C bus 0 and displays accel/gyro on LCD. | aligned | LCD/MPU models are wired; reference should stay variant-correlated. |
-| `mpu6050_read_periodic_display` | Every 100 ms read MPU6050, average 10 samples, display accel/gyro on LCD. | aligned | Live status `live-validated` per `zephyr-task-status.md` (earlier BF was resolved); pending the 2026-06-16 confirming sweep. |
+| `mpu6050_read_periodic_display` | Every 100 ms read MPU6050, average 10 samples, display accel/gyro on LCD. | aligned | Live-verified BC 2026-06-17 (10-sample average differs by variant). |
 | `safebox` | 16-key keypad password `1234` unlocks `lock-relay`. | aligned | Keypad surrogate scans rows/columns. |
-| `safebox_display` | Password `1234`; LCD shows `Input:` and `Status:`. | aligned | Variant wrong-code oracle prevents a fixed success display. |
+| `safebox_display` | Password `1234`; LCD shows `Input:` and `Status:`. | aligned | Variant wrong-code oracle prevents a fixed success display. **Scored out** of canonical readiness: a Renode keypad-column GPIO-init limitation corrupts the boot keypad scan — see `zephyr-task-status.md`. |
 | `lcd1602_auto_brightness_control` | Photoresistor ADC controls LCD backlight `K`; LCD aliases. | aligned | Software PWM surrogate for backlight. |
 | `buzzer_toggle_led_freq` | Button cycles LED 1 Hz, 2 Hz, 4 Hz, off; buzzer beeps on press. | aligned | Timing oracle checks mode windows. |
 | `tmp36_read_button_display` | Button `my-button` samples `zephyr_user` ADC channel 0 and displays reading. | aligned | LCD prompt uses Fahrenheit-format local oracle. |
@@ -78,7 +79,7 @@ prompt-advertises ⇒ overlay-emits invariant is enforced offline by
 | `reaction_timer_display` | Button starts timer; shock sensor stops; LCD shows milliseconds. | aligned | Shock sensor is a binary GPIO surrogate. |
 | `sensor_water_level_display` | Water-level sensor through `zephyr_user` ADC channel 0; LCD bar graph. | aligned | SAADC surrogate. |
 | `buzzer_laser_tripwire` | Photoresistor beam block drives `my-buzzer`; emitter alias. | aligned | Emitter/photoresistor represented by deterministic GPIO/ADC controls. |
-| `joystick_buzzer_pitch` | Joystick Y axis on `zephyr_user` ADC channel 1 changes passive buzzer pitch. | aligned | Live status `live-validated` per `zephyr-task-status.md` (low/high windows distinct in both orders); pending the 2026-06-16 confirming sweep. |
+| `joystick_buzzer_pitch` | Joystick Y axis on `zephyr_user` ADC channel 1 changes passive buzzer pitch. | aligned | Live-verified BC 2026-06-17 (low/high buzzer windows distinct in both orders). |
 | `step_counter_print` | GY-521 on I2C bus 0; timer counts movement spikes. | aligned | MPU6050 custom model supplies deterministic spike sequence. |
 
 ## IoT-Bench Addition
