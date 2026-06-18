@@ -26,6 +26,8 @@ class LeaderboardExtractionTests(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertEqual(result.result["result"], "CF")
         self.assertEqual(result.result["failure_stage"], "format")
+        self.assertEqual(result.metadata["candidate_fence_count"], 0)
+        self.assertIn("empty", result.metadata["failure_reason"])
 
     def test_multi_file_response_fails(self):
         response = f"```cpp\n{GOOD}```\n```cpp\n{GOOD}```"
@@ -36,6 +38,25 @@ class LeaderboardExtractionTests(unittest.TestCase):
 
         self.assertEqual(extract_c_source(f"```c\n{source}```"), source.strip())
         self.assertIsNone(extract_c_source(f"```c\n{source}```\n```c\n{source}```"))
+
+    def test_extraction_metadata_records_chosen_fence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = extract_to_source(load_task("blink_led_1hz"), f"```cpp\n{GOOD}```", Path(tmp))
+
+        self.assertTrue(result.ok)
+        self.assertEqual(result.metadata["chosen_fence_language"], "cpp")
+        self.assertEqual(result.metadata["candidate_fence_count"], 1)
+        self.assertIsNone(result.metadata["failure_reason"])
+
+    def test_multiple_source_fences_metadata_records_failure(self):
+        response = f"```cpp\n{GOOD}```\n```cpp\n{GOOD}```"
+        with tempfile.TemporaryDirectory() as tmp:
+            result = extract_to_source(load_task("blink_led_1hz"), response, Path(tmp))
+
+        self.assertFalse(result.ok)
+        self.assertEqual(result.result["failure_stage"], "format")
+        self.assertEqual(result.metadata["candidate_fence_count"], 2)
+        self.assertIn("multiple", result.metadata["failure_reason"])
 
 
 if __name__ == "__main__":
