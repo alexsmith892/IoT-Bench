@@ -146,13 +146,21 @@ Core commands:
 | `plan` | Validate and enumerate a run without calling a model |
 | `run` | Execute a model experiment into an ignored `runs/` directory |
 | `report` | Rebuild reports for an existing run directory |
+| `aggregate` | Merge several run directories into one cross-model leaderboard |
 
-Supported model selectors are `fixture:reference`, `file:<path>`, and
+Supported model selectors are `fixture:reference`, `file:<path>`, the
 OpenAI-compatible prefixes `openai:<model>`, `gemini:<model>`,
-`openrouter:<provider/model>`, and `local:<model>`. Provider defaults use
-`OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, or no key for
+`openrouter:<provider/model>`, and `local:<model>` (Ollama, keyless), plus the
+native `anthropic:<model>` adapter. Provider key defaults are `OPENAI_API_KEY`,
+`GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, or no key for
 `local:`; override endpoints with `--api-base` and key env vars with
-`--api-key-env`.
+`--api-key-env`. For OpenAI's gpt-5 / o-series the request automatically uses
+`max_completion_tokens` and drops unsupported sampling params.
+
+Reports are token-only: pass@1 (with a 95% Wilson interval), pass@k, coverage,
+the BC/BF/CF/IF mix, and tokens-per-task / tokens-per-pass, plus per-model skill
+lift. `aggregate --runs <dirA> <dirB> ... --out <dir>` re-aggregates several runs
+into a single comparison table.
 
 Safety flags are intentional: `run` requires `--confirm-spend` unless
 `--dry-run` is set, `--max-generations` caps planned model calls, and
