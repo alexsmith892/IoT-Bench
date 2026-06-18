@@ -147,10 +147,15 @@ class ScoredOutTaskTests(unittest.TestCase):
                 f"scored-out task {task_id!r} must document why it is excluded",
             )
 
-    def test_safebox_display_is_scored_out(self) -> None:
-        # Pins the known Renode keypad GPIO-init limitation exclusion so a future
-        # change that silently re-includes or drops it trips this gate.
-        self.assertIn("safebox_display", scored_out_task_ids(PLATFORM))
+    def test_safebox_display_is_not_scored_out(self) -> None:
+        # safebox_display previously carried the Renode keypad GPIO-init
+        # exclusion; that limitation was fixed in the MatrixKeypad model (the
+        # columns are re-asserted with a real edge on every scan), so the task
+        # reaches BC again. Pin that it is canonical, covered, and no longer
+        # excluded so a regression that re-scores it out trips this gate.
+        self.assertNotIn("safebox_display", scored_out_task_ids(PLATFORM))
+        self.assertIn("safebox_display", _canonical_ids())
+        self.assertIn("safebox_display", _covered_ids())
 
 
 if __name__ == "__main__":

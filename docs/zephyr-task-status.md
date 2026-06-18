@@ -6,13 +6,21 @@ machine-checkable source of truth is the tracked evidence index
 evidence-index --platform zephyr_nano33ble`); if this doc and the index ever
 disagree, the index wins.
 
+For what a BC verdict on this platform certifies vs. does not (the surrogate
+modeling shortcuts behind each task), see `docs/zephyr-fidelity-ledger.md`.
+
 **Last full live sweep: 2026-06-17** - Renode v1.16.1, west v1.5.0, Zephyr
 `c49b758` - driven by `scripts/renode_live_sweep.ps1` (generate -> build -> run ->
 validate-artifacts per task, then a refreshed evidence index). Result: of the
-**42 canonical** tasks, **41 are live-verified BC** and **1 (`safebox_display`)
-is scored out** (documented Renode limitation, below). The non-canonical
-addition `lsm9ds1_read_i2c` was also live BC but is excluded from canonical
-scoring.
+**42 canonical** tasks, **all 42 are live-verified BC** (the former
+`safebox_display` Renode keypad limitation was fixed in `MatrixKeypad.cs`, see
+below). The non-canonical addition `lsm9ds1_read_i2c` was also live BC but is
+excluded from canonical scoring.
+
+> Note (2026-06-18): the `safebox_display` keypad-column fix postdates the
+> 2026-06-17 sweep above. The mechanism (model edit + single-task BC on
+> `safebox_display`, `safebox`, `16key_keypad`) is verified, but the tracked
+> evidence index is not refreshed until the next full live sweep runs.
 
 Current evidence freshness is intentionally stricter than the historical sweep
 summary. The tracked index currently reports stale Zephyr entries after source
@@ -68,8 +76,8 @@ Status meanings:
 | `dht11_read_button_display` | live-verified | DHT11 + button interrupt + LCD1602; BC for both variants — the second button press after an environment change must re-decode new LCD values, so a boot-only/hardcoded display fails. |
 | `mpu6050_read_button_display` | live-verified | MPU6050 plus LCD/button. |
 | `mpu6050_read_periodic_display` | live-verified | MPU6050 variants decoded from LCD VCD frames; 10-sample average differs by variant. |
-| `safebox` | live-verified | Keypad surrogate plus relay; relay-window oracle (does not depend on the exact keypad echo, so unaffected by the keypad boot quirk below). |
-| `safebox_display` | **scored-out** | Keypad + relay + LCD echo. **Cannot reach BC under Renode:** the first matrix-keypad column the model drives does not present its idle-high level to the wired pin until that output's value first changes (~200 ms in, after the first keypress), so the boot keypad scan reads a phantom-pressed first column and the entered code is corrupted (e.g. `1235`→`1423`). Verified intractable across pin reassignment, output-index offset, and sacrificial first-column connections. Excluded from scoring; keypad behavior stays covered by `16key_keypad` and `safebox`. |
+| `safebox` | live-verified | Keypad surrogate plus relay; relay-window oracle (does not depend on the exact keypad echo). |
+| `safebox_display` | live-verified | Keypad + relay + LCD echo. Formerly scored out for the Renode keypad-column boot quirk (below); now BC after the `MatrixKeypad.cs` per-scan column refresh fix. Both variants (`wrong_1235`, `wrong_1325`) decode the exact entered code. |
 | `lcd1602_auto_brightness_control` | live-verified | SAADC plus software PWM backlight. |
 | `buzzer_toggle_led_freq` | live-verified | Button-driven 1/2/4 Hz/off sequence. |
 | `tmp36_read_button_display` | live-verified | SAADC plus LCD/button. |
@@ -95,10 +103,19 @@ Status meanings:
   distance to a software-PWM buzzer frequency whose half-period is calibrated to
   the 2 MIPS busy-wait stretch — keep the `frequency_windows` oracle strict and
   retune only from measured VCD evidence.
-- **Keypad boot quirk (the `safebox_display` scoring exclusion).** With the
-  shared `bench/chips/keypad/MatrixKeypad.cs` model, the first keypad column the
-  model drives reads a phantom-pressed (low) level until its first value change.
-  `16key_keypad` and `safebox` tolerate this (their oracles do not depend on a
-  strict first-attempt keypad echo); `safebox_display`'s exact 4-digit LCD echo
-  does not, hence the scoring exclusion. No general fix was found at the model,
-  generator, or firmware layer.
+- **Keypad boot quirk (fixed 2026-06-18).** With the shared
+  `bench/chips/keypad/MatrixKeypad.cs` model, the columns' idle-high level is
+  emitted at construction/reset — before the firmware configures the column
+  pins as inputs — so the wired nRF GPIO input never latched it, and Renode's
+  `GPIO.Set` de-dup suppressed every later re-assertion. The first keypad column
+  therefore read phantom-pressed (low) until the first real keypress finally
+  toggled it. `16key_keypad` and `safebox` tolerated this (their oracles do not
+  depend on a strict first-attempt keypad echo); `safebox_display`'s exact
+  4-digit LCD echo did not, so it was scored out. **Fix:** the model now
+  re-asserts the columns with a genuine edge at the start of every scan (drive
+  all columns low on each row-low, then recompute), matching how a real keypad
+  presents a defined level each scan. The momentary low is within the GPIO
+  handler (no virtual time elapses), so the firmware — which samples only after
+  its post-row-drive `k_msleep` settle — never observes it. All three keypad
+  tasks are BC; `safebox_display` decodes the exact entered code on both
+  variants.
