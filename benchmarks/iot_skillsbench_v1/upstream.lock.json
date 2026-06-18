@@ -1,0 +1,182 @@
+{
+  "commit": "5ade381085cf94149e243ce694fde980749343a1",
+  "files": [
+    {
+      "path": "skills-human-expert/arduino-framework.md",
+      "sha256": "0be076903e436583499d0be21b7c5cbe44bd57a3fa60b8105b42a1de725b75a6"
+    },
+    {
+      "path": "skills-human-expert/bmp180.md",
+      "sha256": "c60074a67dfcbc2df59793be1c3abb663be80f58bc256c1bd3ce2367697fa667"
+    },
+    {
+      "path": "skills-human-expert/dht11.md",
+      "sha256": "9d57e752c2581bad43008503169ec12737ec6562ad2899b062df4f182c53ba8e"
+    },
+    {
+      "path": "skills-human-expert/ds1307.md",
+      "sha256": "adfd99fb053fc549418e83e7cbd028cb05cc02c9917584a1377cc23d1498299d"
+    },
+    {
+      "path": "skills-human-expert/ds18b20.md",
+      "sha256": "3be671b7cc9a9db356a53a47ef4a85d645a7446a88e4b2cc5cbbe57572785ffe"
+    },
+    {
+      "path": "skills-human-expert/esp-idf-framework.md",
+      "sha256": "87070381115850a6b482a41f0fe26a0ce5d0d97eb99e22fa77955803a28792b7"
+    },
+    {
+      "path": "skills-human-expert/in219.md",
+      "sha256": "d13e34310be362f773b2bfe24e53b20440f4bed296eab3f1043a8d20db814ed6"
+    },
+    {
+      "path": "skills-human-expert/joystick.md",
+      "sha256": "c2a762e2ddf4bc03bd98a233d82a8631bd789b8105f975f15a298b0365b447ca"
+    },
+    {
+      "path": "skills-human-expert/lcd1602-hd47780.md",
+      "sha256": "a4005fb204f71f05c1acda454556db648d8affda7faf17a7eb606b16abf0dea2"
+    },
+    {
+      "path": "skills-human-expert/ltr390.md",
+      "sha256": "cea1cb6c469532708bb7930ab2cf4664333ca9661a6824ccf07da8751f331b47"
+    },
+    {
+      "path": "skills-human-expert/max30101-max32664.md",
+      "sha256": "7c75ac75fe4ce8811744feadd22f4ac6cab2f715c01c878e7d8aba0dac4e8793"
+    },
+    {
+      "path": "skills-human-expert/mpu6050.md",
+      "sha256": "271f3d6546152d0b6cd3ebb9254fa187ac246d3e3c895e85cdf9b994522d2dc6"
+    },
+    {
+      "path": "skills-human-expert/mq2.md",
+      "sha256": "46690ff7bc4ceef9b9ee5d5d0138848984e78510a53679b2d8212432c79a487b"
+    },
+    {
+      "path": "skills-human-expert/photoresistor-sensor.md",
+      "sha256": "13d6c1fb995588abc04720be6bd933c82fbe4d20c5f36e53ab7e1371ed29e865"
+    },
+    {
+      "path": "skills-human-expert/pmsa003i.md",
+      "sha256": "caeeea0170f35afbabcd7a7b5ffc7b278a0047b2b4b0884e3680e6fcfbef5aac"
+    },
+    {
+      "path": "skills-human-expert/pn532.md",
+      "sha256": "c617b548ffa61970355542b8f3f277b73a26a461bbfec29b69e5ff5bc3167e17"
+    },
+    {
+      "path": "skills-human-expert/rotary-encoder.md",
+      "sha256": "89eec1b35997b7b531ccca142e88a888853df1d216c798206d2a1edcec516eb9"
+    },
+    {
+      "path": "skills-human-expert/sgp40.md",
+      "sha256": "0ac711d275eccdd488d4eed6a44a7e2874f45232571a6cbc872e6ec5e038d76a"
+    },
+    {
+      "path": "skills-human-expert/sound-sensor.md",
+      "sha256": "88918875eefe53b09af3f116c3aa61b45c34d15d6958f4cad850dfed43cc483c"
+    },
+    {
+      "path": "skills-human-expert/tactile-switch.md",
+      "sha256": "92f638615acbad81c312cd6e36596a9fa0f60b75e4391d34bd67a51ed86a933d"
+    },
+    {
+      "path": "skills-human-expert/ultrasound-distance-sensor.md",
+      "sha256": "b403496dda058223ef3fcd80e6c15af020519fecf0b0b76ecbc708e8d6d899f8"
+    },
+    {
+      "path": "skills-human-expert/vl53l0x.md",
+      "sha256": "670415dcdc8b02e93092034b59696054f4a34d0cc2b211e86600c34279958278"
+    },
+    {
+      "path": "skills-human-expert/zephyr-framework.md",
+      "sha256": "598154541ee2f476457edf0ff4e42229d5e16d38aa0115aae757e530e45ae337"
+    },
+    {
+      "path": "skills-llm-generated/adc-reading-esp32-esp-idf.md",
+      "sha256": "175e027a6761854cd49902f80ac22723c35b8f5ba7cf979f960fb092b7fa300c"
+    },
+    {
+      "path": "skills-llm-generated/gpio-and-timers-nrf52840-zephyr.md",
+      "sha256": "af8265aab10300a7a7f3665e9e8ea77eba08f0bc5b5f937564d1f5f2409b720a"
+    },
+    {
+      "path": "skills-llm-generated/gpio-interrupts-atmega2560-arduino.md",
+      "sha256": "219590ae50f4ba6d7c1a40ff12f8e4f46f73f5d5d41a4b39e51c872853df0c80"
+    },
+    {
+      "path": "skills-llm-generated/gpio-interrupts-esp32-esp-idf.md",
+      "sha256": "040b79aae24d511309c36b52840d6a72644944528443b451a3d6e6f5310a3d6b"
+    },
+    {
+      "path": "skills-llm-generated/hardware-timers-esp32-esp-idf.md",
+      "sha256": "ee5a9be40b5823b94e2f92b1b45c85abbc9980fefa08f08862377b051e9762a3"
+    },
+    {
+      "path": "skills-llm-generated/i2c-communication-esp32-esp-idf.md",
+      "sha256": "887c05af233f8cb33959dcba8e1723f345b8c0fefec72fc46dd556fed2453381"
+    },
+    {
+      "path": "skills-llm-generated/matrix-keypad-scanning-generic.md",
+      "sha256": "9a969e226549a3b07d1c3575746b5b357b14037132b1bbe94efc88567f993e88"
+    },
+    {
+      "path": "skills-llm-generated/pwm-control-esp32-esp-idf.md",
+      "sha256": "4332317658364f9a271b3b9ac439f0a4a6b4d5d0edbdaa06e02b4d290cafba94"
+    },
+    {
+      "path": "skills-llm-generated/README.md",
+      "sha256": "809a77ed2cf174b9414b826ae3456beb781cafe43520fa29a4efdd3761df00af"
+    },
+    {
+      "path": "skills-llm-generated/software-debouncing-pattern.md",
+      "sha256": "f23061b50f534436511496e0acd2905bacbd17b04c36903615871a00da3f469a"
+    },
+    {
+      "path": "skills-llm-generated/ultrasonic-hcsr04-generic.md",
+      "sha256": "be0c6600ef9f8331a78c3c13fc5ecbf81d5268d6ee8d53e2ed2884fb0cbae053"
+    },
+    {
+      "path": "tasks/level1/level1-ATmega2560-Arduino.txt",
+      "sha256": "008f517902a52bc559308bcfb1e69ebe2c28510b164228e962ea7146e63c1f8a"
+    },
+    {
+      "path": "tasks/level1/level1-ESP32S3-ESPIDF.txt",
+      "sha256": "b4016f633150567f7b420e979dab5f6cd08e3ad5cafa9790eb9911f209c6029e"
+    },
+    {
+      "path": "tasks/level1/level1-nRF52840-Zephyr.txt",
+      "sha256": "a5d740edc844506cf16920620aee4ff49c49fe4ed2053a9bc867637db309adaf"
+    },
+    {
+      "path": "tasks/level2/level2-ATmega2560-Arduino.txt",
+      "sha256": "a90a5035ef0343e2be47e7d41deaafd4b666ad69a78c74f8188444581345b232"
+    },
+    {
+      "path": "tasks/level2/level2-ESP32S3-ESPIDF.txt",
+      "sha256": "3f224ee221c23cf78622bac3eeab0d121b9354605bb1846c92c74b7230f0e6e3"
+    },
+    {
+      "path": "tasks/level2/level2-nRF52840-Zephyr.txt",
+      "sha256": "667a44bffd609dc05c47fb118937f24caa5035b3459bd47aba47aa11726be39d"
+    },
+    {
+      "path": "tasks/level3/level3-ATmega2560-Arduino.txt",
+      "sha256": "fb9bfb6c6d63c70053b934baa9e174fd628a331aedad6dbb1b94d3fe0e51d50c"
+    },
+    {
+      "path": "tasks/level3/level3-ESP32S3-ESPIDF.txt",
+      "sha256": "9c53471472ffc10ba2686d06553b4e6ba07ee73b6aa88cb40c758f8cb90e9a82"
+    },
+    {
+      "path": "tasks/level3/level3-nRF52840-Zephyr.txt",
+      "sha256": "20f05333bdf6c52bd9b2724b2b8f4270b340ee124357fb9e22de31e9fc52c031"
+    },
+    {
+      "path": "tasks/single/tmp_task.txt",
+      "sha256": "c4fcbcaf9f82e18904e231f6eb0560713481828e739a4d8051205b2909eb7f13"
+    }
+  ],
+  "repo": "https://github.com/iot-agent/iot-skillsbench.git"
+}

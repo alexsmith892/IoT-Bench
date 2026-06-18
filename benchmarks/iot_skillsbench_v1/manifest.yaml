@@ -1,0 +1,682 @@
+benchmark_id: iot_skillsbench_v1
+schema_version: 1
+upstream:
+  repo: iot-agent/iot-skillsbench
+  commit: 5ade381085cf94149e243ce694fde980749343a1
+platforms:
+  arduino_mega:
+    upstream_file_prefix: ATmega2560-Arduino
+    canonical_count: 41
+skill_modes:
+  none:
+    use_skills: false
+  human_expert:
+    use_skills: true
+    skills_dir: skillpacks/human_expert
+  llm_generated:
+    use_skills: true
+    skills_dir: skillpacks/llm_generated
+tasks:
+- canonical_id: blink_led_1hz
+  local_task_id: blink_led_1hz
+  local_platform: arduino_mega
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - blink
+    - led
+    - 1hz
+    - gpio
+  deviations: []
+- canonical_id: blink_led_morse_code
+  local_task_id: blink_led_morse_code
+  local_platform: arduino_mega
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - blink
+    - led
+    - morse
+    - code
+    - gpio
+  deviations: []
+- canonical_id: blink_led_no_delay
+  local_task_id: blink_led_no_delay
+  local_platform: arduino_mega
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - blink
+    - led
+    - 'no'
+    - delay
+    - gpio
+  deviations: []
+- canonical_id: blink_two_leds
+  local_task_id: blink_two_leds
+  local_platform: arduino_mega
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - blink
+    - two
+    - leds
+    - gpio
+  deviations: []
+- canonical_id: breathing_led
+  local_task_id: breathing_led
+  local_platform: arduino_mega
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - breathing
+    - led
+    - gpio
+  deviations: []
+- canonical_id: button_press_debounce
+  local_task_id: button_press_debounce
+  local_platform: arduino_mega
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - button
+    - press
+    - debounce
+    - gpio
+  deviations: []
+- canonical_id: button_status_count
+  local_task_id: button_status_count
+  local_platform: arduino_mega
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - button
+    - status
+    - count
+    - gpio
+  deviations: []
+- canonical_id: button_status_display
+  local_task_id: button_status_display
+  local_platform: arduino_mega
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - button
+    - status
+    - display
+    - gpio
+    - lcd
+  deviations: []
+- canonical_id: buzzer_doorbell
+  local_task_id: buzzer_doorbell
+  local_platform: arduino_mega
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - buzzer
+    - doorbell
+    - gpio
+  deviations: []
+- canonical_id: sensor_pir_human_motion
+  local_task_id: sensor_pir_human_motion
+  local_platform: arduino_mega
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - sensor
+    - pir
+    - human
+    - motion
+  deviations: []
+- canonical_id: tmp36_read
+  local_task_id: tmp36_read
+  local_platform: arduino_mega
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - tmp36
+    - read
+    - analog
+  deviations: []
+- canonical_id: 16key_keypad
+  local_task_id: 16key_keypad
+  local_platform: arduino_mega
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - 16key
+    - keypad
+    - gpio
+  deviations: []
+- canonical_id: bme280_read_i2c
+  local_task_id: bme280_read_i2c
+  local_platform: arduino_mega
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - bme280
+    - read
+    - i2c
+    - sensor
+  deviations: []
+- canonical_id: bme280_read_spi
+  local_task_id: bme280_read_spi
+  local_platform: arduino_mega
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - bme280
+    - read
+    - spi
+    - sensor
+  deviations: []
+- canonical_id: clap_switch
+  local_task_id: clap_switch
+  local_platform: arduino_mega
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - clap
+    - switch
+  deviations: []
+- canonical_id: dht11_read
+  local_task_id: dht11_read
+  local_platform: arduino_mega
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - dht11
+    - read
+    - sensor
+  deviations: []
+- canonical_id: ds1307_rtc
+  local_task_id: ds1307_rtc
+  local_platform: arduino_mega
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - ds1307
+    - rtc
+    - sensor
+  deviations: []
+- canonical_id: ds18b20_heat_alarm
+  local_task_id: ds18b20_heat_alarm
+  local_platform: arduino_mega
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - ds18b20
+    - heat
+    - alarm
+    - sensor
+  deviations: []
+- canonical_id: hcsr04_find_distance
+  local_task_id: hcsr04_find_distance
+  local_platform: arduino_mega
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - hcsr04
+    - find
+    - distance
+    - ultrasonic
+  deviations: []
+- canonical_id: hcsr501_motion_alarm
+  local_task_id: hcsr501_motion_alarm
+  local_platform: arduino_mega
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - hcsr501
+    - motion
+    - alarm
+  deviations: []
+- canonical_id: lcd1602_display_hello_world
+  local_task_id: lcd1602_display_hello_world
+  local_platform: arduino_mega
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - lcd1602
+    - display
+    - hello
+    - world
+    - sensor
+    - lcd
+  deviations: []
+- canonical_id: mpu6050_read_i2c
+  local_task_id: mpu6050_read_i2c
+  local_platform: arduino_mega
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - mpu6050
+    - read
+    - i2c
+    - sensor
+  deviations: []
+- canonical_id: parking_sensor
+  local_task_id: parking_sensor
+  local_platform: arduino_mega
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - parking
+    - sensor
+    - ultrasonic
+  deviations: []
+- canonical_id: photoresistor_nightlight
+  local_task_id: photoresistor_nightlight
+  local_platform: arduino_mega
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - photoresistor
+    - nightlight
+    - analog
+  deviations: []
+- canonical_id: reverse_parking_sensor
+  local_task_id: reverse_parking_sensor
+  local_platform: arduino_mega
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - reverse
+    - parking
+    - sensor
+    - ultrasonic
+  deviations: []
+- canonical_id: rotary_encoder
+  local_task_id: rotary_encoder
+  local_platform: arduino_mega
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - rotary
+    - encoder
+  deviations: []
+- canonical_id: tilt_detection_alarm
+  local_task_id: tilt_detection_alarm
+  local_platform: arduino_mega
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - tilt
+    - detection
+    - alarm
+  deviations: []
+- canonical_id: buzzer_laser_tripwire
+  local_task_id: buzzer_laser_tripwire
+  local_platform: arduino_mega
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - buzzer
+    - laser
+    - tripwire
+    - gpio
+  deviations: []
+- canonical_id: buzzer_toggle_led_freq
+  local_task_id: buzzer_toggle_led_freq
+  local_platform: arduino_mega
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - buzzer
+    - toggle
+    - led
+    - freq
+    - gpio
+  deviations: []
+- canonical_id: dht11_read_button_display
+  local_task_id: dht11_read_button_display
+  local_platform: arduino_mega
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - dht11
+    - read
+    - button
+    - display
+    - gpio
+    - sensor
+    - lcd
+  deviations: []
+- canonical_id: joystick_buzzer_pitch
+  local_task_id: joystick_buzzer_pitch
+  local_platform: arduino_mega
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - joystick
+    - buzzer
+    - pitch
+    - gpio
+    - analog
+  deviations: []
+- canonical_id: lcd1602_auto_brightness_control
+  local_task_id: lcd1602_auto_brightness_control
+  local_platform: arduino_mega
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - lcd1602
+    - auto
+    - brightness
+    - control
+    - sensor
+    - lcd
+  deviations: []
+- canonical_id: mpu6050_read_button_display
+  local_task_id: mpu6050_read_button_display
+  local_platform: arduino_mega
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - mpu6050
+    - read
+    - button
+    - display
+    - gpio
+    - sensor
+    - lcd
+  deviations: []
+- canonical_id: mpu6050_read_periodic_display
+  local_task_id: mpu6050_read_periodic_display
+  local_platform: arduino_mega
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - mpu6050
+    - read
+    - periodic
+    - display
+    - sensor
+    - lcd
+  deviations: []
+- canonical_id: reaction_timer_display
+  local_task_id: reaction_timer_display
+  local_platform: arduino_mega
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - reaction
+    - timer
+    - display
+    - lcd
+  deviations: []
+- canonical_id: safebox
+  local_task_id: safebox
+  local_platform: arduino_mega
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - safebox
+    - gpio
+  deviations: []
+- canonical_id: safebox_display
+  local_task_id: safebox_display
+  local_platform: arduino_mega
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - safebox
+    - display
+    - gpio
+    - lcd
+  deviations: []
+- canonical_id: sensor_water_level_display
+  local_task_id: sensor_water_level_display
+  local_platform: arduino_mega
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - sensor
+    - water
+    - level
+    - display
+    - analog
+    - lcd
+  deviations: []
+- canonical_id: step_counter_print
+  local_task_id: step_counter_print
+  local_platform: arduino_mega
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - step
+    - counter
+    - print
+  deviations: []
+- canonical_id: tmp36_read_button_display
+  local_task_id: tmp36_read_button_display
+  local_platform: arduino_mega
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - tmp36
+    - read
+    - button
+    - display
+    - gpio
+    - analog
+    - lcd
+  deviations: []
+- canonical_id: tmp36_read_periodic_display
+  local_task_id: tmp36_read_periodic_display
+  local_platform: arduino_mega
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - arduino
+    - tmp36
+    - read
+    - periodic
+    - display
+    - analog
+    - lcd
+  deviations: []
