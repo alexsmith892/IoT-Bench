@@ -398,7 +398,7 @@ def ensure_arduino_sketch_files(task: TaskConfig, sketch_dir: Path) -> None:
         )
     ino_path = sketch_dir / f"{task.sketch_name}.ino"
     if not ino_path.exists() or task.level in {"level2", "level3"}:
-        ino_path.write_text(example_sketch(task), encoding="utf-8")
+        ino_path.write_text(arduino_reference_source(task), encoding="utf-8")
 
 
 def ensure_espidf_project_files(task: TaskConfig, project_dir: Path) -> None:
@@ -2377,7 +2377,42 @@ def example_sketch(task: TaskConfig) -> str:
     example = examples.get(task.task_id)
     if callable(example):
         return example(task)
-    return example or "void setup() {}\nvoid loop() {}\n"
+    if example:
+        return example
+    if task.platform == "arduino_mega":
+        # Real arduino_mega tasks must never ride an empty stub: a few authored
+        # level-1 sketches have no template and the committed .ino is the source
+        # of truth (see arduino_reference_source). Fail loudly if it's missing.
+        raise CaseConfigError(
+            f"{task.task_id}: no reference-sketch template for this Arduino task. "
+            "Level-1 sketches are hand-authored and must already exist at "
+            "cases/<case>/sketch/<sketch_name>/<sketch_name>.ino; the generator "
+            "must not emit an empty stub. Restore the committed sketch (or add a "
+            "template) before regenerating this case."
+        )
+    return "void setup() {}\nvoid loop() {}\n"
+
+
+def arduino_reference_source(task: TaskConfig) -> str:
+    """Source for an Arduino reference sketch when (re)generating a case.
+
+    Level-2/3 sketches come from the runner templates. A few authored level-1
+    tasks have no template; for those we reproduce the committed sketch instead
+    of emitting an empty stub, so regenerating into any root is deterministic.
+    If neither a template nor a committed sketch exists, `example_sketch` raises.
+    """
+    try:
+        return example_sketch(task)
+    except CaseConfigError:
+        committed = (
+            case_dir_for_task(task)
+            / "sketch"
+            / task.sketch_name
+            / f"{task.sketch_name}.ino"
+        )
+        if committed.is_file():
+            return committed.read_text(encoding="utf-8")
+        raise
 
 
 def advanced_example_sketch(task: TaskConfig) -> str | None:

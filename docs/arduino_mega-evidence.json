@@ -1,0 +1,916 @@
+{
+  "index_version": 1,
+  "summary": {
+    "platform": "arduino_mega",
+    "total": 41,
+    "present": 41,
+    "missing": 0,
+    "fresh_bc": 41,
+    "stale": 0,
+    "publishable": 41
+  },
+  "tasks": [
+    {
+      "task_id": "blink_led_1hz",
+      "platform": "arduino_mega",
+      "level": "level1",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:16:23.379865+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "7a5eab541f4cc5987431f9182ecae8e98f31a29ea723b4e4a542621ddc6cbf24",
+        "prompt_hash": "729f911d67dc237d7b1f222190669017862bbcd271f25f5ab58f7e0415d12d77",
+        "sketch_hash": "b686a4c69529706a088f8ccd3eff6cd3897d5353a1f3bf65aa08541c7bb5ebf5",
+        "firmware_image_hash": "db9bd1ebfeb141a3dcfbaf1e7d9170bef4359251df5b82715df6eda754b1f1c0"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "blink_led_morse_code",
+      "platform": "arduino_mega",
+      "level": "level1",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:16:38.031784+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "8bd3f106289954c1ec7875983815797c32be6abdc8271fbae95f6cabadaaf80c",
+        "prompt_hash": "62eae87b96804ec982d3a2784a839694ca0efe78d3e78f0e94d2987c8720374f",
+        "sketch_hash": "a9be6705982714ebd6263516e775e3b08866ed681ce8b5f9df236f8a8305bffa",
+        "firmware_image_hash": "a47fc8c3169ec093ad92207e1167c906f1259758a1ae5d40e8f1487445555844"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "blink_led_no_delay",
+      "platform": "arduino_mega",
+      "level": "level1",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:16:50.561873+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "99930803334357d75da26ba3416b443c485c91fad02e4e7f44859d79b8730477",
+        "prompt_hash": "7d2c699bb05ba5396013035d97c830fc15f338ce87de435cc7b106666a54466d",
+        "sketch_hash": "5394d7449aa678b96bc5557ea97abc24af1924a86b4211c345b6015ac3707050",
+        "firmware_image_hash": "a42ab15b81a5473beac953dc21950c71041a44e3bb798db7e4babb09a1434377"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "blink_two_leds",
+      "platform": "arduino_mega",
+      "level": "level1",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:17:01.662515+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "167362799e77983af0f74bab29cea2a7682b3394f9a012da11b6525003ae41f9",
+        "prompt_hash": "08512ccb6075b3b7712f5dd9aca5cf272a3f2ebc94fad2d8ef541dce54648bb4",
+        "sketch_hash": "5136bc5a0b88fd58622ed5625ba9ebd9a19e4c5b783f1242fc12505bd15dd142",
+        "firmware_image_hash": "e86ddf2d5027ce3b74b4974e6d9bead8b709f050db16a0859b5cb9a90e37e689"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "breathing_led",
+      "platform": "arduino_mega",
+      "level": "level1",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:17:10.791207+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "25ec464ec1db98b7b4f744938f60716e6b1dee93ae55128fbefc63f76dfbe41c",
+        "prompt_hash": "4b05521e07315406e797cbcc5032f5290bff2f3b924145cb3e5ab092d8b07fe6",
+        "sketch_hash": "a84342985ae396ce36b66b522c06da4d661a17405a15d3d1cb116a984b18382e",
+        "firmware_image_hash": "1fee8c8f861e1637b95863e085167c7b7b5f523735fea1bd42a5809edab2c571"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "button_press_debounce",
+      "platform": "arduino_mega",
+      "level": "level1",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:17:23.060544+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "ab608e035808deea62764bc01e9725e33154c3ad060681cb7793445d8498233a",
+        "prompt_hash": "5a73b32d94ee687ba7f2e73b38f9b531a85d83713150e17f4de724a7096c34b7",
+        "sketch_hash": "682222b7aa250a346103b7cd8864ba95eda669a32b86a2ea76d79904a6878319",
+        "firmware_image_hash": "f6e579a4bd7d7d9c8b554c285b40a0789cc62f2383c1ba5bea983de2a8a774fb"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "button_status_count",
+      "platform": "arduino_mega",
+      "level": "level1",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:17:31.344895+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "4e42296085a0acc770b3328bee5b8d27b6099b9511b4fa691ebb00f9908fa2fe",
+        "prompt_hash": "80bf4bbd03532763a41dd157648388edba7b252a3714bfa41653596194c73b78",
+        "sketch_hash": "bb8c09fca8163a7051f7cf7f564ee8a57d6a4a02747503437f42dbf3d18053ad",
+        "firmware_image_hash": "f1a69a0a3d47f301449ca48ac6578db2831324970daf7be53ad65ced878d0989"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "button_status_display",
+      "platform": "arduino_mega",
+      "level": "level1",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:17:38.882918+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "c1b23c901ac305e3ce6f06dd01e3ea54d66ed991ff64b2e191aa7ef729f3957e",
+        "prompt_hash": "d102a8a0446c48b5bbbd8b5be85a34954aa0124d963f276c5acc1b5007efe25f",
+        "sketch_hash": "042c77db22f99013a999686cf8d37856b79bd6c008cef7235b661e5d82dc47ec",
+        "firmware_image_hash": "c07e1517ef96157a3903043af7bc151454f3172a05d901530029f8e7b4c109eb"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "buzzer_doorbell",
+      "platform": "arduino_mega",
+      "level": "level1",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:17:46.862010+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "85b0e5e357732940abc624c40d0579824d5f362480795e0e33db47b481d86ce6",
+        "prompt_hash": "1c1d21c4933fd355952c01fa8091c3ff1cd192a72e97f112ee99068820149833",
+        "sketch_hash": "ae4fe06a70943ab2a3630c154d05b7097343613deae36fbbdc11cc97e60aa5b8",
+        "firmware_image_hash": "d55169ad6c75c6aa49e766e4e31462c088c988ca2d6df36e5b849468159c738b"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "sensor_pir_human_motion",
+      "platform": "arduino_mega",
+      "level": "level1",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:17:57.788293+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "a9d9f0797a8b4e7740099e0f85edf32625b633772091faf19acf95a816df59d0",
+        "prompt_hash": "71f53c5bc5c5e6c55104f4be35be31b513c5c3f9bb6f662cab84bce861070fb9",
+        "sketch_hash": "a72fb7734e3dd3599ad56c4ba7c84bd787cdcf1ec72b3d9d0206960288258039",
+        "firmware_image_hash": "8f7dd7f95c340d3b22a5ff8c83db8cb94aa3c33bcc2f0e5f835ba829a61913b5"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "tmp36_read",
+      "platform": "arduino_mega",
+      "level": "level1",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:18:04.837507+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "31cf07b55f187c23ed3a9b413c0794d2bf8d845487ca43e1744be3312d89b29d",
+        "prompt_hash": "1d884f66ac2d989d13b984380b4c3427b054920d30190f5a50be7f424ef43c85",
+        "sketch_hash": "966b1445d19c49c63e2cd24f687eaa5b8f8a71b5831132e6eb4995de029f2c8e",
+        "firmware_image_hash": "07962d35869fc617a53c892dc10811f9f9461017683dba306309b66d72b24084"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "16key_keypad",
+      "platform": "arduino_mega",
+      "level": "level2",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:18:13.037926+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "3b7fe8b355033b6eeb20553aae12fcd4d98a566f3c5cf2aa5e105e6b194fecfc",
+        "prompt_hash": "a8842947b88c1f17a77ff1a103437629d1f3cf4313e20c6f2e5c308450199a69",
+        "sketch_hash": "9b88ff720afd7cd49716375bbf3a6b8596fcc7bb73e251bac4b9f9ac427173bf",
+        "firmware_image_hash": "b1daa009bbf3d7a2eef2b3a2d28cffad01af202fc6a93060a3a3c6e70b89d411"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "bme280_read_i2c",
+      "platform": "arduino_mega",
+      "level": "level2",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:18:29.259335+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "e30219fcec660dcef273ff6cdc13d002c4ec664481a31723d289bef996231ecd",
+        "prompt_hash": "d9269b68b39c620573bd15950133f70ee38ddf8d5ac987879e4dd0ee4ba99abe",
+        "sketch_hash": "e814818e45663c9a4b9034be021fa5ae173541cd87de2389062b1110737810ec",
+        "firmware_image_hash": "2d85c9332b013698c5047fe04d82c4e5277d36c3e7e73c4b4fcca2155d59f99c"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "bme280_read_spi",
+      "platform": "arduino_mega",
+      "level": "level2",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:18:44.912004+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "e67f3c3e2bb5bcc0d942d4b9c4ede558fc639479d168cc483c96cf49b4e1b85f",
+        "prompt_hash": "f8959b66db34edc8acccc6cd54a7878013092724a945f374c1b20a8ac2c06538",
+        "sketch_hash": "7d628754f95d43f432927447ff1a48a6ab92e7403f23451d7797632bc063d957",
+        "firmware_image_hash": "51a4f176496006a04516625eb172dd73b94ed3dfb350c529b7a88214f05d621a"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "clap_switch",
+      "platform": "arduino_mega",
+      "level": "level2",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:18:52.510516+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "4f151975f4767feac1190abef5dbe288b405c06f5ab238617b8cea41ee4d2535",
+        "prompt_hash": "b72076246346653ae3fa16e1577417866b657f1c0e74fed7f5455f8ff81e8c38",
+        "sketch_hash": "94a4f792d729509f9eb220bbe4cf439b3f0b7f54520a93768629252280097e13",
+        "firmware_image_hash": "e3a90fabcb4efcf74300890d4819274baeb6492d774c72995745d2df9726c6ba"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "dht11_read",
+      "platform": "arduino_mega",
+      "level": "level2",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:19:00.663666+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "da2109b288bb150e24617028f56b80ff7914826642cb04cb9e88e0884dba558e",
+        "prompt_hash": "59ecd9b52b8ae7d729d312fece97f04960d43f5d505232ada87c0946b83c23a2",
+        "sketch_hash": "3e6a24f7218a5ecf8a6a452c0b1095bef337b2634f14410d3ff6b185e98dd17b",
+        "firmware_image_hash": "0d5eb1c1a056248574e72ee0f713dfd85c708a30877747fa26c0c7c2a6af7c9b"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "ds1307_rtc",
+      "platform": "arduino_mega",
+      "level": "level2",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:19:11.039595+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "af9d698eb0a4e679206287e0d37e9dffe4cd4ade00d5f69f9a4f8b9f46946c41",
+        "prompt_hash": "5fe1a6ca7ade05b0a0b599a4182dcbf58b330b8247b7de9964964fa2944fc6fa",
+        "sketch_hash": "b61070318f66671157d6458a5d77ac2867f81d519ec37cc5ced7ded3021e1ada",
+        "firmware_image_hash": "913e114c7f1cc8f993f9286c32a644363e0dc3f04d3b21d71b5abf6c13bfa859"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "ds18b20_heat_alarm",
+      "platform": "arduino_mega",
+      "level": "level2",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:19:19.773298+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "9510b9f889c3449c8a3afda8bb46b5e947e9a5873a321c58af8ce21512fe420b",
+        "prompt_hash": "64b5c99b042d6b3d6ed62859a7e199be51bbe0084785a6706b453ff45f3a200d",
+        "sketch_hash": "ff26fdd24dda7ca30ff7e6ef6386cfe40368c408088bf6d7dd7e4e60a322e1e2",
+        "firmware_image_hash": "bf38ba67d5dab813c61abd3133cab90a9ac2d7db06bdfbf7b0ee58e4419a9d45"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "hcsr04_find_distance",
+      "platform": "arduino_mega",
+      "level": "level2",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:19:29.837498+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "89751eb6de2033468c8369ed4f103bfdebf44267ec986582755378368bffa0fd",
+        "prompt_hash": "5d2516e3319ea06b3ee6a4ad38425e51a85829e2d799c83fa6a224ecaec43874",
+        "sketch_hash": "448b1b17aadae3fab410ef1bf804adbbb3f97702abca8f9a26f1b93120123d56",
+        "firmware_image_hash": "4f819312852683c7c140595810c404bc7feaad1faac446c3055f45a78f0f304e"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "hcsr501_motion_alarm",
+      "platform": "arduino_mega",
+      "level": "level2",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:19:37.365739+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "6d950802b9bfd220d974eed7c151b0c087e18ac15cb24ce791425e56b6fbbc75",
+        "prompt_hash": "6e8f9df2844c63b2e42d1e111d031f7fa8d8adac0d0e17a3592b157f02dcd6fa",
+        "sketch_hash": "da9c78cc0de797fba7fdcc6453cbc8001fa036f537fef8ca09c9dd762cafd73f",
+        "firmware_image_hash": "75a59867fa8b86499bf28a8867b9e714b48a426957f97ecda1398f8a1bd863c7"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "lcd1602_display_hello_world",
+      "platform": "arduino_mega",
+      "level": "level2",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:19:45.900675+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "f2b4ff8094e83ef1fa1bef98b9af1305a9f67a84638234ae436c322a8b1bac99",
+        "prompt_hash": "f9c9b14f1ab4e21acc521409c0a7413d61707f9ff254c06e4d31bcf27ebecbd5",
+        "sketch_hash": "2cc3e6426c51b6feeff8c1b476d6d3d9a600f17189b7cf63cd5ae8145d592fed",
+        "firmware_image_hash": "375d6a76d03c74f3010675d7eb3f1b4b2aa23cf5176980aa932a6a976216783f"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "mpu6050_read_i2c",
+      "platform": "arduino_mega",
+      "level": "level2",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:19:56.671077+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "11d20168f6641bac545c6a8c9abc35fa69d1e54785e598465a941b51983cb7f1",
+        "prompt_hash": "53b2be8f27a985acf898c6f974c620668668c019a517b600f6c4dac5c300873a",
+        "sketch_hash": "895d05c48fbbc2d4dab64fc6374beb5db529d1ed9036d4c58329abb26b58872d",
+        "firmware_image_hash": "10be0e803f793639eb6e76ee7803952a5f2aae5bc6edba8d0b3b639bf9a1b802"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "parking_sensor",
+      "platform": "arduino_mega",
+      "level": "level2",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:20:04.497017+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "8a510fbba9dafa5c55cbb9d5943b984826a743f2fbbbf04af27a6647bc3bb3cf",
+        "prompt_hash": "8305ab2f0ba95b5986753ea3b566c117fd479e7f8a12170e4c3ec0ba0922e01b",
+        "sketch_hash": "5345dbea61db279abe0762558a025abdcc4e36a206ca2936b264371e21c4701c",
+        "firmware_image_hash": "5e5c09fc19e83b848520014adfec65aaffed2706cac4ab4ba535a7b0ebda0da5"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "photoresistor_nightlight",
+      "platform": "arduino_mega",
+      "level": "level2",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:20:11.743736+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "871e5e86a2ed8178124b278992df83dc4c0cdbd44926d888b5bdc16cf851499d",
+        "prompt_hash": "4a86087520edc6a531e94364e01e1f94f8a0b27ceece03777f3d18ca4c8ab636",
+        "sketch_hash": "4bb40d22afdf93992ae674dd48a5c96170139fbcbfffb22cc3acef14a9904624",
+        "firmware_image_hash": "dbdccb8071dac5fd4ef6c8f1f298b765fad952295bf0b1e893c8f316674c0778"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "reverse_parking_sensor",
+      "platform": "arduino_mega",
+      "level": "level2",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:20:19.556988+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "493415e544d0470dd026182418a458a9ddfc144cb759655b62d07524ac79ee77",
+        "prompt_hash": "7777bb168ad223e36dd6f774ad6c4044a99183a3b8b6208812e613f4205316b4",
+        "sketch_hash": "e83752f8407b760d42dca606c7032246b746554a2e2d1c81891568d5fd0fbf5c",
+        "firmware_image_hash": "9fa54684d3b396d8f719e3f1ccb383764ce27da06b6832ba57a9cc63ede3e0e0"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "rotary_encoder",
+      "platform": "arduino_mega",
+      "level": "level2",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:20:29.177954+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "ee41cac3662b0b74376bc88b6b346d3d88e96f2f77f6903591432b25a2970637",
+        "prompt_hash": "502d87e8b3640f377eb693a9f837f8be46de5750a9c17a3ff715a5af4a7aa3c5",
+        "sketch_hash": "ca3cd1fee68ab7d697c2b59605332283e716c80615080a47ce63ffc0164d90ee",
+        "firmware_image_hash": "3a996ab4800ab5dbed2a194b678903e01f628251bfe01eb0043d7d4f323677f4"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "tilt_detection_alarm",
+      "platform": "arduino_mega",
+      "level": "level2",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:20:36.463302+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "d79c835958acb188ebfb226780388677f1cbef7bd917b4c3fedf49fd856d8ec7",
+        "prompt_hash": "1f3d86afbf51ca5df5d12b87c8f5f684a7432c19d871c6ade9d65f7c147ac850",
+        "sketch_hash": "1d956cb79d5e065613f77bbeb3233f3132e62d5ba2c627178b68ef6205b05bb5",
+        "firmware_image_hash": "b8efd25fadd2046658a2fe332afa34d28ee24a581f14a38e79708ca6dda724e9"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "buzzer_laser_tripwire",
+      "platform": "arduino_mega",
+      "level": "level3",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:20:44.184953+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "2651446c3799e58f4d567fd610d61a0fe81395fd7fa10846b25b9b217a7a98e9",
+        "prompt_hash": "19a4f110f64d1a9a1fabd3630ad51fb20b7a4da8cb9f43140a82defa99160b3c",
+        "sketch_hash": "dae308dc6c56feb56d031154a14dd945e6ca5214aee372828acfc57a4c48a3d0",
+        "firmware_image_hash": "891a5e30966e113406c6cb131fe98329614556611e165a4a66c9ce43cc312bf6"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "buzzer_toggle_led_freq",
+      "platform": "arduino_mega",
+      "level": "level3",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:20:57.950245+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "129a3797da9f31e46ad3b566f959c7df95f99d96b4a8a46e10a365c203f02056",
+        "prompt_hash": "85774762b1a2c9ecc6fca373dcdade20a7fddb927faf489b6c3c384b864dc6e0",
+        "sketch_hash": "1df3e53ffe6cfd90b1f5433ee53e3dd64cfcbe503c4c32c07b8f722e20c9478d",
+        "firmware_image_hash": "7bf0e0143023b804011d9a74b7e6f4599ee870eef91ffd3bdf2e5a92457d260b"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "dht11_read_button_display",
+      "platform": "arduino_mega",
+      "level": "level3",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:21:10.684936+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "e16798255e3365d1f688343fc1a81385b35c2aa55654847e3606889f395e7dd1",
+        "prompt_hash": "cf2729ea9a75925fd45f86b9073a917fccec70db7d0931c93b0f3e224ae2b8d0",
+        "sketch_hash": "51ca725b20e3e92ee1125f4ef877d784775f80425d37b45026d01393f3126a8a",
+        "firmware_image_hash": "c12dfac5568aa7bb46cec7d944e1b6249c7f31f448a436625478ef381a6f6f64"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "joystick_buzzer_pitch",
+      "platform": "arduino_mega",
+      "level": "level3",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:21:18.197159+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "ded68ce85e70893869d5d65c1f4d48058948de011448241c2ed4f939d7e3ddc1",
+        "prompt_hash": "7020eda5979990037e64ee30f277bd2ad2d51acda1c8cc1590860e5e168ebc0e",
+        "sketch_hash": "8ca60d48c01b4363294bc38c5582b2935fb09a5d4cd24224ea2383dee940c9cb",
+        "firmware_image_hash": "e9a909bd7b0f1110417d4eca893a2381927c735cbe01bdedde523288a713094f"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "lcd1602_auto_brightness_control",
+      "platform": "arduino_mega",
+      "level": "level3",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:21:25.330413+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "0fbd1582bf018841264f6b803ef5ee21e34d8487b0850fd849c6f0504e12db1f",
+        "prompt_hash": "5588449d7c1b432f6ec33266d5b74c39bad2286dba960a16b45ca364b27742f8",
+        "sketch_hash": "32da04c257877160e7ac4ffabebe1e65298b92a3e1bf428d3a0d0c3dcc3e3e04",
+        "firmware_image_hash": "ab08a6abe7cbd919282fc6e325c9bd28781e841bee67aa848015bf3ee33a0495"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "mpu6050_read_button_display",
+      "platform": "arduino_mega",
+      "level": "level3",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:21:39.525029+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "340656d171f7be5612af2a4e94abf15f95e00dbbee2b04c9fc4c5ea3cbcbadda",
+        "prompt_hash": "49f9aea2e6bf9294bf15c4829735ed230bc5d0812edd4681b015225e5fa36837",
+        "sketch_hash": "775edb95a5c3ca525e0c87ff62152a22c293dac5096998ce240325a6792ce0dd",
+        "firmware_image_hash": "57428d7d43d9b12a429376aee4892d3b63f020f3d6aa9de7401c079f75fc140d"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "mpu6050_read_periodic_display",
+      "platform": "arduino_mega",
+      "level": "level3",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:21:54.193352+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "b15e80125786c3b008c89b1d42d2c284a45272a07f249941c87f41930831d078",
+        "prompt_hash": "c3f5133c6cc3376e291307a790ebbf560d5e6b2f9341b30672b85d514eb8d2a3",
+        "sketch_hash": "de04ba976c2112a957073ae9cdf288d97fa246b7c5674758fe5730e8cf57a8a5",
+        "firmware_image_hash": "77f1835b0a76313aab3b81a10cc011cb7b050672675516d851aa4f3acc45a618"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "reaction_timer_display",
+      "platform": "arduino_mega",
+      "level": "level3",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:22:04.773053+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "c6d07f198e96609d90b552b35aad66dc26e3543e670a8876b5f92247be2d4f2e",
+        "prompt_hash": "c34144765093a6eb0f2435bd52a9d02a7a50de1d86bce21c8ae7faca8c0417dc",
+        "sketch_hash": "b8c05b3bdb369d48015d1f855deb3c7ace3e2ddc831d3a45d59133db0d38a015",
+        "firmware_image_hash": "885b9134989e4375b676aadb8bc2b95e28bcda2c09c12564cc0b7b772e889c50"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "safebox",
+      "platform": "arduino_mega",
+      "level": "level3",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:22:14.474499+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "3150631b9fdca5d6d472b956b864ee3fe4bfd254d9a4a43829e4248cae34edb8",
+        "prompt_hash": "a015d68032d10b868b0040d62c9018e273d88f697ae8248ae0d8fce15b69225b",
+        "sketch_hash": "f947fc28133f68004226dd8d51e03560111720c5370c9ce5bdf5ae5d6d4c1fcb",
+        "firmware_image_hash": "4779ff6cb7f20ca9da6404c4846603af757163d0f84ed70cde4b45aead5f81cf"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "safebox_display",
+      "platform": "arduino_mega",
+      "level": "level3",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:22:29.021965+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "f533f742574b0cd5013d32a0fc54a36bacc3ec0fb2ee173706e74621b36a5fb3",
+        "prompt_hash": "6d52bc21f63649954ee81d7f6184c80e242d3e30bc500113f311e8901c1c48de",
+        "sketch_hash": "be5180e740aba893850f8a5a227bc8f849beaa3a6ac9105d422ad889b11ae8c7",
+        "firmware_image_hash": "eca37ec865ecf00004679d7dc36f571f8a7473c35f82e9a2741129e105d378cf"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "sensor_water_level_display",
+      "platform": "arduino_mega",
+      "level": "level3",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:22:36.700181+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "de4eec5f1c0508908bcb3ea978cceb60a94b22075a29c834ec47ad9708d5f15e",
+        "prompt_hash": "6c8aacac002fb1ec97bcb2fcc5155d4b967f678dcb7fd84b66491e52399fcadd",
+        "sketch_hash": "1196c7fc0442adc677a2cba71bcbd9cea3023c388ed1c891aa783f14b70dc4ba",
+        "firmware_image_hash": "a1e2a504802b109df8f0b32f59172d1afec8819132092f668f52770537104637"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "step_counter_print",
+      "platform": "arduino_mega",
+      "level": "level3",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:22:46.446342+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "baa9912535d5c37cdd1e40ee03cc5c8671abe7707380c3361af2064f8333f975",
+        "prompt_hash": "191291457a806afeea1d1cde780dc29116d268f5857f4e901bc99613ac4d5827",
+        "sketch_hash": "6266bf72309e27e2e17607b71dd6bf293027a829dc2bec3432eb3f5fde20a2f5",
+        "firmware_image_hash": "8fefc331dd73bc565756edae50d6d3ba0239fc89051e267ecc64e9b04213aa09"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "tmp36_read_button_display",
+      "platform": "arduino_mega",
+      "level": "level3",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:22:56.773273+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "5a9dba0d118b1ce04512ffacbee2ef035e7e364eff24fe0da18a60b68ff29c47",
+        "prompt_hash": "9b654f07d70c3d2695af3b356e7c13935f49d0f09423486c0295bd233d555fd9",
+        "sketch_hash": "f15f7c5fc403431845f6fea2bf9e32097fd02b85d1aeff50c2309e3cf635e45d",
+        "firmware_image_hash": "4b14914f1f1d52e4c80b11dfbf879955c54f01d7435e88264dc9afdf70c812e2"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    },
+    {
+      "task_id": "tmp36_read_periodic_display",
+      "platform": "arduino_mega",
+      "level": "level3",
+      "evidence": "present",
+      "result": "BC",
+      "classification": "PASS",
+      "timestamp": "2026-06-18T14:23:10.927021+00:00",
+      "fresh": true,
+      "stale_reasons": [],
+      "harness_match": true,
+      "hashes": {
+        "task_hash": "47dc6e0fe3ddb4cdcc326b5852e551e9ffb20f77d859735069d84b3b55589192",
+        "prompt_hash": "7dabe98f2414536375174ddaae4bb2f8465e06a864ccf0dd22af36a1dc7e9f40",
+        "sketch_hash": "83a7cbda30ad6234d586e9b5020c266cb74d9429015c43e3c4748530dc2dba23",
+        "firmware_image_hash": "edc239bb261b035095647eb20aab271f224395a0716f8f3d4e70cefc2136e990"
+      },
+      "tool_versions": {
+        "arduino-cli": "arduino-cli  Version: 1.5.1 Commit: 01f3d4f2b Date: 2026-06-05T10:22:12Z",
+        "wokwi-cli": "0.26.1 (9d71b975b7eb)"
+      }
+    }
+  ]
+}

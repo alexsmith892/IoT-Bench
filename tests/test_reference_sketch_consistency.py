@@ -15,8 +15,42 @@ from bench.runner import case_dir_for_task, generate_case
 
 EXPECTED_ESPIDF_SOURCE_DRIFT: set[tuple[str, str]] = set()
 
+# The empty stub the generator must never silently emit for a real task.
+_EMPTY_STUB = "void setup() {}\nvoid loop() {}\n"
+
 
 class ReferenceSketchConsistencyTests(unittest.TestCase):
+    def test_every_arduino_task_has_a_nontrivial_committed_sketch(self):
+        """Every supported arduino_mega task must ship a real committed sketch.
+
+        Level-1 sketches are authored (not regenerated), and a few are absent
+        from the runner template tables. Guard against a deleted/empty sketch
+        riding the build as an empty `setup/loop` stub: the committed .ino must
+        exist and contain actual firmware, not the empty fallback."""
+        missing = []
+        trivial = []
+        for level in ("level1", "level2", "level3"):
+            for task in iter_tasks(platform="arduino_mega", level=level):
+                if not task.is_supported:
+                    continue
+                committed = (
+                    case_dir_for_task(task)
+                    / "sketch"
+                    / task.sketch_name
+                    / f"{task.sketch_name}.ino"
+                )
+                if not committed.exists():
+                    missing.append(task.task_id)
+                    continue
+                source = committed.read_text(encoding="utf-8")
+                if source.strip() in ("", _EMPTY_STUB.strip()):
+                    trivial.append(task.task_id)
+        self.assertEqual(missing, [], f"committed Arduino sketch(es) missing: {missing}")
+        self.assertEqual(
+            trivial, [], f"committed Arduino sketch(es) are empty stubs: {trivial}"
+        )
+
+
     def test_committed_level2_3_sketches_match_templates(self):
         mismatches = []
         for level in ("level2", "level3"):
