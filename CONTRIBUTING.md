@@ -18,6 +18,14 @@ Offline tests should pass without Wokwi credentials:
 python -m unittest discover tests
 ```
 
+Use `doctor` for the platform you are changing before assuming a tool is
+missing:
+
+```powershell
+python -m bench.cli doctor --platform esp32s3_espidf
+python -m bench.cli doctor --platform zephyr_nano33ble
+```
+
 Live integration (opt-in) needs platform-specific tools:
 
 - **Arduino Mega / ESP32-S3**: `wokwi-cli`, network, `WOKWI_CLI_TOKEN`; plus
@@ -47,3 +55,11 @@ paths; regenerated on each simulate), `cases/*/*.vcd`, ESP-IDF `sdkconfig*`.
 
 Regenerate with `python -m bench.cli generate`, `build`, or `run`.
 `tests/test_repo_hygiene.py` enforces this in CI.
+
+Evidence indexes under `docs/*-evidence.json` are tracked summaries, not raw run
+artifacts. Regenerate them only after an intentional live refresh:
+
+```powershell
+python -m bench.cli evidence-index --platform esp32s3_espidf
+python -m bench.cli evidence-index --platform zephyr_nano33ble
+```

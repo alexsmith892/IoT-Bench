@@ -7,8 +7,8 @@ Status meanings:
 
 - `aligned`: local task id exists and the prompt/YAML preserve upstream intent,
   aliases, and numeric parameters.
-- `unsupported`: canonical task id exists locally, but case generation is
-  intentionally blocked until Renode support lands.
+- `scored-out`: canonical task exists locally but is excluded from scoring
+  because of a documented simulator limitation.
 - `addition`: local IoT-Bench task outside the upstream canonical set.
 
 The `Local status` column above describes upstream-vs-local *contract* alignment
@@ -22,7 +22,7 @@ Note on aliases: the `Upstream contract` column records the *upstream* alias
 wording. Local prompts deliberately give raw GPIO node/pin for most tasks and
 only advertise devicetree aliases where the overlay emits them (today: `my-led`
 for the blink family, plus the component aliases for stub tasks). The
-prompt-advertises ⇒ overlay-emits invariant is enforced offline by
+prompt-advertises => overlay-emits invariant is enforced offline by
 `tests/test_zephyr_overlay_contract.py`.
 
 ## Level 1
@@ -38,7 +38,7 @@ prompt-advertises ⇒ overlay-emits invariant is enforced offline by
 | `button_status_display` | Print button state using `my-button`. | aligned | Serial oracle checks pressed text. |
 | `button_status_count` | Count presses using `my-button` and print count. | aligned | Scenario-correlated count oracle. |
 | `button_press_debounce` | Debounced `my-button` prints pressed text once. | aligned | Bounce scenario hardens the oracle. |
-| `breathing_led` | 50 duty levels, 2%..100%, step every 10 ms, 1 Hz on `my-led`. | aligned | Uses software PWM because Renode lacks nRF PWM. Reference behavior still needs live recheck. |
+| `breathing_led` | 50 duty levels, 2%..100%, step every 10 ms, 1 Hz on `my-led`. | aligned | Uses software PWM because Renode lacks nRF PWM; live status is tracked in `zephyr-task-status.md`. |
 | `sensor_pir_human_motion` | HC-SR501 alias `sr501`; print motion/no-motion. | aligned | Binary GPIO surrogate disclosed in status doc. |
 | `tmp36_read` | TMP36 through `zephyr_user` ADC channel 0; print Celsius. | aligned | SAADC custom Renode model supplies ADC counts. |
 
@@ -60,8 +60,8 @@ prompt-advertises ⇒ overlay-emits invariant is enforced offline by
 | `clap_switch` | `sound-sensor` toggles relay `lock-relay`. | aligned | Digital sound threshold surrogate. |
 | `hcsr501_motion_alarm` | PIR alias `sr501` drives `my-buzzer`. | aligned | Digital PIR surrogate. |
 | `hcsr04_find_distance` | HC-SR04 aliases `sr04-trig`, `sr04-echo`; print distance. | aligned | Local prompt gives raw trig/echo pins. Live-verified BC 2026-06-17 (far/near distance variants). |
-| `parking_sensor` | HC-SR04 aliases plus `my-led`/`my-buzzer`; faster output as object nears. | aligned | Shares the HC-SR04 model under re-triage; live status `implemented-unvalidated`. |
-| `reverse_parking_sensor` | HC-SR04 aliases plus `my-led`/`my-buzzer`; buzzer faster as object nears. | aligned | Shares the HC-SR04 model under re-triage; live status `implemented-unvalidated`. |
+| `parking_sensor` | HC-SR04 aliases plus `my-led`/`my-buzzer`; faster output as object nears. | aligned | Shares the HC-SR04 model; live status is tracked in `zephyr-task-status.md`. |
+| `reverse_parking_sensor` | HC-SR04 aliases plus `my-led`/`my-buzzer`; buzzer faster as object nears. | aligned | Shares the HC-SR04 model; live status is tracked in `zephyr-task-status.md`. |
 
 ## Level 3
 
@@ -71,7 +71,7 @@ prompt-advertises ⇒ overlay-emits invariant is enforced offline by
 | `mpu6050_read_button_display` | Button `my-button` reads MPU6050 on I2C bus 0 and displays accel/gyro on LCD. | aligned | LCD/MPU models are wired; reference should stay variant-correlated. |
 | `mpu6050_read_periodic_display` | Every 100 ms read MPU6050, average 10 samples, display accel/gyro on LCD. | aligned | Live-verified BC 2026-06-17 (10-sample average differs by variant). |
 | `safebox` | 16-key keypad password `1234` unlocks `lock-relay`. | aligned | Keypad surrogate scans rows/columns. |
-| `safebox_display` | Password `1234`; LCD shows `Input:` and `Status:`. | aligned | Variant wrong-code oracle prevents a fixed success display. **Scored out** of canonical readiness: a Renode keypad-column GPIO-init limitation corrupts the boot keypad scan — see `zephyr-task-status.md`. |
+| `safebox_display` | Password `1234`; LCD shows `Input:` and `Status:`. | aligned | Variant wrong-code oracle prevents a fixed success display. **Scored out** of canonical readiness: a Renode keypad-column GPIO-init limitation corrupts the boot keypad scan; see `zephyr-task-status.md`. |
 | `lcd1602_auto_brightness_control` | Photoresistor ADC controls LCD backlight `K`; LCD aliases. | aligned | Software PWM surrogate for backlight. |
 | `buzzer_toggle_led_freq` | Button cycles LED 1 Hz, 2 Hz, 4 Hz, off; buzzer beeps on press. | aligned | Timing oracle checks mode windows. |
 | `tmp36_read_button_display` | Button `my-button` samples `zephyr_user` ADC channel 0 and displays reading. | aligned | LCD prompt uses Fahrenheit-format local oracle. |

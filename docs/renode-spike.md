@@ -4,8 +4,10 @@
 > the backend. Current task maturity lives in
 > [zephyr-task-status.md](zephyr-task-status.md). Since this spike, the harness
 > has added generated `.repl`/`.resc` cases, button/PIR scenario injection,
-> custom SAADC support for TMP36, selected Level 2 sensor models, and
-> live-verified Level 1/selected Level 2 Zephyr/Renode tasks.
+> custom SAADC support, custom protocol models for the supported sensor
+> families, and broad Zephyr/Renode live coverage. Treat the numbered gotchas
+> below as historical design constraints unless a current status page says the
+> limitation still applies.
 
 One blink case was hand-built end to end: Zephyr firmware for
 `arduino_nano_33_ble` (nRF52840), simulated headless in Renode, with UART
@@ -23,8 +25,8 @@ basis for the Renode backend (Phases 1+).
 | west | v1.5.0, `C:\Users\alexs\zephyrproject\.venv\Scripts\west.exe` (works without venv activation) |
 | Zephyr | `C:\Users\alexs\zephyrproject\zephyr` @ `c49b758d879` (v4.4.0-dev) |
 | Zephyr SDK | 1.0.1 minimal + `arm-zephyr-eabi` 14.3.0 at `C:\Users\alexs\zephyr-sdk-1.0.1` (installed during this spike via `west sdk install`) |
-| cmake | `C:\Program Files\CMake\bin` — **not on PATH in non-interactive shells** |
-| ninja | `%LOCALAPPDATA%\Microsoft\WinGet\Packages\Ninja-build.Ninja_...` — not on PATH either |
+| cmake | `C:\Program Files\CMake\bin` - **not on PATH in non-interactive shells** |
+| ninja | `%LOCALAPPDATA%\Microsoft\WinGet\Packages\Ninja-build.Ninja_...` - not on PATH either |
 
 The harness must prepend cmake/ninja to PATH (or accept configured paths)
 when invoking west; `doctor` must check all of the above.
@@ -131,11 +133,9 @@ pin configuration produces a 1→0 glitch pair at the same µs tick, and
    `tilt_detection_alarm`, `clap_switch`, and the button side of
    `buzzer_toggle_led_freq` without adding unsound placeholder peripheral
    models.
-9. **Canonical task coverage status**: HC-SR04 has a custom model and generated
-   Zephyr tasks, but it still needs a current live sweep before promotion.
-   Canonical DHT11 and DS18B20 Zephyr tasks are present in
-   `tasks/zephyr_nano33ble` as unsupported until Workstream A wires real Renode
-   peripheral support. BME280-SPI has a custom register-level SPI model and
-   fresh 2026-06-16 BC evidence. `lsm9ds1_read_i2c` is retained as an
-   IoT-Bench addition for the Nano 33 BLE onboard IMU, not as an upstream
-   canonical task.
+9. **Canonical task coverage status has changed since the spike.** HC-SR04,
+   DHT11, DS18B20, BME280-SPI, and other modeled peripherals now have generated
+   Zephyr cases. Current maturity and scoring exclusions live in
+   `zephyr-task-status.md` and `zephyr_nano33ble-evidence.json`, not in this
+   historical note. `lsm9ds1_read_i2c` remains an IoT-Bench addition for the
+   Nano 33 BLE onboard IMU, not an upstream canonical task.

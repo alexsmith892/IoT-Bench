@@ -6,23 +6,28 @@ machine-checkable source of truth is the tracked evidence index
 evidence-index --platform zephyr_nano33ble`); if this doc and the index ever
 disagree, the index wins.
 
-**Last full live sweep: 2026-06-17** — Renode v1.16.1, west v1.5.0, Zephyr
-`c49b758` — driven by `scripts/renode_live_sweep.ps1` (generate → build → run →
+**Last full live sweep: 2026-06-17** - Renode v1.16.1, west v1.5.0, Zephyr
+`c49b758` - driven by `scripts/renode_live_sweep.ps1` (generate -> build -> run ->
 validate-artifacts per task, then a refreshed evidence index). Result: of the
 **42 canonical** tasks, **41 are live-verified BC** and **1 (`safebox_display`)
 is scored out** (documented Renode limitation, below). The non-canonical
-addition `lsm9ds1_read_i2c` is also live BC but is excluded from canonical
-scoring. Evidence-index summary: `canonical_fresh_bc: 41`,
-`canonical_scored_out: 1`, `canonical_unresolved: 0`.
+addition `lsm9ds1_read_i2c` was also live BC but is excluded from canonical
+scoring.
+
+Current evidence freshness is intentionally stricter than the historical sweep
+summary. The tracked index currently reports stale Zephyr entries after source
+and/or harness changes, so the historical sweep should be read as prior live
+coverage, not current publishable leaderboard evidence. Re-run the live refresh
+and regenerate `docs/zephyr_nano33ble-evidence.json` before making a fresh
+publishability claim.
 
 Status meanings:
 
-- `live-verified`: reference was run live in the 2026-06-17 sweep under the
-  pinned tooling and produced BC, with `validate-artifacts` reproducing the
-  verdict.
+- `live-verified`: reference was run live in the 2026-06-17 sweep and produced
+  BC, with `validate-artifacts` reproducing the verdict at that time.
 - `scored-out`: canonical task that builds and runs but cannot reach BC under
   the current simulator because of a documented model-fidelity limitation; it is
-  excluded from scoring (`canonical_unresolved`) rather than counted as a failure
+  excluded from scoring rather than counted as a failure
   (pinned in `bench/config.py: SCORED_OUT_TASKS` and
   `tests/test_canonical_task_set.py`).
 - `addition`: non-canonical IoT-Bench task kept with explicit rationale; not

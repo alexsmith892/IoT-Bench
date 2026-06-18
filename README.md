@@ -5,7 +5,7 @@ model a task prompt, submit the code it writes, and the harness builds it,
 runs it in a simulator, and judges behavior against hardcode-resistant oracles.
 
 The goal is a reproducible benchmark (and eventually a public leaderboard) across
-embedded platforms — not a one-off test suite. Waveform analysis beyond what the
+embedded platforms - not a one-off test suite. Waveform analysis beyond what the
 validators already do, fault injection, and a leaderboard UI are direction, not
 shipped features unless you see them in the code.
 
@@ -65,9 +65,9 @@ live integration requirements.
 
 Each task has two sides:
 
-- **Prompt** (`tasks/<platform>/levelN/<task>.prompt.md`) — frozen spec shown to
+- **Prompt** (`tasks/<platform>/levelN/<task>.prompt.md`) - frozen spec shown to
   the model. Print it with `python -m bench.cli prompt --task <id>`.
-- **YAML** (`tasks/<platform>/levelN/<task>.yaml`) — the answer key: variant
+- **YAML** (`tasks/<platform>/levelN/<task>.yaml`) - the answer key: variant
   stimulus, scenario timings, expected bands. Never show this to a model under
   test.
 
@@ -79,7 +79,7 @@ runs simulation, and writes a result. Top-level outcome codes:
 | `BC` | Built and behavior passed |
 | `BF` | Built but behavior failed |
 | `CF` | Submission's own source failed to compile |
-| `IF` | Inconclusive (simulator, environment, harness, or bad artifacts — retry, don't score) |
+| `IF` | Inconclusive (simulator, environment, harness, or bad artifacts - retry, don't score) |
 
 Detailed JSON includes `failure_stage`, `failure_source`, and `metrics` for
 debugging.
@@ -101,6 +101,25 @@ docs/            Platform status and design notes (tracked)
 Build products, VCD captures, serial logs, and verification manifests live under
 `cases/<case>/artifacts/` and are gitignored except variant `diagram.json` /
 `case.repl` files (deterministic inputs for provenance checks).
+
+## Evidence and scoring
+
+Task YAML describes the oracle, but it is not itself proof that a platform is
+leaderboard-ready. Live simulator runs write ignored `verification.json`
+manifests under `cases/*/artifacts/`; compact, tracked summaries live in
+`docs/*-evidence.json`.
+
+Use the evidence indexes to answer "what is currently publishable?":
+
+```powershell
+python -m bench.cli evidence-index --platform esp32s3_espidf
+python -m bench.cli evidence-index --platform zephyr_nano33ble
+```
+
+`fresh` means the manifest still matches the current task, prompt, reference
+sketch, and pinned tool versions. `publishable` additionally requires a current
+harness match, so any harness edit should be followed by a fresh live sweep
+before leaderboard claims.
 
 ## CLI commands
 
@@ -126,6 +145,7 @@ Filter by `--task <id>`, `--platform <key>`, or `--level levelN`. Pin versions i
 |---|---|
 | [docs/esp32s3-task-status.md](docs/esp32s3-task-status.md) | Wokwi/ESP-IDF task maturity matrix and simulator deviations |
 | [docs/zephyr-task-status.md](docs/zephyr-task-status.md) | Renode/Zephyr task maturity matrix |
+| [docs/zephyr-oracle-inventory.md](docs/zephyr-oracle-inventory.md) | Zephyr anti-gaming oracle inventory |
 | [docs/upstream-task-mapping.md](docs/upstream-task-mapping.md) | Alignment with upstream IoT-Skillsbench tasks |
 | [docs/renode-spike.md](docs/renode-spike.md) | Renode backend design notes from the initial spike |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor setup and artifact hygiene |
