@@ -117,9 +117,46 @@ class LeaderboardProviderTests(unittest.TestCase):
         )
         self.assertEqual(self._auth_header(captured["headers"]), "Bearer custom")
 
+    def test_anthropic_messages_api_shape_and_usage(self):
+        body = {
+            "content": [{"type": "text", "text": "void setup(){}\nvoid loop(){}\n"}],
+            "usage": {"input_tokens": 100, "output_tokens": 50, "cache_read_input_tokens": 12},
+        }
+        captured = {}
+
+        def fake_urlopen(request, timeout=None):
+            captured["url"] = request.full_url
+            captured["headers"] = dict(request.header_items())
+            captured["body"] = json.loads(request.data.decode("utf-8"))
+            return _FakeHTTPResponse(body)
+
+        with patch("bench.leaderboard.providers.os.environ", {"ANTHROPIC_API_KEY": "a-key"}), patch(
+            "bench.leaderboard.providers.urllib.request.urlopen", side_effect=fake_urlopen
+        ):
+            resp = generate_response(
+                "anthropic:claude-opus-4-8", prompt="do it", task=SimpleNamespace()
+            )
+        self.assertEqual(captured["url"], "https://api.anthropic.com/v1/messages")
+        hdrs = {k.lower(): v for k, v in captured["headers"].items()}
+        self.assertEqual(hdrs.get("x-api-key"), "a-key")
+        self.assertEqual(hdrs.get("anthropic-version"), "2023-06-01")
+        self.assertIn("system", captured["body"])
+        self.assertIn("max_tokens", captured["body"])
+        self.assertEqual(resp.text.splitlines()[0], "void setup(){}")
+        self.assertEqual(resp.usage["input_tokens"], 100)
+        self.assertEqual(resp.usage["output_tokens"], 50)
+        self.assertEqual(resp.usage["total_tokens"], 150)
+        self.assertEqual(resp.usage["cached_input_tokens"], 12)
+        self.assertEqual(resp.usage["usage_source"], "provider")
+
+    def test_anthropic_requires_key(self):
+        with patch("bench.leaderboard.providers.os.environ", {}):
+            with self.assertRaises(ConfigError):
+                generate_response("anthropic:claude-opus-4-8", prompt="x", task=SimpleNamespace())
+
     def test_unknown_provider_rejected(self):
         with self.assertRaises(ConfigError):
-            self._call("anthropic:claude", env={"ANTHROPIC_API_KEY": "x"})
+            self._call("cohere:command", env={"COHERE_API_KEY": "x"})
 
     def test_openai_new_family_uses_max_completion_tokens_no_sampling(self):
         _, captured = self._call("openai:gpt-5", env={"OPENAI_API_KEY": "k"})

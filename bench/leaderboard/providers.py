@@ -62,6 +62,15 @@ def generate_response(
     if model.startswith("file:"):
         return _file_provider(model[5:])
     prefix, sep, model_name = model.partition(":")
+    if sep and prefix == "anthropic":
+        return _anthropic(
+            model_name,
+            prompt=prompt,
+            api_base=api_base,
+            api_key_env=api_key_env or "ANTHROPIC_API_KEY",
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
     spec = _OPENAI_COMPAT_PROVIDERS.get(prefix) if sep else None
     if spec is not None:
         return _openai_compatible(
@@ -147,6 +156,159 @@ def _file_provider(path_text: str) -> ProviderResponse:
         raw={"provider": "file", "source": str(path)},
         usage=None,
         latency_s=round(time.perf_counter() - start, 6),
+    )
+
+
+_ANTHROPIC_SYSTEM = "You write embedded firmware. Return only the requested source code."
+_ANTHROPIC_VERSION = "2023-06-01"
+
+
+def _anthropic(
+    model: str,
+    *,
+    prompt: str,
+    api_base: str | None,
+    api_key_env: str,
+    temperature: float,
+    max_tokens: int,
+) -> ProviderResponse:
+    """Anthropic Messages API adapter (distinct wire format from OpenAI).
+
+    Uses POST /v1/messages with x-api-key + anthropic-version headers, a
+    top-level `system`, and a single user message; usage is normalized into the
+    same provider-agnostic schema as the OpenAI-compatible path. Model id is
+    whatever follows `anthropic:` (e.g. anthropic:claude-opus-4-8).
+    """
+
+    key = os.environ.get(api_key_env)
+    if not key:
+        raise ConfigError(f"environment variable {api_key_env} is required for this provider")
+    base = (api_base or os.environ.get("ANTHROPIC_BASE_URL") or "https://api.anthropic.com").rstrip("/")
+    url = base + "/v1/messages"
+    payload: dict[str, Any] = {
+        "model": model,
+        "max_tokens": max_tokens,
+        "system": _ANTHROPIC_SYSTEM,
+        "temperature": temperature,
+        "messages": [{"role": "user", "content": prompt}],
+    }
+    headers = {
+        "content-type": "application/json",
+        "anthropic-version": _ANTHROPIC_VERSION,
+        "x-api-key": key,
+    }
+    sanitized_request = {"url": url, "headers": {"anthropic-version": _ANTHROPIC_VERSION}, "body": payload}
+    raw = _post_with_retry(url, headers, payload, sanitized_request)
+    text = _anthropic_text(raw)
+    if text is None:
+        raise ProviderFailure(
+            "anthropic provider response did not contain text content",
+            {"request": sanitized_request, "response": raw["_response"]},
+            raw["_latency_s"],
+            raw["_attempt"],
+        )
+    return ProviderResponse(
+        text=text,
+        raw={"request": sanitized_request, "response": raw["_response"]},
+        usage=_normalize_anthropic_usage(raw["_response"].get("usage")),
+        latency_s=raw["_latency_s"],
+        num_model_calls=raw["_attempt"],
+    )
+
+
+def _anthropic_text(raw: dict[str, Any]) -> str | None:
+    blocks = raw["_response"].get("content")
+    if not isinstance(blocks, list):
+        return None
+    text = "".join(b.get("text", "") for b in blocks if isinstance(b, dict) and b.get("type") == "text")
+    return text if text.strip() else None
+
+
+def _normalize_anthropic_usage(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, dict):
+        return None
+    input_tokens = value.get("input_tokens")
+    output_tokens = value.get("output_tokens")
+    cached = value.get("cache_read_input_tokens")
+    if input_tokens is None and output_tokens is None and cached is None:
+        return None
+    total = None
+    if input_tokens is not None and output_tokens is not None:
+        total = input_tokens + output_tokens
+    return {
+        "input_tokens": input_tokens,
+        "prompt_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "completion_tokens": output_tokens,
+        "total_tokens": total,
+        "reasoning_tokens": None,
+        "cached_input_tokens": cached,
+        "cost": None,
+        "usage_source": "provider",
+    }
+
+
+def _post_with_retry(
+    url: str, headers: dict[str, str], payload: dict[str, Any], sanitized_request: dict[str, Any]
+) -> dict[str, Any]:
+    """POST JSON with the same retry/backoff policy as the OpenAI path.
+
+    Returns the parsed response under `_response` plus `_latency_s`/`_attempt`
+    bookkeeping; raises ConfigError on fatal HTTP and ProviderFailure otherwise.
+    """
+
+    start = time.perf_counter()
+    last_raw: dict[str, Any] | None = None
+    max_attempts = 3
+    for attempt in range(1, max_attempts + 1):
+        request = urllib.request.Request(
+            url, data=json.dumps(payload).encode("utf-8"), method="POST", headers=dict(headers)
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=120) as response:
+                body = response.read().decode("utf-8")
+            try:
+                raw = json.loads(body)
+            except json.JSONDecodeError as exc:
+                raise ProviderFailure(
+                    "provider returned malformed JSON",
+                    {"request": sanitized_request, "response": {"body": body}},
+                    round(time.perf_counter() - start, 6),
+                    attempt,
+                ) from exc
+            return {"_response": raw, "_latency_s": round(time.perf_counter() - start, 6), "_attempt": attempt}
+        except ProviderFailure:
+            raise
+        except urllib.error.HTTPError as exc:
+            body = _read_http_error_body(exc)
+            last_raw = {"request": sanitized_request, "response": {"status": exc.code, "reason": exc.reason, "body": body}}
+            if exc.code in FATAL_HTTP_STATUS or exc.code not in RETRYABLE_HTTP_STATUS:
+                raise ConfigError(f"provider HTTP {exc.code}: {exc.reason}") from exc
+            if attempt < max_attempts:
+                time.sleep(_retry_delay(exc, attempt))
+                continue
+            raise ProviderFailure(
+                f"provider failed after {attempt} attempt(s): HTTP {exc.code}",
+                last_raw,
+                round(time.perf_counter() - start, 6),
+                attempt,
+            ) from exc
+        except (urllib.error.URLError, TimeoutError) as exc:
+            last_raw = {"request": sanitized_request, "response": {"error": type(exc).__name__, "reason": str(exc)}}
+            if attempt < max_attempts:
+                time.sleep(_retry_delay(None, attempt))
+                continue
+            raise ProviderFailure(
+                f"provider failed after {attempt} attempt(s): {exc}",
+                last_raw,
+                round(time.perf_counter() - start, 6),
+                attempt,
+            ) from exc
+    raise ProviderFailure(
+        "provider failed without a response",
+        last_raw or {"request": sanitized_request, "response": None},
+        round(time.perf_counter() - start, 6),
+        max_attempts,
     )
 
 
