@@ -121,6 +121,32 @@ class LeaderboardProviderTests(unittest.TestCase):
         with self.assertRaises(ConfigError):
             self._call("anthropic:claude", env={"ANTHROPIC_API_KEY": "x"})
 
+    def test_openai_new_family_uses_max_completion_tokens_no_sampling(self):
+        _, captured = self._call("openai:gpt-5", env={"OPENAI_API_KEY": "k"})
+        body = captured["body"]
+        self.assertIn("max_completion_tokens", body)
+        self.assertNotIn("max_tokens", body)
+        self.assertNotIn("temperature", body)
+        self.assertNotIn("top_p", body)
+
+    def test_openai_o_series_uses_new_family_params(self):
+        _, captured = self._call("openai:o3-mini", env={"OPENAI_API_KEY": "k"})
+        self.assertIn("max_completion_tokens", captured["body"])
+        self.assertNotIn("max_tokens", captured["body"])
+
+    def test_openai_legacy_family_keeps_max_tokens_and_sampling(self):
+        _, captured = self._call("openai:gpt-4o-mini", env={"OPENAI_API_KEY": "k"})
+        body = captured["body"]
+        self.assertIn("max_tokens", body)
+        self.assertNotIn("max_completion_tokens", body)
+        self.assertIn("temperature", body)
+
+    def test_new_family_name_via_openrouter_stays_legacy(self):
+        # Aggregators accept legacy params; only direct openai: adjusts.
+        _, captured = self._call("openrouter:openai/gpt-5", env={"OPENROUTER_API_KEY": "k"})
+        self.assertIn("max_tokens", captured["body"])
+        self.assertNotIn("max_completion_tokens", captured["body"])
+
     def test_openrouter_style_usage_metadata_is_normalized(self):
         body = {
             "choices": [{"message": {"content": "void setup(){}\nvoid loop(){}\n"}}],

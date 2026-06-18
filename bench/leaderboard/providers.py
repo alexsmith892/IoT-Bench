@@ -66,6 +66,7 @@ def generate_response(
     if spec is not None:
         return _openai_compatible(
             model_name,
+            provider=prefix,
             prompt=prompt,
             api_base=api_base,
             api_key_env=api_key_env or spec["default_key_env"],
@@ -77,6 +78,45 @@ def generate_response(
             seed=seed,
         )
     raise ConfigError(f"unsupported leaderboard model provider {model!r}")
+
+
+# OpenAI's gpt-5 and o-series reject `max_tokens` (require `max_completion_tokens`)
+# and reject `temperature`/`top_p` != default. This only applies when talking to
+# OpenAI directly; aggregators (OpenRouter) and local servers accept the legacy
+# params, so the adjustment is scoped to the `openai:` provider.
+_OPENAI_NEW_FAMILY_PREFIXES = ("gpt-5", "o1", "o3", "o4")
+
+
+def _is_new_openai_family(model: str) -> bool:
+    name = model.strip().lower()
+    return any(name == p or name.startswith(p + "-") or name.startswith(p) for p in _OPENAI_NEW_FAMILY_PREFIXES)
+
+
+def _build_chat_payload(
+    model: str,
+    *,
+    provider: str,
+    prompt: str,
+    temperature: float,
+    top_p: float,
+    max_tokens: int,
+    seed: int | None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "model": model,
+        "messages": [
+            {"role": "system", "content": "You write embedded firmware. Return only the requested source code."},
+            {"role": "user", "content": prompt},
+        ],
+    }
+    new_family = provider == "openai" and _is_new_openai_family(model)
+    payload["max_completion_tokens" if new_family else "max_tokens"] = max_tokens
+    if not new_family:
+        payload["temperature"] = temperature
+        payload["top_p"] = top_p
+        if seed is not None:
+            payload["seed"] = seed
+    return payload
 
 
 def _fixture_reference(task: TaskConfig) -> ProviderResponse:
@@ -113,6 +153,7 @@ def _file_provider(path_text: str) -> ProviderResponse:
 def _openai_compatible(
     model: str,
     *,
+    provider: str = "openai",
     prompt: str,
     api_base: str | None,
     api_key_env: str | None,
@@ -130,18 +171,15 @@ def _openai_compatible(
         )
     base = (api_base or os.environ.get("OPENAI_BASE_URL") or default_base).rstrip("/")
     url = base + OPENAI_COMPATIBLE_URL
-    payload: dict[str, Any] = {
-        "model": model,
-        "messages": [
-            {"role": "system", "content": "You write embedded firmware. Return only the requested source code."},
-            {"role": "user", "content": prompt},
-        ],
-        "temperature": temperature,
-        "top_p": top_p,
-        "max_tokens": max_tokens,
-    }
-    if seed is not None:
-        payload["seed"] = seed
+    payload = _build_chat_payload(
+        model,
+        provider=provider,
+        prompt=prompt,
+        temperature=temperature,
+        top_p=top_p,
+        max_tokens=max_tokens,
+        seed=seed,
+    )
     headers = {"Content-Type": "application/json"}
     if key:
         headers["Authorization"] = f"Bearer {key}"

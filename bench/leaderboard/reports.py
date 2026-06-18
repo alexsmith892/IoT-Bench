@@ -2,12 +2,32 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
 
 DEFAULT_IF_THRESHOLD = 0.05
+# z for a 95% two-sided normal interval; used for the Wilson score interval.
+WILSON_Z = 1.959963984540054
+
+
+def wilson_interval(successes: int, n: int, *, z: float = WILSON_Z) -> tuple[float | None, float | None]:
+    """95% Wilson score interval for a binomial proportion (successes/n).
+
+    Returns (low, high) rounded to 6 dp, or (None, None) when n == 0. The Wilson
+    interval is well-behaved at the 0%/100% extremes common with few reps.
+    """
+
+    if n <= 0:
+        return None, None
+    p = successes / n
+    z2 = z * z
+    denom = 1 + z2 / n
+    center = (p + z2 / (2 * n)) / denom
+    margin = (z * math.sqrt((p * (1 - p) + z2 / (4 * n)) / n)) / denom
+    return round(max(0.0, center - margin), 6), round(min(1.0, center + margin), 6)
 
 
 def load_attempts(run_dir: Path) -> list[dict[str, Any]]:
@@ -199,6 +219,9 @@ def _metrics_for_rows(
         "cf": cf,
         "if": iff,
         "pass_at_1": round(bc / attempted, 6) if attempted else 0.0,
+        "pass_at_1_ci_low": wilson_interval(bc, attempted)[0],
+        "pass_at_1_ci_high": wilson_interval(bc, attempted)[1],
+        "pass_at_1_n": attempted,
         "pass_at_k": round(pass_at_k, 6),
         "pass_rate_scored": round(bc / scored, 6) if scored else None,
         "coverage_rate": round(scored / denominator, 6) if denominator else 0.0,
@@ -310,6 +333,9 @@ def _write_summary_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "cf",
         "if",
         "pass_at_1",
+        "pass_at_1_ci_low",
+        "pass_at_1_ci_high",
+        "pass_at_1_n",
         "pass_at_k",
         "pass_rate_scored",
         "coverage_rate",
@@ -340,12 +366,17 @@ def _leaderboard_md(summary: dict[str, Any]) -> str:
     lines.append(f"IF threshold: `{metadata.get('if_threshold')}`")
     lines.append("")
     lines.append("## Table 1 - Headline")
-    lines.append("| model | skill_mode | pass@1 | pass@k | scored pass | coverage | BC% | CF% | BF% | IF% | tokens/task | prompt chars | tokens/pass |")
-    lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+    lines.append("| model | skill_mode | pass@1 | pass@1 95% CI | pass@k | scored pass | coverage | BC% | CF% | BF% | IF% | tokens/task | prompt chars | tokens/pass |")
+    lines.append("|---|---:|---:|:--:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
     for row in summary["headline"]:
+        ci = (
+            f"[{row['pass_at_1_ci_low']}–{row['pass_at_1_ci_high']}] n={row['pass_at_1_n']}"
+            if row.get("pass_at_1_ci_low") is not None
+            else "n/a"
+        )
         lines.append(
-            "| {model} | {skill_mode} | {pass_at_1} | {pass_at_k} | {pass_rate_scored} | {coverage_rate} | {bc_pct} | {cf_pct} | {bf_pct} | {if_pct} | {tokens_per_task} | {total_prompt_chars} | {tokens_per_pass} |".format(
-                **row
+            "| {model} | {skill_mode} | {pass_at_1} | {ci} | {pass_at_k} | {pass_rate_scored} | {coverage_rate} | {bc_pct} | {cf_pct} | {bf_pct} | {if_pct} | {tokens_per_task} | {total_prompt_chars} | {tokens_per_pass} |".format(
+                ci=ci, **row
             )
         )
     lines.extend(["", "## Table 2 - Skill Lift", ""])

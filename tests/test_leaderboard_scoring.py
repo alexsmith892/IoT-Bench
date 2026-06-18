@@ -183,6 +183,27 @@ class LeaderboardScoringTests(unittest.TestCase):
 
             self.assertEqual(first_payload, second_payload)
 
+    def test_pass_at_1_wilson_interval_present_and_sane(self):
+        from bench.leaderboard.reports import wilson_interval
+
+        self.assertEqual(wilson_interval(0, 0), (None, None))
+        lo, hi = wilson_interval(1, 2)  # 1/2 successes
+        self.assertLess(lo, 0.5)
+        self.assertGreater(hi, 0.5)
+        self.assertGreaterEqual(lo, 0.0)
+        self.assertLessEqual(hi, 1.0)
+        # All-pass stays within [0,1] (no overshoot at the boundary).
+        lo2, hi2 = wilson_interval(3, 3)
+        self.assertGreaterEqual(lo2, 0.0)
+        self.assertEqual(hi2, 1.0)
+
+        summary = summarize_attempts([row("a", "none", 1, "BC"), row("a", "none", 2, "BF")])
+        cell = summary["headline"][0]
+        self.assertEqual(cell["pass_at_1_n"], 2)
+        self.assertIsNotNone(cell["pass_at_1_ci_low"])
+        self.assertLessEqual(cell["pass_at_1_ci_low"], cell["pass_at_1"])
+        self.assertGreaterEqual(cell["pass_at_1_ci_high"], cell["pass_at_1"])
+
     def test_aggregate_runs_merges_models_into_one_table(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
