@@ -42,6 +42,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
     report = sub.add_parser("report", help="regenerate reports for an existing run")
     report.add_argument("--run", type=Path, required=True)
+    report.add_argument("--if-threshold", type=float, default=0.05)
     return parser.parse_args(argv)
 
 
@@ -107,8 +108,15 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result, indent=2))
             return 0
         if args.command == "report":
-            print(json.dumps(write_reports(args.run), indent=2))
+            print(json.dumps(write_reports(args.run, if_threshold=args.if_threshold), indent=2))
             return 0
+    except KeyboardInterrupt:
+        return emit_result(
+            SIM_INFRA_FAIL,
+            "leaderboard run interrupted",
+            failure_stage="generation",
+            failure_source=SOURCE_HARNESS,
+        )
     except ConfigError as exc:
         return emit_result(SIM_INFRA_FAIL, str(exc), failure_source=SOURCE_HARNESS)
     return emit_result(SIM_INFRA_FAIL, f"unsupported command: {args.command}", failure_source=SOURCE_HARNESS)

@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Any
 
 
+DEFAULT_IF_THRESHOLD = 0.05
+
+
 def load_attempts(run_dir: Path) -> list[dict[str, Any]]:
     path = run_dir / "attempts.jsonl"
     if not path.exists():
@@ -18,12 +21,12 @@ def load_attempts(run_dir: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def write_reports(run_dir: Path) -> dict[str, str]:
+def write_reports(run_dir: Path, *, if_threshold: float = DEFAULT_IF_THRESHOLD) -> dict[str, str]:
     attempts = load_attempts(run_dir)
     experiment = load_experiment(run_dir)
     reports_dir = run_dir / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
-    summaries = summarize_attempts(attempts, experiment=experiment)
+    summaries = summarize_attempts(attempts, experiment=experiment, if_threshold=if_threshold)
 
     summary_json = reports_dir / "summary.json"
     summary_json.write_text(json.dumps(summaries, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -56,7 +59,12 @@ def load_experiment(run_dir: Path) -> dict[str, Any] | None:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def summarize_attempts(attempts: list[dict[str, Any]], experiment: dict[str, Any] | None = None) -> dict[str, Any]:
+def summarize_attempts(
+    attempts: list[dict[str, Any]],
+    experiment: dict[str, Any] | None = None,
+    *,
+    if_threshold: float = DEFAULT_IF_THRESHOLD,
+) -> dict[str, Any]:
     cells = []
     grouped: dict[tuple[str, str, str, str], list[dict[str, Any]]] = defaultdict(list)
     headline_grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
@@ -71,7 +79,17 @@ def summarize_attempts(attempts: list[dict[str, Any]], experiment: dict[str, Any
         for (model, skill_mode), rows in sorted(headline_grouped.items())
     ]
     skill_lift = _skill_lift(headline)
-    return {"cells": cells, "headline": headline, "skill_lift": skill_lift}
+    publishability = _publishability_status(headline, experiment=experiment, if_threshold=if_threshold)
+    return {
+        "metadata": {
+            "if_threshold": if_threshold,
+            "publishability": publishability,
+            "attempts": len(attempts),
+        },
+        "cells": cells,
+        "headline": headline,
+        "skill_lift": skill_lift,
+    }
 
 
 def _metrics_for_rows(
@@ -98,6 +116,10 @@ def _metrics_for_rows(
     )
     costs = [row.get("cost_usd") for row in rows if row.get("cost_usd") is not None]
     tokens = [row.get("total_tokens") for row in rows if row.get("total_tokens") is not None]
+    input_tokens = [row.get("input_tokens") for row in rows if row.get("input_tokens") is not None]
+    skill_input_tokens = [
+        row.get("skill_input_tokens") for row in rows if row.get("skill_input_tokens") is not None
+    ]
     base_chars = [row.get("base_prompt_chars") for row in rows if row.get("base_prompt_chars") is not None]
     skill_chars = [row.get("skill_prompt_chars") for row in rows if row.get("skill_prompt_chars") is not None]
     total_chars = [
@@ -123,10 +145,19 @@ def _metrics_for_rows(
         "coverage_rate": round(scored / denominator, 6) if denominator else 0.0,
         "coverage_denominator": denominator,
         "if_rate": round(iff / attempted, 6) if attempted else 0.0,
+        "bc_pct": round(bc / attempted, 6) if attempted else 0.0,
         "cf_pct": round(cf / attempted, 6) if attempted else 0.0,
         "bf_pct": round(bf / attempted, 6) if attempted else 0.0,
         "if_pct": round(iff / attempted, 6) if attempted else 0.0,
         "tokens_per_task": round(sum(float(value) for value in tokens) / len(tokens), 3) if tokens else None,
+        "input_tokens_per_task": round(sum(float(value) for value in input_tokens) / len(input_tokens), 3)
+        if input_tokens
+        else None,
+        "skill_input_tokens_per_task": round(
+            sum(float(value) for value in skill_input_tokens) / len(skill_input_tokens), 3
+        )
+        if skill_input_tokens
+        else None,
         "base_prompt_chars": round(sum(float(value) for value in base_chars) / len(base_chars), 3) if base_chars else None,
         "skill_prompt_chars": round(sum(float(value) for value in skill_chars) / len(skill_chars), 3) if skill_chars else None,
         "total_prompt_chars": round(sum(total_chars) / len(total_chars), 3) if total_chars else None,
@@ -178,6 +209,10 @@ def _skill_lift(headline: list[dict[str, Any]]) -> list[dict[str, Any]]:
         base = baseline[row["model"]]
         delta_cost = _nullable_delta(row.get("cost_per_task"), base.get("cost_per_task"))
         delta_tokens = _nullable_delta(row.get("tokens_per_task"), base.get("tokens_per_task"))
+        lift_per_1k = None
+        skill_tokens = row.get("skill_input_tokens_per_task")
+        if skill_tokens not in (None, 0):
+            lift_per_1k = round((row["pass_at_1"] - base["pass_at_1"]) / float(skill_tokens) * 1000, 6)
         rows.append(
             {
                 "model": row["model"],
@@ -185,7 +220,7 @@ def _skill_lift(headline: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "delta_pass_at_1": round(row["pass_at_1"] - base["pass_at_1"], 6),
                 "delta_input_tokens": delta_tokens,
                 "delta_cost_per_task": delta_cost,
-                "lift_per_1k_skill_tokens": None,
+                "lift_per_1k_skill_tokens": lift_per_1k,
             }
         )
     return rows
@@ -210,10 +245,17 @@ def _write_summary_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "if",
         "pass_at_1",
         "pass_at_k",
+        "pass_rate_scored",
         "coverage_rate",
         "coverage_denominator",
         "if_rate",
+        "bc_pct",
+        "cf_pct",
+        "bf_pct",
+        "if_pct",
         "tokens_per_task",
+        "input_tokens_per_task",
+        "skill_input_tokens_per_task",
         "base_prompt_chars",
         "skill_prompt_chars",
         "total_prompt_chars",
@@ -228,12 +270,16 @@ def _write_summary_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 
 def _leaderboard_md(summary: dict[str, Any]) -> str:
     lines = ["# IoT-Bench Leaderboard Run", ""]
+    metadata = summary.get("metadata") or {}
+    lines.append(f"Publishability: `{metadata.get('publishability')}`")
+    lines.append(f"IF threshold: `{metadata.get('if_threshold')}`")
+    lines.append("")
     lines.append("## Table 1 - Headline")
-    lines.append("| model | skill_mode | pass@1 | pass@k | coverage | CF% | BF% | IF% | tokens/task | prompt chars | cost/task | cost/pass |")
-    lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+    lines.append("| model | skill_mode | pass@1 | pass@k | scored pass | coverage | BC% | CF% | BF% | IF% | tokens/task | prompt chars | cost/task | cost/pass |")
+    lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
     for row in summary["headline"]:
         lines.append(
-            "| {model} | {skill_mode} | {pass_at_1} | {pass_at_k} | {coverage_rate} | {cf_pct} | {bf_pct} | {if_pct} | {tokens_per_task} | {total_prompt_chars} | {cost_per_task} | {cost_per_pass} |".format(
+            "| {model} | {skill_mode} | {pass_at_1} | {pass_at_k} | {pass_rate_scored} | {coverage_rate} | {bc_pct} | {cf_pct} | {bf_pct} | {if_pct} | {tokens_per_task} | {total_prompt_chars} | {cost_per_task} | {cost_per_pass} |".format(
                 **row
             )
         )
@@ -252,6 +298,23 @@ def _leaderboard_md(summary: dict[str, Any]) -> str:
     for row in summary["cells"]:
         lines.append(f"| {row['model']} | {row['skill_mode']} | {row['level']} | {row['pass_at_1']} |")
     return "\n".join(lines) + "\n"
+
+
+def _publishability_status(
+    headline: list[dict[str, Any]],
+    *,
+    experiment: dict[str, Any] | None,
+    if_threshold: float,
+) -> str:
+    if any(float(row.get("if_rate") or 0.0) > if_threshold for row in headline):
+        return "high_if_rate"
+    if experiment:
+        current = experiment.get("publishability")
+        if current in {"local_smoke", "publishable", "unpublishable_override"}:
+            return str(current)
+        if experiment.get("allow_unpublishable") or not experiment.get("publishable", True):
+            return "unpublishable_override"
+    return "publishable"
 
 
 def _failures_md(attempts: list[dict[str, Any]]) -> str:
