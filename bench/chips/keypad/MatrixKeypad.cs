@@ -19,6 +19,23 @@
 // it has a monitor name; its register window is inert (reads 0). Multi-key
 // ghosting is not modeled (bench scenarios press one key at a time).
 //
+// Per-scan column refresh (the safebox_display fix). A real keypad presents a
+// defined column level (pull-up, or pulled low through a held switch) the whole
+// time a row is driven, so the firmware reads a fresh level on every scan. In
+// Renode the column nets are edge-propagated and the nRF GPIO input only latches
+// a column change from an edge that arrives *while the pin is configured as an
+// input* -- and `GPIO.Set` de-duplicates on value. The idle-HIGH level we drive
+// at construction/reset is emitted before the firmware configures the column
+// pins as inputs, so it is dropped; de-dup then suppresses every later Set(true),
+// so the wired input stays at its default LOW (a phantom-pressed column) until a
+// real keypress finally toggles that column. To match real hardware we re-assert
+// the columns with a guaranteed edge at the start of every scan (each time the
+// firmware drives a row LOW): we drive all columns LOW, then RecomputeColumns
+// re-raises the un-pressed ones, so every idle column delivers a fresh rising
+// edge the nRF input latches right before the firmware samples it. The momentary
+// low is invisible to the firmware, which reads only after its post-row-drive
+// settle delay (k_msleep); pressed columns simply stay LOW.
+//
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -47,7 +64,9 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
             Array.Clear(pressed, 0, pressed.Length);
             for(var i = 0; i < Size4; i++)
             {
-                // Idle: no scan active (rows high), columns pulled high.
+                // Idle: no scan active (rows high), columns pulled high. (The
+                // columns are re-asserted with a real edge on every scan; see
+                // the file header for why a reset-time Set is not enough.)
                 rowLevels[i] = true;
                 Connections[i].Set(true);
             }
@@ -66,6 +85,19 @@ namespace Antmicro.Renode.Peripherals.Miscellaneous
                 return;
             }
             rowLevels[number] = value;
+            if(!value)
+            {
+                // A row was driven LOW: the firmware is starting a scan and will
+                // sample the columns next. Drive every column LOW first so the
+                // RecomputeColumns below re-raises the idle ones as a genuine
+                // rising edge the nRF input latches, defeating Renode's GPIO
+                // de-dup (see file header). Within this handler no virtual time
+                // passes, so the firmware never observes the transient low.
+                for(var c = 0; c < Size4; c++)
+                {
+                    Connections[c].Set(false);
+                }
+            }
             RecomputeColumns();
         }
 

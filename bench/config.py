@@ -434,20 +434,12 @@ def canonical_task_ids(platform: str, *, root: Path | None = None) -> set[str] |
 # against readiness (a scored-out task is "resolved" even though it is not BC).
 # Keep this in sync with docs/zephyr-task-status.md and the test that pins it
 # (tests/test_canonical_task_set.py).
-SCORED_OUT_TASKS: dict[str, dict[str, str]] = {
-    "zephyr_nano33ble": {
-        "safebox_display": (
-            "Renode nRF GPIO connection-init limitation: the first matrix-keypad "
-            "column the model drives does not present its idle-high level to the "
-            "wired pin until that output's value first changes (~200 ms in, after "
-            "the first keypress), so the boot keypad scan reads a phantom-pressed "
-            "first column and the entered code is corrupted. Verified intractable "
-            "across pin reassignment, output-index offset, and sacrificial "
-            "first-column connections. Keypad behavior is still covered by "
-            "16key_keypad and safebox, both live-verified BC."
-        ),
-    },
-}
+# Currently empty: the former zephyr_nano33ble/safebox_display exclusion (a
+# Renode nRF keypad-column boot-init limitation) was resolved by re-asserting
+# the columns with a real edge on every scan in bench/chips/keypad/
+# MatrixKeypad.cs, so safebox_display reaches BC again. Keep the mechanism for
+# any future model-fidelity exclusion.
+SCORED_OUT_TASKS: dict[str, dict[str, str]] = {}
 
 
 def scored_out_task_ids(platform: str) -> dict[str, str]:
