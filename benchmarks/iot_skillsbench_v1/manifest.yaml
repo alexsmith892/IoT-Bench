@@ -7,6 +7,12 @@ platforms:
   arduino_mega:
     upstream_file_prefix: ATmega2560-Arduino
     canonical_count: 41
+  esp32s3_espidf:
+    upstream_file_prefix: ESP32S3-ESPIDF
+    canonical_count: 43
+  zephyr_nano33ble:
+    upstream_file_prefix: nRF52840-Zephyr
+    canonical_count: 42
 skill_modes:
   none:
     use_skills: false
@@ -679,4 +685,1376 @@ tasks:
     - display
     - analog
     - lcd
+  deviations: []
+- canonical_id: blink_led_1hz
+  local_task_id: blink_led_1hz
+  local_platform: esp32s3_espidf
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - blink
+    - led
+    - 1hz
+  deviations: []
+- canonical_id: blink_led_morse_code
+  local_task_id: blink_led_morse_code
+  local_platform: esp32s3_espidf
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - blink
+    - led
+    - morse
+    - code
+  deviations: []
+- canonical_id: blink_led_no_delay
+  local_task_id: blink_led_no_delay
+  local_platform: esp32s3_espidf
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - blink
+    - led
+    - no
+    - delay
+  deviations: []
+- canonical_id: blink_two_leds
+  local_task_id: blink_two_leds
+  local_platform: esp32s3_espidf
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - blink
+    - two
+    - leds
+  deviations: []
+- canonical_id: breathing_led
+  local_task_id: breathing_led
+  local_platform: esp32s3_espidf
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - breathing
+    - led
+  deviations: []
+- canonical_id: button_press_debounce
+  local_task_id: button_press_debounce
+  local_platform: esp32s3_espidf
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - button
+    - press
+    - debounce
+  deviations: []
+- canonical_id: button_status_count
+  local_task_id: button_status_count
+  local_platform: esp32s3_espidf
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - button
+    - status
+    - count
+  deviations: []
+- canonical_id: button_status_display
+  local_task_id: button_status_display
+  local_platform: esp32s3_espidf
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - button
+    - status
+    - display
+  deviations: []
+- canonical_id: buzzer_button
+  local_task_id: buzzer_button
+  local_platform: esp32s3_espidf
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - buzzer
+    - button
+  deviations: []
+- canonical_id: buzzer_doorbell
+  local_task_id: buzzer_doorbell
+  local_platform: esp32s3_espidf
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - buzzer
+    - doorbell
+  deviations: []
+- canonical_id: sensor_pir_human_motion
+  local_task_id: sensor_pir_human_motion
+  local_platform: esp32s3_espidf
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - sensor
+    - pir
+    - human
+    - motion
+  deviations: []
+- canonical_id: tmp36_read
+  local_task_id: tmp36_read
+  local_platform: esp32s3_espidf
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - tmp36
+    - read
+  deviations: []
+- canonical_id: 16key_keypad
+  local_task_id: 16key_keypad
+  local_platform: esp32s3_espidf
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - 16key
+    - keypad
+  deviations: []
+- canonical_id: bme280_read_i2c
+  local_task_id: bme280_read_i2c
+  local_platform: esp32s3_espidf
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - bme280
+    - read
+    - i2c
+  deviations: []
+- canonical_id: bme280_read_spi
+  local_task_id: bme280_read_spi
+  local_platform: esp32s3_espidf
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - bme280
+    - read
+    - spi
+  deviations: []
+- canonical_id: clap_switch
+  local_task_id: clap_switch
+  local_platform: esp32s3_espidf
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - clap
+    - switch
+  deviations: []
+- canonical_id: dht11_read
+  local_task_id: dht11_read
+  local_platform: esp32s3_espidf
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - dht11
+    - read
+  deviations: []
+- canonical_id: ds1307_rtc
+  local_task_id: ds1307_rtc
+  local_platform: esp32s3_espidf
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - ds1307
+    - rtc
+  deviations: []
+- canonical_id: ds18b20_heat_alarm
+  local_task_id: ds18b20_heat_alarm
+  local_platform: esp32s3_espidf
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - ds18b20
+    - heat
+    - alarm
+  deviations: []
+- canonical_id: hcsr04_find_distance
+  local_task_id: hcsr04_find_distance
+  local_platform: esp32s3_espidf
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - hcsr04
+    - find
+    - distance
+  deviations: []
+- canonical_id: hcsr501_motion_alarm
+  local_task_id: hcsr501_motion_alarm
+  local_platform: esp32s3_espidf
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - hcsr501
+    - motion
+    - alarm
+  deviations: []
+- canonical_id: lcd1602_display_hello_world
+  local_task_id: lcd1602_display_hello_world
+  local_platform: esp32s3_espidf
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - lcd1602
+    - display
+    - hello
+    - world
+  deviations: []
+- canonical_id: mpu6050_read_i2c
+  local_task_id: mpu6050_read_i2c
+  local_platform: esp32s3_espidf
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - mpu6050
+    - read
+    - i2c
+  deviations: []
+- canonical_id: mpu6050_read_spi
+  local_task_id: mpu6050_read_spi
+  local_platform: esp32s3_espidf
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - mpu6050
+    - read
+    - spi
+  deviations: []
+- canonical_id: parking_sensor
+  local_task_id: parking_sensor
+  local_platform: esp32s3_espidf
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - parking
+    - sensor
+  deviations: []
+- canonical_id: photoresistor_nightlight
+  local_task_id: photoresistor_nightlight
+  local_platform: esp32s3_espidf
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - photoresistor
+    - nightlight
+  deviations: []
+- canonical_id: reverse_parking_sensor
+  local_task_id: reverse_parking_sensor
+  local_platform: esp32s3_espidf
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - reverse
+    - parking
+    - sensor
+  deviations: []
+- canonical_id: rotary_encoder
+  local_task_id: rotary_encoder
+  local_platform: esp32s3_espidf
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - rotary
+    - encoder
+  deviations: []
+- canonical_id: tilt_detection_alarm
+  local_task_id: tilt_detection_alarm
+  local_platform: esp32s3_espidf
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - tilt
+    - detection
+    - alarm
+  deviations: []
+- canonical_id: buzzer_laser_tripwire
+  local_task_id: buzzer_laser_tripwire
+  local_platform: esp32s3_espidf
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - buzzer
+    - laser
+    - tripwire
+  deviations: []
+- canonical_id: buzzer_toggle_led_freq
+  local_task_id: buzzer_toggle_led_freq
+  local_platform: esp32s3_espidf
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - buzzer
+    - toggle
+    - led
+    - freq
+  deviations: []
+- canonical_id: dht11_read_button_display
+  local_task_id: dht11_read_button_display
+  local_platform: esp32s3_espidf
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - dht11
+    - read
+    - button
+    - display
+  deviations: []
+- canonical_id: joystick_buzzer_pitch
+  local_task_id: joystick_buzzer_pitch
+  local_platform: esp32s3_espidf
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - joystick
+    - buzzer
+    - pitch
+  deviations: []
+- canonical_id: lcd1602_auto_brightness_control
+  local_task_id: lcd1602_auto_brightness_control
+  local_platform: esp32s3_espidf
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - lcd1602
+    - auto
+    - brightness
+    - control
+  deviations: []
+- canonical_id: mpu6050_read_button_display
+  local_task_id: mpu6050_read_button_display
+  local_platform: esp32s3_espidf
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - mpu6050
+    - read
+    - button
+    - display
+  deviations: []
+- canonical_id: mpu6050_read_periodic_display
+  local_task_id: mpu6050_read_periodic_display
+  local_platform: esp32s3_espidf
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - mpu6050
+    - read
+    - periodic
+    - display
+  deviations: []
+- canonical_id: reaction_timer_display
+  local_task_id: reaction_timer_display
+  local_platform: esp32s3_espidf
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - reaction
+    - timer
+    - display
+  deviations: []
+- canonical_id: safebox
+  local_task_id: safebox
+  local_platform: esp32s3_espidf
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - safebox
+  deviations: []
+- canonical_id: safebox_display
+  local_task_id: safebox_display
+  local_platform: esp32s3_espidf
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - safebox
+    - display
+  deviations: []
+- canonical_id: sensor_water_level_display
+  local_task_id: sensor_water_level_display
+  local_platform: esp32s3_espidf
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - sensor
+    - water
+    - level
+    - display
+  deviations: []
+- canonical_id: step_counter_print
+  local_task_id: step_counter_print
+  local_platform: esp32s3_espidf
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - step
+    - counter
+    - print
+  deviations: []
+- canonical_id: tmp36_read_button_display
+  local_task_id: tmp36_read_button_display
+  local_platform: esp32s3_espidf
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - tmp36
+    - read
+    - button
+    - display
+  deviations: []
+- canonical_id: tmp36_read_periodic_display
+  local_task_id: tmp36_read_periodic_display
+  local_platform: esp32s3_espidf
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - esp32
+    - esp-idf
+    - tmp36
+    - read
+    - periodic
+    - display
+  deviations: []
+- canonical_id: blink_led_1hz
+  local_task_id: blink_led_1hz
+  local_platform: zephyr_nano33ble
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - blink
+    - led
+    - 1hz
+  deviations: []
+- canonical_id: blink_led_morse_code
+  local_task_id: blink_led_morse_code
+  local_platform: zephyr_nano33ble
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - blink
+    - led
+    - morse
+    - code
+  deviations: []
+- canonical_id: blink_led_no_delay
+  local_task_id: blink_led_no_delay
+  local_platform: zephyr_nano33ble
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - blink
+    - led
+    - no
+    - delay
+  deviations: []
+- canonical_id: blink_two_leds
+  local_task_id: blink_two_leds
+  local_platform: zephyr_nano33ble
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - blink
+    - two
+    - leds
+  deviations: []
+- canonical_id: breathing_led
+  local_task_id: breathing_led
+  local_platform: zephyr_nano33ble
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - breathing
+    - led
+  deviations: []
+- canonical_id: button_press_debounce
+  local_task_id: button_press_debounce
+  local_platform: zephyr_nano33ble
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - button
+    - press
+    - debounce
+  deviations: []
+- canonical_id: button_status_count
+  local_task_id: button_status_count
+  local_platform: zephyr_nano33ble
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - button
+    - status
+    - count
+  deviations: []
+- canonical_id: button_status_display
+  local_task_id: button_status_display
+  local_platform: zephyr_nano33ble
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - button
+    - status
+    - display
+  deviations: []
+- canonical_id: buzzer_button
+  local_task_id: buzzer_button
+  local_platform: zephyr_nano33ble
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - buzzer
+    - button
+  deviations: []
+- canonical_id: buzzer_doorbell
+  local_task_id: buzzer_doorbell
+  local_platform: zephyr_nano33ble
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - buzzer
+    - doorbell
+  deviations: []
+- canonical_id: sensor_pir_human_motion
+  local_task_id: sensor_pir_human_motion
+  local_platform: zephyr_nano33ble
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - sensor
+    - pir
+    - human
+    - motion
+  deviations: []
+- canonical_id: tmp36_read
+  local_task_id: tmp36_read
+  local_platform: zephyr_nano33ble
+  level: level1
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - tmp36
+    - read
+  deviations: []
+- canonical_id: 16key_keypad
+  local_task_id: 16key_keypad
+  local_platform: zephyr_nano33ble
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - 16key
+    - keypad
+  deviations: []
+- canonical_id: bme280_read_i2c
+  local_task_id: bme280_read_i2c
+  local_platform: zephyr_nano33ble
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - bme280
+    - read
+    - i2c
+  deviations: []
+- canonical_id: bme280_read_spi
+  local_task_id: bme280_read_spi
+  local_platform: zephyr_nano33ble
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - bme280
+    - read
+    - spi
+  deviations: []
+- canonical_id: clap_switch
+  local_task_id: clap_switch
+  local_platform: zephyr_nano33ble
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - clap
+    - switch
+  deviations: []
+- canonical_id: dht11_read
+  local_task_id: dht11_read
+  local_platform: zephyr_nano33ble
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - dht11
+    - read
+  deviations: []
+- canonical_id: ds1307_rtc
+  local_task_id: ds1307_rtc
+  local_platform: zephyr_nano33ble
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - ds1307
+    - rtc
+  deviations: []
+- canonical_id: ds18b20_heat_alarm
+  local_task_id: ds18b20_heat_alarm
+  local_platform: zephyr_nano33ble
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - ds18b20
+    - heat
+    - alarm
+  deviations: []
+- canonical_id: hcsr04_find_distance
+  local_task_id: hcsr04_find_distance
+  local_platform: zephyr_nano33ble
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - hcsr04
+    - find
+    - distance
+  deviations: []
+- canonical_id: hcsr501_motion_alarm
+  local_task_id: hcsr501_motion_alarm
+  local_platform: zephyr_nano33ble
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - hcsr501
+    - motion
+    - alarm
+  deviations: []
+- canonical_id: lcd1602_display_hello_world
+  local_task_id: lcd1602_display_hello_world
+  local_platform: zephyr_nano33ble
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - lcd1602
+    - display
+    - hello
+    - world
+  deviations: []
+- canonical_id: lsm9ds1_read_i2c
+  local_task_id: lsm9ds1_read_i2c
+  local_platform: zephyr_nano33ble
+  level: level2
+  score_eligible: false
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - lsm9ds1
+    - read
+    - i2c
+  deviations: []
+- canonical_id: mpu6050_read_i2c
+  local_task_id: mpu6050_read_i2c
+  local_platform: zephyr_nano33ble
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - mpu6050
+    - read
+    - i2c
+  deviations: []
+- canonical_id: parking_sensor
+  local_task_id: parking_sensor
+  local_platform: zephyr_nano33ble
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - parking
+    - sensor
+  deviations: []
+- canonical_id: photoresistor_nightlight
+  local_task_id: photoresistor_nightlight
+  local_platform: zephyr_nano33ble
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - photoresistor
+    - nightlight
+  deviations: []
+- canonical_id: reverse_parking_sensor
+  local_task_id: reverse_parking_sensor
+  local_platform: zephyr_nano33ble
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - reverse
+    - parking
+    - sensor
+  deviations: []
+- canonical_id: rotary_encoder
+  local_task_id: rotary_encoder
+  local_platform: zephyr_nano33ble
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - rotary
+    - encoder
+  deviations: []
+- canonical_id: tilt_detection_alarm
+  local_task_id: tilt_detection_alarm
+  local_platform: zephyr_nano33ble
+  level: level2
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - tilt
+    - detection
+    - alarm
+  deviations: []
+- canonical_id: buzzer_laser_tripwire
+  local_task_id: buzzer_laser_tripwire
+  local_platform: zephyr_nano33ble
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - buzzer
+    - laser
+    - tripwire
+  deviations: []
+- canonical_id: buzzer_toggle_led_freq
+  local_task_id: buzzer_toggle_led_freq
+  local_platform: zephyr_nano33ble
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - buzzer
+    - toggle
+    - led
+    - freq
+  deviations: []
+- canonical_id: dht11_read_button_display
+  local_task_id: dht11_read_button_display
+  local_platform: zephyr_nano33ble
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - dht11
+    - read
+    - button
+    - display
+  deviations: []
+- canonical_id: joystick_buzzer_pitch
+  local_task_id: joystick_buzzer_pitch
+  local_platform: zephyr_nano33ble
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - joystick
+    - buzzer
+    - pitch
+  deviations: []
+- canonical_id: lcd1602_auto_brightness_control
+  local_task_id: lcd1602_auto_brightness_control
+  local_platform: zephyr_nano33ble
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - lcd1602
+    - auto
+    - brightness
+    - control
+  deviations: []
+- canonical_id: mpu6050_read_button_display
+  local_task_id: mpu6050_read_button_display
+  local_platform: zephyr_nano33ble
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - mpu6050
+    - read
+    - button
+    - display
+  deviations: []
+- canonical_id: mpu6050_read_periodic_display
+  local_task_id: mpu6050_read_periodic_display
+  local_platform: zephyr_nano33ble
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - mpu6050
+    - read
+    - periodic
+    - display
+  deviations: []
+- canonical_id: reaction_timer_display
+  local_task_id: reaction_timer_display
+  local_platform: zephyr_nano33ble
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - reaction
+    - timer
+    - display
+  deviations: []
+- canonical_id: safebox
+  local_task_id: safebox
+  local_platform: zephyr_nano33ble
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - safebox
+  deviations: []
+- canonical_id: safebox_display
+  local_task_id: safebox_display
+  local_platform: zephyr_nano33ble
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - safebox
+    - display
+  deviations: []
+- canonical_id: sensor_water_level_display
+  local_task_id: sensor_water_level_display
+  local_platform: zephyr_nano33ble
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - sensor
+    - water
+    - level
+    - display
+  deviations: []
+- canonical_id: step_counter_print
+  local_task_id: step_counter_print
+  local_platform: zephyr_nano33ble
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - step
+    - counter
+    - print
+  deviations: []
+- canonical_id: tmp36_read_button_display
+  local_task_id: tmp36_read_button_display
+  local_platform: zephyr_nano33ble
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - tmp36
+    - read
+    - button
+    - display
+  deviations: []
+- canonical_id: tmp36_read_periodic_display
+  local_task_id: tmp36_read_periodic_display
+  local_platform: zephyr_nano33ble
+  level: level3
+  score_eligible: true
+  required_evidence: publishable
+  prompt_source: local_prompt
+  skill_selection:
+    mode: deterministic_tags
+    tags:
+    - zephyr
+    - nrf52840
+    - tmp36
+    - read
+    - periodic
+    - display
   deviations: []
