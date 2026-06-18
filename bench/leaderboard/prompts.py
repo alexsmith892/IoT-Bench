@@ -27,8 +27,12 @@ Output requirements:
 }
 
 
-def compose_prompt(task: TaskConfig, skills: tuple[SkillFile, ...]) -> tuple[str, int, int]:
-    """Build the model-facing prompt without reading oracle YAML fields."""
+def compose_prompt(task: TaskConfig, skills: tuple[SkillFile, ...]) -> tuple[str, str, str]:
+    """Build the model-facing prompt without reading oracle YAML fields.
+
+    Returns ``(full_prompt, base_text, skill_text)`` so callers can measure the
+    base vs skill segments (chars and, when a tokenizer is available, tokens).
+    """
 
     output_format = OUTPUT_FORMATS.get(task.board_profile.build_kind)
     if output_format is None:
@@ -40,4 +44,4 @@ def compose_prompt(task: TaskConfig, skills: tuple[SkillFile, ...]) -> tuple[str
         for skill in skills:
             parts.append(f"\n--- skill: {skill.name} sha256:{skill.sha256} ---\n{skill.text.rstrip()}\n")
         skill_text = "\n".join(parts)
-    return base + skill_text, len(base), len(skill_text)
+    return base + skill_text, base, skill_text

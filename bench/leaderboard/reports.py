@@ -24,9 +24,48 @@ def load_attempts(run_dir: Path) -> list[dict[str, Any]]:
 def write_reports(run_dir: Path, *, if_threshold: float = DEFAULT_IF_THRESHOLD) -> dict[str, str]:
     attempts = load_attempts(run_dir)
     experiment = load_experiment(run_dir)
-    reports_dir = run_dir / "reports"
-    reports_dir.mkdir(parents=True, exist_ok=True)
     summaries = summarize_attempts(attempts, experiment=experiment, if_threshold=if_threshold)
+    return _emit_reports(run_dir / "reports", attempts, summaries)
+
+
+def aggregate_runs(
+    run_dirs: list[Path], out_dir: Path, *, if_threshold: float = DEFAULT_IF_THRESHOLD
+) -> dict[str, str]:
+    """Merge several run directories into one combined leaderboard.
+
+    Concatenates each run's `attempts.jsonl` and re-aggregates them so models
+    appear as rows in a single table. Coverage is exact when the runs share the
+    same task set and reps (the usual same-benchmark, different-model compare).
+    """
+
+    if not run_dirs:
+        raise ValueError("aggregate_runs requires at least one run directory")
+    attempts: list[dict[str, Any]] = []
+    experiments: list[dict[str, Any]] = []
+    sources: list[str] = []
+    for run_dir in run_dirs:
+        attempts.extend(load_attempts(run_dir))
+        experiment = load_experiment(run_dir)
+        if experiment is not None:
+            experiments.append(experiment)
+        sources.append(run_dir.name)
+    merged_experiment = _merge_experiments(experiments)
+    summaries = summarize_attempts(attempts, experiment=merged_experiment, if_threshold=if_threshold)
+    summaries["metadata"]["aggregated_runs"] = sources
+    paths = _emit_reports(out_dir, attempts, summaries)
+    aggregate_json = out_dir / "aggregate.json"
+    aggregate_json.write_text(
+        json.dumps({"runs": sources, "attempts": len(attempts)}, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    paths["aggregate_json"] = str(aggregate_json)
+    return paths
+
+
+def _emit_reports(
+    reports_dir: Path, attempts: list[dict[str, Any]], summaries: dict[str, Any]
+) -> dict[str, str]:
+    reports_dir.mkdir(parents=True, exist_ok=True)
 
     summary_json = reports_dir / "summary.json"
     summary_json.write_text(json.dumps(summaries, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -50,6 +89,28 @@ def write_reports(run_dir: Path, *, if_threshold: float = DEFAULT_IF_THRESHOLD) 
         "failures_md": str(failures_md),
         "pareto_csv": str(pareto_csv),
     }
+
+
+def _merge_experiments(experiments: list[dict[str, Any]]) -> dict[str, Any] | None:
+    if not experiments:
+        return None
+    selected: dict[tuple[Any, Any, Any], dict[str, Any]] = {}
+    reps_values: set[int] = set()
+    for experiment in experiments:
+        for task in experiment.get("selected_tasks") or []:
+            if not isinstance(task, dict):
+                continue
+            key = (task.get("platform"), task.get("level"), task.get("local_task_id"))
+            selected[key] = task
+        reps = experiment.get("reps")
+        if reps is not None:
+            reps_values.add(int(reps))
+    merged: dict[str, Any] = {"selected_tasks": list(selected.values())}
+    # Only assert a shared reps count when every run agrees; otherwise leave it
+    # unset so the coverage denominator falls back rather than miscounting.
+    if len(reps_values) == 1:
+        merged["reps"] = reps_values.pop()
+    return merged
 
 
 def load_experiment(run_dir: Path) -> dict[str, Any] | None:
@@ -204,23 +265,31 @@ def _skill_lift(headline: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if row["skill_mode"] == "none" or row["model"] not in baseline:
             continue
         base = baseline[row["model"]]
+        delta_pass = round(row["pass_at_1"] - base["pass_at_1"], 6)
         delta_tokens = _nullable_delta(
             row.get("input_tokens_per_task"), base.get("input_tokens_per_task")
         )
-        lift_per_1k = None
-        skill_tokens = row.get("skill_input_tokens_per_task")
-        if skill_tokens not in (None, 0):
-            lift_per_1k = round((row["pass_at_1"] - base["pass_at_1"]) / float(skill_tokens) * 1000, 6)
+        # Token-based ROI activates only when a tokenizer populated the split;
+        # the char-based ROI is the always-available fallback (chars are exact).
+        lift_per_1k = _lift_per_1k(delta_pass, row.get("skill_input_tokens_per_task"))
+        lift_per_1k_chars = _lift_per_1k(delta_pass, row.get("skill_prompt_chars"))
         rows.append(
             {
                 "model": row["model"],
                 "skill_mode": row["skill_mode"],
-                "delta_pass_at_1": round(row["pass_at_1"] - base["pass_at_1"], 6),
+                "delta_pass_at_1": delta_pass,
                 "delta_input_tokens": delta_tokens,
                 "lift_per_1k_skill_tokens": lift_per_1k,
+                "lift_per_1k_skill_chars": lift_per_1k_chars,
             }
         )
     return rows
+
+
+def _lift_per_1k(delta_pass: float, denominator: Any) -> float | None:
+    if denominator in (None, 0):
+        return None
+    return round(delta_pass / float(denominator) * 1000, 6)
 
 
 def _nullable_delta(value: Any, base: Any) -> float | None:
@@ -280,11 +349,11 @@ def _leaderboard_md(summary: dict[str, Any]) -> str:
             )
         )
     lines.extend(["", "## Table 2 - Skill Lift", ""])
-    lines.append("| model | skill_mode | delta pass@1 | delta input tokens | lift /1k skill-tok |")
-    lines.append("|---|---:|---:|---:|---:|")
+    lines.append("| model | skill_mode | delta pass@1 | delta input tokens | lift /1k skill-tok | lift /1k skill-char |")
+    lines.append("|---|---:|---:|---:|---:|---:|")
     for row in summary["skill_lift"]:
         lines.append(
-            "| {model} | {skill_mode} | {delta_pass_at_1} | {delta_input_tokens} | {lift_per_1k_skill_tokens} |".format(
+            "| {model} | {skill_mode} | {delta_pass_at_1} | {delta_input_tokens} | {lift_per_1k_skill_tokens} | {lift_per_1k_skill_chars} |".format(
                 **row
             )
         )

@@ -18,6 +18,7 @@ from .extraction import extract_submission
 from .manifest import load_manifest, plan_payload
 from .prompts import compose_prompt
 from .providers import generate_response
+from .tokenization import split_token_counts
 from .reports import write_reports
 from .schemas import PlanResult, ProviderFailure, ResolvedTask
 from .skills import select_skills, skills_lock_sha, upstream_lock_sha
@@ -53,7 +54,7 @@ def run_experiment(
     seed: int | None,
     if_retries: int,
     api_base: str | None,
-    api_key_env: str,
+    api_key_env: str | None,
     simulation_time_ms: int | None,
     allow_tool_version_mismatch: bool,
     allow_unpublishable: bool,
@@ -207,7 +208,7 @@ def _run_one(
     seed: int | None,
     if_retries: int,
     api_base: str | None,
-    api_key_env: str,
+    api_key_env: str | None,
     simulation_time_ms: int | None,
     allow_tool_version_mismatch: bool,
 ) -> dict[str, Any]:
@@ -219,7 +220,10 @@ def _run_one(
         skill_mode=skill_mode,
         task_entry=resolved.manifest,
     )
-    prompt, base_prompt_chars, skill_prompt_chars = compose_prompt(task, skills)
+    prompt, base_text, skill_text = compose_prompt(task, skills)
+    base_prompt_chars = len(base_text)
+    skill_prompt_chars = len(skill_text)
+    base_input_tokens, skill_input_tokens, prompt_tokenizer = split_token_counts(base_text, skill_text)
     prompt_path = out / "prompts" / f"{slug}.md"
     prompt_path.write_text(prompt, encoding="utf-8", newline="\n")
 
@@ -257,6 +261,9 @@ def _run_one(
             seed=seed,
             base_prompt_chars=base_prompt_chars,
             skill_prompt_chars=skill_prompt_chars,
+            base_input_tokens=base_input_tokens,
+            skill_input_tokens=skill_input_tokens,
+            prompt_tokenizer=prompt_tokenizer,
             usage=None,
             num_model_calls=exc.num_model_calls,
             latency_s=exc.latency_s,
@@ -302,6 +309,9 @@ def _run_one(
         seed=seed,
         base_prompt_chars=base_prompt_chars,
         skill_prompt_chars=skill_prompt_chars,
+        base_input_tokens=base_input_tokens,
+        skill_input_tokens=skill_input_tokens,
+        prompt_tokenizer=prompt_tokenizer,
         usage=usage if usage else None,
         num_model_calls=response.num_model_calls,
         latency_s=response.latency_s,
@@ -329,6 +339,9 @@ def _attempt_row(
     seed: int | None,
     base_prompt_chars: int,
     skill_prompt_chars: int,
+    base_input_tokens: int | None,
+    skill_input_tokens: int | None,
+    prompt_tokenizer: str | None,
     usage: dict[str, Any] | None,
     num_model_calls: int,
     latency_s: float,
@@ -361,8 +374,9 @@ def _attempt_row(
         "max_tokens": max_tokens,
         "seed": seed,
         "input_tokens": input_tokens,
-        "base_input_tokens": None,
-        "skill_input_tokens": None,
+        "base_input_tokens": base_input_tokens,
+        "skill_input_tokens": skill_input_tokens,
+        "prompt_tokenizer": prompt_tokenizer,
         "base_prompt_chars": base_prompt_chars,
         "skill_prompt_chars": skill_prompt_chars,
         "output_tokens": output_tokens,

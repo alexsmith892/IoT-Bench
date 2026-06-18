@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from bench.leaderboard.reports import summarize_attempts, write_reports
+from bench.leaderboard.reports import aggregate_runs, summarize_attempts, write_reports
 
 
 def row(task, mode, rep, result, *, stage=None, tokens=100, model="fixture:reference", level="level1", skill_tokens=None):
@@ -182,6 +182,47 @@ class LeaderboardScoringTests(unittest.TestCase):
             second_payload = {name: Path(path).read_text(encoding="utf-8") for name, path in second.items()}
 
             self.assertEqual(first_payload, second_payload)
+
+    def test_aggregate_runs_merges_models_into_one_table(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            experiment = {
+                "reps": 1,
+                "selected_tasks": [
+                    {
+                        "local_task_id": "a",
+                        "platform": "arduino_mega",
+                        "level": "level1",
+                        "score_eligible": True,
+                    }
+                ],
+            }
+            run_a = root / "run_a"
+            run_b = root / "run_b"
+            for run_dir, model, result in (
+                (run_a, "openrouter:m1", "BC"),
+                (run_b, "openrouter:m2", "BF"),
+            ):
+                run_dir.mkdir()
+                (run_dir / "attempts.jsonl").write_text(
+                    json.dumps(row("a", "none", 1, result, model=model)) + "\n",
+                    encoding="utf-8",
+                )
+                (run_dir / "experiment.json").write_text(
+                    json.dumps(experiment), encoding="utf-8"
+                )
+
+            out = root / "combined"
+            paths = aggregate_runs([run_a, run_b], out)
+
+            for path in paths.values():
+                self.assertTrue(Path(path).exists(), path)
+            leaderboard = (out / "leaderboard.md").read_text(encoding="utf-8")
+            self.assertIn("openrouter:m1", leaderboard)
+            self.assertIn("openrouter:m2", leaderboard)
+            summary = json.loads((out / "summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(len(summary["headline"]), 2)
+            self.assertEqual(summary["metadata"]["aggregated_runs"], ["run_a", "run_b"])
 
 
 if __name__ == "__main__":

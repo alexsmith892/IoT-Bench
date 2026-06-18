@@ -9,7 +9,7 @@ from bench.config import ConfigError
 from bench.results import SIM_INFRA_FAIL, SOURCE_HARNESS, emit_result
 
 from .manifest import plan_payload, resolve_plan
-from .reports import write_reports
+from .reports import aggregate_runs, write_reports
 from .run import run_experiment
 
 
@@ -24,7 +24,12 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     _add_selection_args(run)
     run.add_argument("--model", required=True)
     run.add_argument("--api-base")
-    run.add_argument("--api-key-env", default="OPENAI_API_KEY")
+    run.add_argument(
+        "--api-key-env",
+        default=None,
+        help="env var holding the API key; overrides the per-provider default "
+        "(OPENAI_API_KEY for openai:, GEMINI_API_KEY for gemini:, none for local:)",
+    )
     run.add_argument("--reps", type=int, default=1)
     run.add_argument("--temperature", type=float, default=0.2)
     run.add_argument("--top-p", type=float, default=1.0)
@@ -43,6 +48,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     report = sub.add_parser("report", help="regenerate reports for an existing run")
     report.add_argument("--run", type=Path, required=True)
     report.add_argument("--if-threshold", type=float, default=0.05)
+
+    aggregate = sub.add_parser(
+        "aggregate", help="merge several run dirs into one combined leaderboard"
+    )
+    aggregate.add_argument("--runs", type=Path, nargs="+", required=True)
+    aggregate.add_argument("--out", type=Path, required=True)
+    aggregate.add_argument("--if-threshold", type=float, default=0.05)
     return parser.parse_args(argv)
 
 
@@ -109,6 +121,14 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         if args.command == "report":
             print(json.dumps(write_reports(args.run, if_threshold=args.if_threshold), indent=2))
+            return 0
+        if args.command == "aggregate":
+            print(
+                json.dumps(
+                    aggregate_runs(args.runs, args.out, if_threshold=args.if_threshold),
+                    indent=2,
+                )
+            )
             return 0
     except KeyboardInterrupt:
         return emit_result(

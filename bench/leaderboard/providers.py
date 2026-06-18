@@ -18,6 +18,32 @@ RETRYABLE_HTTP_STATUS = {429, 500, 502, 503, 504}
 FATAL_HTTP_STATUS = {401, 403}
 OPENAI_COMPATIBLE_URL = "/chat/completions"
 
+# OpenAI-compatible providers selected by `<prefix>:<model>`. Each shares the
+# same wire format; only the default endpoint, default key env var, and whether
+# a key is mandatory differ. `local` defaults to Ollama and needs no key.
+_OPENAI_COMPAT_PROVIDERS = {
+    "openai": {
+        "default_base": "https://api.openai.com/v1",
+        "default_key_env": "OPENAI_API_KEY",
+        "require_key": True,
+    },
+    "gemini": {
+        "default_base": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "default_key_env": "GEMINI_API_KEY",
+        "require_key": True,
+    },
+    "openrouter": {
+        "default_base": "https://openrouter.ai/api/v1",
+        "default_key_env": "OPENROUTER_API_KEY",
+        "require_key": True,
+    },
+    "local": {
+        "default_base": "http://localhost:11434/v1",
+        "default_key_env": None,
+        "require_key": False,
+    },
+}
+
 
 def generate_response(
     model: str,
@@ -25,7 +51,7 @@ def generate_response(
     prompt: str,
     task: TaskConfig,
     api_base: str | None = None,
-    api_key_env: str = "OPENAI_API_KEY",
+    api_key_env: str | None = None,
     temperature: float = 0.2,
     top_p: float = 1.0,
     max_tokens: int = 4096,
@@ -35,12 +61,16 @@ def generate_response(
         return _fixture_reference(task)
     if model.startswith("file:"):
         return _file_provider(model[5:])
-    if model.startswith("openai:"):
+    prefix, sep, model_name = model.partition(":")
+    spec = _OPENAI_COMPAT_PROVIDERS.get(prefix) if sep else None
+    if spec is not None:
         return _openai_compatible(
-            model[7:],
+            model_name,
             prompt=prompt,
             api_base=api_base,
-            api_key_env=api_key_env,
+            api_key_env=api_key_env or spec["default_key_env"],
+            default_base=spec["default_base"],
+            require_key=spec["require_key"],
             temperature=temperature,
             top_p=top_p,
             max_tokens=max_tokens,
@@ -85,16 +115,20 @@ def _openai_compatible(
     *,
     prompt: str,
     api_base: str | None,
-    api_key_env: str,
+    api_key_env: str | None,
+    default_base: str,
+    require_key: bool,
     temperature: float,
     top_p: float,
     max_tokens: int,
     seed: int | None,
 ) -> ProviderResponse:
-    key = os.environ.get(api_key_env)
-    if not key:
-        raise ConfigError(f"environment variable {api_key_env} is required for openai provider")
-    base = (api_base or os.environ.get("OPENAI_BASE_URL") or "https://api.openai.com/v1").rstrip("/")
+    key = os.environ.get(api_key_env) if api_key_env else None
+    if require_key and not key:
+        raise ConfigError(
+            f"environment variable {api_key_env} is required for this provider"
+        )
+    base = (api_base or os.environ.get("OPENAI_BASE_URL") or default_base).rstrip("/")
     url = base + OPENAI_COMPATIBLE_URL
     payload: dict[str, Any] = {
         "model": model,
@@ -108,6 +142,9 @@ def _openai_compatible(
     }
     if seed is not None:
         payload["seed"] = seed
+    headers = {"Content-Type": "application/json"}
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
     sanitized_request = {
         "url": url,
         "headers": {"Content-Type": "application/json"},
@@ -121,10 +158,7 @@ def _openai_compatible(
             url,
             data=json.dumps(payload).encode("utf-8"),
             method="POST",
-            headers={
-                "Authorization": f"Bearer {key}",
-                "Content-Type": "application/json",
-            },
+            headers=dict(headers),
         )
         try:
             with urllib.request.urlopen(request, timeout=120) as response:
