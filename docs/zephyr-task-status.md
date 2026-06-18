@@ -9,25 +9,28 @@ disagree, the index wins.
 For what a BC verdict on this platform certifies vs. does not (the surrogate
 modeling shortcuts behind each task), see `docs/zephyr-fidelity-ledger.md`.
 
-**Last full live sweep: 2026-06-17** - Renode v1.16.1, west v1.5.0, Zephyr
+**Last full live sweep: 2026-06-18** - Renode v1.16.1, west v1.5.0, Zephyr
 `c49b758` - driven by `scripts/renode_live_sweep.ps1` (generate -> build -> run ->
-validate-artifacts per task, then a refreshed evidence index). Result: of the
-**42 canonical** tasks, **all 42 are live-verified BC** (the former
-`safebox_display` Renode keypad limitation was fixed in `MatrixKeypad.cs`, see
-below). The non-canonical addition `lsm9ds1_read_i2c` was also live BC but is
+validate-artifacts per task, then a refreshed evidence index). Result: all **43**
+tasks BC, with `validate-artifacts` reproducing every verdict; the regenerated
+`docs/zephyr_nano33ble-evidence.json` reports **fresh_bc 43/43, stale 0,
+canonical_fresh_bc 42/42, canonical_scored_out 0**. This sweep folded in the
+`safebox_display` keypad-column fix (`MatrixKeypad.cs`): `safebox_display`,
+`safebox`, and `16key_keypad` are all live BC, and `safebox_display` is no longer
+scored out. The non-canonical addition `lsm9ds1_read_i2c` was also live BC but is
 excluded from canonical scoring.
 
-> Note (2026-06-18): the `safebox_display` keypad-column fix postdates the
-> 2026-06-17 sweep above. The mechanism (model edit + single-task BC on
-> `safebox_display`, `safebox`, `16key_keypad`) is verified, but the tracked
-> evidence index is not refreshed until the next full live sweep runs.
-
-Current evidence freshness is intentionally stricter than the historical sweep
-summary. The tracked index currently reports stale Zephyr entries after source
-and/or harness changes, so the historical sweep should be read as prior live
-coverage, not current publishable leaderboard evidence. Re-run the live refresh
-and regenerate `docs/zephyr_nano33ble-evidence.json` before making a fresh
-publishability claim.
+> Note (2026-06-18): the evidence is **fresh but not yet leaderboard-publishable**.
+> The index reports `publishable = 11/43` (the strict
+> `fresh AND BC AND harness_match` gate) because the token-only leaderboard MVP
+> was merged to `main` mid-sweep (~15:54 UTC), adding `bench/leaderboard/*.py`.
+> `benchmark_harness_hash()` hashes all of `bench/**/*.py`, so the harness hash
+> shifted: the 32 tasks run before the merge recorded the prior hash and the 11
+> run after (from `joystick_buzzer_pitch` on) match the current one. This is a
+> timing artifact, not a task defect — every task is fresh BC. The harness is now
+> stable post-merge, so re-running `scripts/renode_live_sweep.ps1` would yield
+> `publishable = 43`. Until then, treat this as current live coverage, not a
+> fresh leaderboard-publishability claim.
 
 Status meanings:
 

@@ -53,6 +53,7 @@ cases/*/artifacts/serial/*.serial.log.*
 .agent-context/
 **/AGENTS.md
 **/CLAUDE.md
+.claude/
 
 # Local Zephyr flake investigation logs (not fixtures).
 zephyr-flakes*.jsonl
