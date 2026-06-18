@@ -60,9 +60,20 @@ class ProviderResponse:
 
 
 @dataclass(frozen=True)
+class ProviderFailure(Exception):
+    reason: str
+    raw: dict[str, Any]
+    latency_s: float
+    num_model_calls: int
+
+    def __str__(self) -> str:
+        return self.reason
+
+
+@dataclass(frozen=True)
 class ExtractionResult:
     ok: bool
     source_path: Path | None
     result: dict[str, Any] | None
     reason: str | None = None
-
+    metadata: dict[str, Any] = field(default_factory=dict)
