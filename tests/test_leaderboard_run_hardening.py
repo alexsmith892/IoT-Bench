@@ -34,8 +34,6 @@ def attempt_row(task_id="blink_led_1hz", mode="none", rep=1):
         "skill_prompt_chars": 0,
         "output_tokens": None,
         "total_tokens": None,
-        "cost_usd": None,
-        "pricing_table_version": "test",
         "num_model_calls": 1,
         "latency_s": 0.1,
         "generation_retries": 0,

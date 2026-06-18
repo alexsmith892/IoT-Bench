@@ -6,7 +6,7 @@ from pathlib import Path
 from bench.leaderboard.reports import summarize_attempts, write_reports
 
 
-def row(task, mode, rep, result, *, stage=None, cost=1.0, tokens=100, model="fixture:reference", level="level1", skill_tokens=None):
+def row(task, mode, rep, result, *, stage=None, tokens=100, model="fixture:reference", level="level1", skill_tokens=None):
     return {
         "run_name": "r",
         "model": model,
@@ -27,8 +27,6 @@ def row(task, mode, rep, result, *, stage=None, cost=1.0, tokens=100, model="fix
         "skill_input_tokens": skill_tokens,
         "output_tokens": None,
         "total_tokens": tokens,
-        "cost_usd": cost,
-        "pricing_table_version": "test",
         "num_model_calls": 1,
         "latency_s": 0.1,
         "generation_retries": 0,
@@ -54,8 +52,8 @@ class LeaderboardScoringTests(unittest.TestCase):
             row("a", "none", 2, "BC"),
             row("b", "none", 1, "CF", stage="compile"),
             row("b", "none", 2, "BF", stage="behavior"),
-            row("a", "human_expert", 1, "BC", cost=2.0, tokens=200),
-            row("b", "human_expert", 1, "BC", cost=2.0, tokens=200),
+            row("a", "human_expert", 1, "BC", tokens=200),
+            row("b", "human_expert", 1, "BC", tokens=200),
         ]
 
         summary = summarize_attempts(attempts)

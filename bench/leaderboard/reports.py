@@ -114,7 +114,6 @@ def _metrics_for_rows(
         if task_rep_groups
         else 0.0
     )
-    costs = [row.get("cost_usd") for row in rows if row.get("cost_usd") is not None]
     tokens = [row.get("total_tokens") for row in rows if row.get("total_tokens") is not None]
     input_tokens = [row.get("input_tokens") for row in rows if row.get("input_tokens") is not None]
     skill_input_tokens = [
@@ -127,7 +126,6 @@ def _metrics_for_rows(
         for row in rows
         if row.get("base_prompt_chars") is not None or row.get("skill_prompt_chars") is not None
     ]
-    cost_sum = sum(float(value) for value in costs)
     denominator = _coverage_denominator(rows, platform=platform, level=level, experiment=experiment)
     return {
         "model": model,
@@ -161,8 +159,7 @@ def _metrics_for_rows(
         "base_prompt_chars": round(sum(float(value) for value in base_chars) / len(base_chars), 3) if base_chars else None,
         "skill_prompt_chars": round(sum(float(value) for value in skill_chars) / len(skill_chars), 3) if skill_chars else None,
         "total_prompt_chars": round(sum(total_chars) / len(total_chars), 3) if total_chars else None,
-        "cost_per_task": round(cost_sum / len(costs), 8) if costs else None,
-        "cost_per_pass": round(cost_sum / bc, 8) if costs and bc else None,
+        "tokens_per_pass": round(sum(float(value) for value in tokens) / bc, 3) if tokens and bc else None,
     }
 
 
@@ -207,8 +204,9 @@ def _skill_lift(headline: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if row["skill_mode"] == "none" or row["model"] not in baseline:
             continue
         base = baseline[row["model"]]
-        delta_cost = _nullable_delta(row.get("cost_per_task"), base.get("cost_per_task"))
-        delta_tokens = _nullable_delta(row.get("tokens_per_task"), base.get("tokens_per_task"))
+        delta_tokens = _nullable_delta(
+            row.get("input_tokens_per_task"), base.get("input_tokens_per_task")
+        )
         lift_per_1k = None
         skill_tokens = row.get("skill_input_tokens_per_task")
         if skill_tokens not in (None, 0):
@@ -219,7 +217,6 @@ def _skill_lift(headline: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "skill_mode": row["skill_mode"],
                 "delta_pass_at_1": round(row["pass_at_1"] - base["pass_at_1"], 6),
                 "delta_input_tokens": delta_tokens,
-                "delta_cost_per_task": delta_cost,
                 "lift_per_1k_skill_tokens": lift_per_1k,
             }
         )
@@ -259,8 +256,7 @@ def _write_summary_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "base_prompt_chars",
         "skill_prompt_chars",
         "total_prompt_chars",
-        "cost_per_task",
-        "cost_per_pass",
+        "tokens_per_pass",
     ]
     with path.open("w", encoding="utf-8", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore")
@@ -275,20 +271,20 @@ def _leaderboard_md(summary: dict[str, Any]) -> str:
     lines.append(f"IF threshold: `{metadata.get('if_threshold')}`")
     lines.append("")
     lines.append("## Table 1 - Headline")
-    lines.append("| model | skill_mode | pass@1 | pass@k | scored pass | coverage | BC% | CF% | BF% | IF% | tokens/task | prompt chars | cost/task | cost/pass |")
-    lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+    lines.append("| model | skill_mode | pass@1 | pass@k | scored pass | coverage | BC% | CF% | BF% | IF% | tokens/task | prompt chars | tokens/pass |")
+    lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
     for row in summary["headline"]:
         lines.append(
-            "| {model} | {skill_mode} | {pass_at_1} | {pass_at_k} | {pass_rate_scored} | {coverage_rate} | {bc_pct} | {cf_pct} | {bf_pct} | {if_pct} | {tokens_per_task} | {total_prompt_chars} | {cost_per_task} | {cost_per_pass} |".format(
+            "| {model} | {skill_mode} | {pass_at_1} | {pass_at_k} | {pass_rate_scored} | {coverage_rate} | {bc_pct} | {cf_pct} | {bf_pct} | {if_pct} | {tokens_per_task} | {total_prompt_chars} | {tokens_per_pass} |".format(
                 **row
             )
         )
     lines.extend(["", "## Table 2 - Skill Lift", ""])
-    lines.append("| model | skill_mode | delta pass@1 | delta input tokens | delta cost/task | lift /1k skill-tok |")
-    lines.append("|---|---:|---:|---:|---:|---:|")
+    lines.append("| model | skill_mode | delta pass@1 | delta input tokens | lift /1k skill-tok |")
+    lines.append("|---|---:|---:|---:|---:|")
     for row in summary["skill_lift"]:
         lines.append(
-            "| {model} | {skill_mode} | {delta_pass_at_1} | {delta_input_tokens} | {delta_cost_per_task} | {lift_per_1k_skill_tokens} |".format(
+            "| {model} | {skill_mode} | {delta_pass_at_1} | {delta_input_tokens} | {lift_per_1k_skill_tokens} |".format(
                 **row
             )
         )
@@ -340,7 +336,7 @@ def _failures_md(attempts: list[dict[str, Any]]) -> str:
 
 def _write_pareto_csv(path: Path, rows: list[dict[str, Any]]) -> None:
     pareto_rows = _mark_pareto(rows)
-    fields = ["model", "skill_mode", "cost_per_task", "pass_at_1", "on_frontier"]
+    fields = ["model", "skill_mode", "tokens_per_task", "pass_at_1", "on_frontier"]
     with path.open("w", encoding="utf-8", newline="") as stream:
         writer = csv.DictWriter(stream, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
@@ -349,17 +345,17 @@ def _write_pareto_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 
 def _mark_pareto(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     output = []
-    comparable = [row for row in rows if row.get("cost_per_task") is not None]
+    comparable = [row for row in rows if row.get("tokens_per_task") is not None]
     for row in rows:
         dominated = False
-        if row.get("cost_per_task") is not None:
+        if row.get("tokens_per_task") is not None:
             for other in comparable:
                 if other is row:
                     continue
                 if (
-                    other["cost_per_task"] <= row["cost_per_task"]
+                    other["tokens_per_task"] <= row["tokens_per_task"]
                     and other["pass_at_1"] >= row["pass_at_1"]
-                    and (other["cost_per_task"] < row["cost_per_task"] or other["pass_at_1"] > row["pass_at_1"])
+                    and (other["tokens_per_task"] < row["tokens_per_task"] or other["pass_at_1"] > row["pass_at_1"])
                 ):
                     dominated = True
                     break
@@ -367,9 +363,9 @@ def _mark_pareto(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             {
                 "model": row["model"],
                 "skill_mode": row["skill_mode"],
-                "cost_per_task": row.get("cost_per_task"),
+                "tokens_per_task": row.get("tokens_per_task"),
                 "pass_at_1": row["pass_at_1"],
-                "on_frontier": not dominated if row.get("cost_per_task") is not None else "",
+                "on_frontier": not dominated if row.get("tokens_per_task") is not None else "",
             }
         )
     return output

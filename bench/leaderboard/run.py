@@ -16,7 +16,6 @@ from bench.results import SIM_INFRA_FAIL, SOURCE_HARNESS, result_payload
 from .evaluate import evaluate_source
 from .extraction import extract_submission
 from .manifest import load_manifest, plan_payload
-from .pricing import PRICING_TABLE_VERSION, cost_usd
 from .prompts import compose_prompt
 from .providers import generate_response
 from .reports import write_reports
@@ -114,7 +113,6 @@ def run_experiment(
         "benchmark_harness_hash": benchmark_harness_hash(),
         "build_kinds": sorted({item.task.board_profile.build_kind for item in plan.tasks}),
         "tool_versions": _tool_versions_for_plan(plan),
-        "pricing_table_version": PRICING_TABLE_VERSION,
         "manifest_lock_sha": _sha_if_exists(plan.benchmark_root / "manifest.yaml"),
         "upstream_lock_sha": upstream_lock_sha(plan.benchmark_root),
         "skills_lock_sha": skills_lock_sha(plan.benchmark_root),
@@ -369,8 +367,6 @@ def _attempt_row(
         "skill_prompt_chars": skill_prompt_chars,
         "output_tokens": output_tokens,
         "total_tokens": total_tokens,
-        "cost_usd": cost_usd(model, usage if usage else None),
-        "pricing_table_version": PRICING_TABLE_VERSION,
         "num_model_calls": num_model_calls,
         "latency_s": latency_s,
         "generation_retries": generation_retries,
