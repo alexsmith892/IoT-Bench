@@ -2,6 +2,8 @@
 
 Tracked reference material for IoT-Bench. The root [README](../README.md) covers
 setup and daily commands; these files go deeper on platform status and design.
+Leaderboard run orchestration lives in `bench/leaderboard/`; current
+publishability claims should still be grounded in the evidence indexes below.
 
 | File | When to read it |
 |---|---|

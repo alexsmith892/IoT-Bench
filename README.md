@@ -4,10 +4,12 @@ Benchmark infrastructure for evaluating LLM-generated embedded firmware. Give a
 model a task prompt, submit the code it writes, and the harness builds it,
 runs it in a simulator, and judges behavior against hardcode-resistant oracles.
 
-The goal is a reproducible benchmark (and eventually a public leaderboard) across
-embedded platforms - not a one-off test suite. Waveform analysis beyond what the
-validators already do, fault injection, and a leaderboard UI are direction, not
-shipped features unless you see them in the code.
+The goal is a reproducible benchmark across embedded platforms, with
+leaderboard orchestration for model-generated firmware - not a one-off test
+suite. The current leaderboard path is token-only and produces local run
+reports; a public UI, published results tree, fault injection, and waveform
+analysis beyond what validators already do are future work unless you see them
+in the code.
 
 ## Platforms
 
@@ -52,6 +54,12 @@ Evaluate a folder of submitted sketches:
 python -m bench.cli evaluate --sketch-dir path/to/submissions --output results.jsonl
 ```
 
+Plan a leaderboard run without model spend:
+
+```powershell
+python -m bench.leaderboard plan --benchmark iot_skillsbench_v1 --platform arduino_mega --limit 3
+```
+
 Offline tests (no Wokwi token or network):
 
 ```powershell
@@ -92,8 +100,10 @@ correlation, static source gates, and an adversarial cheat-stub corpus in
 
 ```text
 bench/           Harness: CLI, generation, build, simulation, validators
+bench/leaderboard/ Token-only leaderboard orchestration, providers, reports
 tasks/           Task prompts and YAML oracles (127 tasks, 3 platforms)
 cases/           Generated simulator projects + reference sketches
+benchmarks/      Leaderboard manifests and skill packs
 tests/           Offline regression suite and adversarial stubs
 docs/            Platform status and design notes (tracked)
 ```
@@ -120,6 +130,34 @@ python -m bench.cli evidence-index --platform zephyr_nano33ble
 sketch, and pinned tool versions. `publishable` additionally requires a current
 harness match, so any harness edit should be followed by a fresh live sweep
 before leaderboard claims.
+
+## Leaderboard orchestration
+
+`python -m bench.leaderboard` is the model-calling path for reproducible
+leaderboard experiments. It plans from `benchmarks/iot_skillsbench_v1`, composes
+only the model-facing prompt plus optional skill packs, calls a provider,
+extracts the returned firmware, evaluates it in an isolated workspace, and
+writes token-oriented reports.
+
+Core commands:
+
+| Command | Purpose |
+|---|---|
+| `plan` | Validate and enumerate a run without calling a model |
+| `run` | Execute a model experiment into an ignored `runs/` directory |
+| `report` | Rebuild reports for an existing run directory |
+
+Supported model selectors are `fixture:reference`, `file:<path>`, and
+OpenAI-compatible prefixes `openai:<model>`, `gemini:<model>`,
+`openrouter:<provider/model>`, and `local:<model>`. Provider defaults use
+`OPENAI_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, or no key for
+`local:`; override endpoints with `--api-base` and key env vars with
+`--api-key-env`.
+
+Safety flags are intentional: `run` requires `--confirm-spend` unless
+`--dry-run` is set, `--max-generations` caps planned model calls, and
+`--resume` appends only missing attempts. `runs/` is scratch and gitignored;
+curated published bundles should live outside it.
 
 ## CLI commands
 
