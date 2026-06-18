@@ -256,12 +256,30 @@ def _message_content(raw: dict[str, Any]) -> str | None:
 
 
 def _normalize_usage(value: Any) -> dict[str, Any] | None:
+    """Map provider usage metadata into one provider-agnostic schema.
+
+    Authoritative token counts come from the API response (OpenRouter, OpenAI,
+    Gemini, Groq, local servers all populate `prompt_tokens`/`completion_tokens`
+    or the `*_tokens` aliases). Optional fields — reasoning tokens, cached input
+    tokens, and provider-reported cost — are filled when present, else null. New
+    providers map into the same keys.
+    """
+
     if not isinstance(value, dict):
         return None
     prompt_tokens = value.get("prompt_tokens", value.get("input_tokens"))
     completion_tokens = value.get("completion_tokens", value.get("output_tokens"))
     total_tokens = value.get("total_tokens")
-    if prompt_tokens is None and completion_tokens is None and total_tokens is None:
+    prompt_details = value.get("prompt_tokens_details")
+    completion_details = value.get("completion_tokens_details")
+    cached = value.get("cached_tokens", value.get("cached_input_tokens"))
+    if cached is None and isinstance(prompt_details, dict):
+        cached = prompt_details.get("cached_tokens")
+    reasoning = value.get("reasoning_tokens")
+    if reasoning is None and isinstance(completion_details, dict):
+        reasoning = completion_details.get("reasoning_tokens")
+    cost = value.get("cost")
+    if all(v is None for v in (prompt_tokens, completion_tokens, total_tokens, cached, reasoning, cost)):
         return None
     return {
         "input_tokens": prompt_tokens,
@@ -269,6 +287,10 @@ def _normalize_usage(value: Any) -> dict[str, Any] | None:
         "output_tokens": completion_tokens,
         "completion_tokens": completion_tokens,
         "total_tokens": total_tokens,
+        "reasoning_tokens": reasoning,
+        "cached_input_tokens": cached,
+        "cost": cost,
+        "usage_source": "provider",
     }
 
 

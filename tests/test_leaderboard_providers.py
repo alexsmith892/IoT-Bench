@@ -121,6 +121,37 @@ class LeaderboardProviderTests(unittest.TestCase):
         with self.assertRaises(ConfigError):
             self._call("anthropic:claude", env={"ANTHROPIC_API_KEY": "x"})
 
+    def test_openrouter_style_usage_metadata_is_normalized(self):
+        body = {
+            "choices": [{"message": {"content": "void setup(){}\nvoid loop(){}\n"}}],
+            "usage": {
+                "prompt_tokens": 1200,
+                "completion_tokens": 350,
+                "total_tokens": 1550,
+                "cost": 0.0,
+                "prompt_tokens_details": {"cached_tokens": 128},
+                "completion_tokens_details": {"reasoning_tokens": 210},
+            },
+        }
+
+        def fake_urlopen(request, timeout=None):
+            return _FakeHTTPResponse(body)
+
+        with patch("bench.leaderboard.providers.os.environ", {"OPENROUTER_API_KEY": "k"}), patch(
+            "bench.leaderboard.providers.urllib.request.urlopen", side_effect=fake_urlopen
+        ):
+            resp = generate_response(
+                "openrouter:qwen/qwen3-coder:free", prompt="x", task=SimpleNamespace()
+            )
+        u = resp.usage
+        self.assertEqual(u["input_tokens"], 1200)
+        self.assertEqual(u["output_tokens"], 350)
+        self.assertEqual(u["total_tokens"], 1550)
+        self.assertEqual(u["reasoning_tokens"], 210)
+        self.assertEqual(u["cached_input_tokens"], 128)
+        self.assertEqual(u["cost"], 0.0)
+        self.assertEqual(u["usage_source"], "provider")
+
 
 if __name__ == "__main__":
     unittest.main()

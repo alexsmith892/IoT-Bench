@@ -39,6 +39,7 @@ from .results import (
     SOURCE_USER_CODE,
     SIM_INFRA_FAIL,
     SIM_OUTPUT_FAIL,
+    STAGE_BEHAVIOR,
     STAGE_COMPILE,
     STAGE_SIM_INFRA,
     STAGE_SIM_OUTPUT,
@@ -1240,7 +1241,7 @@ def simulate_case(
         command_failure_source=SOURCE_SIMULATOR,
         infra_failure_source=SOURCE_ENVIRONMENT,
     )
-    ensure_existing_outputs(task, paths)
+    ensure_existing_outputs(task, paths, empty_is_behavior=True)
 
 
 def simulate_case_renode(
@@ -1315,7 +1316,7 @@ def simulate_case_renode(
         command_failure_source=SOURCE_SIMULATOR,
         infra_failure_source=SOURCE_ENVIRONMENT,
     )
-    ensure_existing_outputs(task, paths)
+    ensure_existing_outputs(task, paths, empty_is_behavior=True)
 
 
 def run_case(
@@ -1703,7 +1704,35 @@ def normalize_firmware_outputs(paths: CasePaths) -> None:
             shutil.copy2(same_name[0], expected)
 
 
-def ensure_existing_outputs(task: TaskConfig, paths: CasePaths) -> None:
+def ensure_existing_outputs(
+    task: TaskConfig, paths: CasePaths, *, empty_is_behavior: bool = False
+) -> None:
+    """Verify required simulation outputs exist and are non-empty.
+
+    A *missing* output means the simulation never produced it (infra/artifact
+    problem) -> SIM_OUTPUT_FAIL. An *empty* output is ambiguous: when verifying
+    pre-existing archived artifacts it stays an artifact failure, but right after
+    a simulation that ran cleanly (``empty_is_behavior=True``) an empty required
+    output means the submitted firmware ran but emitted nothing -> a behavioral
+    FAIL charged to the user code, not a free-pass IF.
+    """
+
+    def _empty_failure(kind: str, path: Path) -> BuildSimulationError:
+        if empty_is_behavior:
+            return BuildSimulationError(
+                f"{kind} is empty after a successful simulation: {path} "
+                "(firmware produced no output)",
+                classification=FAIL,
+                failure_stage=STAGE_BEHAVIOR,
+                failure_source=SOURCE_USER_CODE,
+            )
+        return BuildSimulationError(
+            f"{kind} is empty: {path}",
+            classification=SIM_OUTPUT_FAIL,
+            failure_stage=STAGE_SIM_OUTPUT,
+            failure_source=SOURCE_ARTIFACT,
+        )
+
     if task.requires_vcd:
         if paths.vcd is None or not paths.vcd.exists():
             raise BuildSimulationError(
@@ -1713,6 +1742,8 @@ def ensure_existing_outputs(task: TaskConfig, paths: CasePaths) -> None:
                 failure_source=SOURCE_ARTIFACT,
             )
         if paths.vcd.stat().st_size == 0:
+            # A 0-byte VCD means the simulator never wrote it (even an idle run
+            # emits a VCD header), so this stays an artifact/infra failure.
             raise BuildSimulationError(
                 f"VCD is empty: {paths.vcd}",
                 classification=SIM_OUTPUT_FAIL,
@@ -1728,12 +1759,7 @@ def ensure_existing_outputs(task: TaskConfig, paths: CasePaths) -> None:
                 failure_source=SOURCE_ARTIFACT,
             )
         if paths.serial_log.stat().st_size == 0:
-            raise BuildSimulationError(
-                f"serial log is empty: {paths.serial_log}",
-                classification=SIM_OUTPUT_FAIL,
-                failure_stage=STAGE_SIM_OUTPUT,
-                failure_source=SOURCE_ARTIFACT,
-            )
+            raise _empty_failure("serial log", paths.serial_log)
 
 
 def archive_current_outputs(paths: CasePaths) -> None:

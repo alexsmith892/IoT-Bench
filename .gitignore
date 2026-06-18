@@ -62,6 +62,9 @@ zephyr-flakes*.jsonl
 # belong under a curated results/ tree instead.
 /runs/
 
+# Local-only helper that reads the OpenRouter key; never tracked.
+/scripts/openrouter_usage.py
+
 # Transient live-sweep dump from scripts/renode_live_sweep.ps1. The tracked,
 # machine-checkable proof artifact is docs/zephyr_nano33ble-evidence.json
 # (built by `bench.cli evidence-index`); this per-run dump is regenerated and

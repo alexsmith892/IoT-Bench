@@ -358,6 +358,11 @@ def _attempt_row(
     input_tokens = usage.get("input_tokens", usage.get("prompt_tokens"))
     output_tokens = usage.get("output_tokens", usage.get("completion_tokens"))
     total_tokens = usage.get("total_tokens")
+    # Authoritative provider-reported usage (null when the provider omits it).
+    usage_source = usage.get("usage_source") if usage else None
+    reasoning_tokens = usage.get("reasoning_tokens")
+    cached_input_tokens = usage.get("cached_input_tokens")
+    provider_cost = usage.get("cost")
     row = {
         "run_name": out.name,
         "model": model,
@@ -374,13 +379,19 @@ def _attempt_row(
         "max_tokens": max_tokens,
         "seed": seed,
         "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": total_tokens,
+        "reasoning_tokens": reasoning_tokens,
+        "cached_input_tokens": cached_input_tokens,
+        "provider_cost": provider_cost,
+        "usage_source": usage_source,
+        # base/skill split is a local tiktoken preflight estimate (the provider
+        # reports only the combined input total), labeled by prompt_tokenizer.
         "base_input_tokens": base_input_tokens,
         "skill_input_tokens": skill_input_tokens,
         "prompt_tokenizer": prompt_tokenizer,
         "base_prompt_chars": base_prompt_chars,
         "skill_prompt_chars": skill_prompt_chars,
-        "output_tokens": output_tokens,
-        "total_tokens": total_tokens,
         "num_model_calls": num_model_calls,
         "latency_s": latency_s,
         "generation_retries": generation_retries,
