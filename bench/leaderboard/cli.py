@@ -34,6 +34,8 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     run.add_argument("--out", type=Path, required=True)
     run.add_argument("--confirm-spend", action="store_true")
     run.add_argument("--dry-run", action="store_true")
+    run.add_argument("--resume", action="store_true")
+    run.add_argument("--force", action="store_true")
     run.add_argument("--max-generations", type=int)
     run.add_argument("--simulation-time-ms", type=int)
     run.add_argument("--allow-tool-version-mismatch", action="store_true")
@@ -86,6 +88,8 @@ def main(argv: list[str] | None = None) -> int:
                 out=args.out,
                 dry_run=args.dry_run,
                 confirm_spend=args.confirm_spend,
+                resume=args.resume,
+                force=args.force,
                 max_generations=args.max_generations,
                 reps=args.reps,
                 temperature=args.temperature,
@@ -98,6 +102,7 @@ def main(argv: list[str] | None = None) -> int:
                 simulation_time_ms=args.simulation_time_ms,
                 allow_tool_version_mismatch=args.allow_tool_version_mismatch,
                 allow_unpublishable=args.allow_unpublishable,
+                cli_args=vars(args),
             )
             print(json.dumps(result, indent=2))
             return 0
@@ -111,4 +116,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

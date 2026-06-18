@@ -120,7 +120,11 @@ def _openai_compatible(
                 raw = json.loads(response.read().decode("utf-8"))
             text = raw["choices"][0]["message"]["content"]
             raw_with_request = {
-                "request": {key: value for key, value in payload.items() if key != "messages"},
+                "request": {
+                    "url": base + "/chat/completions",
+                    "headers": {"Content-Type": "application/json"},
+                    "body": payload,
+                },
                 "response": raw,
             }
             return ProviderResponse(
@@ -134,4 +138,3 @@ def _openai_compatible(
             if attempt < 2:
                 time.sleep(2**attempt)
     raise ConfigError(f"openai-compatible provider failed: {last_error}")
-

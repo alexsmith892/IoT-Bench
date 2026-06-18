@@ -3,7 +3,7 @@ import unittest
 from pathlib import Path
 
 from bench.config import load_task
-from bench.leaderboard.extraction import extract_arduino_source, extract_to_source
+from bench.leaderboard.extraction import extract_arduino_source, extract_c_source, extract_to_source
 
 
 GOOD = "void setup() { pinMode(13, OUTPUT); }\nvoid loop() { digitalWrite(13, HIGH); }\n"
@@ -31,7 +31,12 @@ class LeaderboardExtractionTests(unittest.TestCase):
         response = f"```cpp\n{GOOD}```\n```cpp\n{GOOD}```"
         self.assertIsNone(extract_arduino_source(response))
 
+    def test_single_c_source_for_future_platforms(self):
+        source = "#include <stdio.h>\nvoid app_main(void) {}\n"
+
+        self.assertEqual(extract_c_source(f"```c\n{source}```"), source.strip())
+        self.assertIsNone(extract_c_source(f"```c\n{source}```\n```c\n{source}```"))
+
 
 if __name__ == "__main__":
     unittest.main()
-

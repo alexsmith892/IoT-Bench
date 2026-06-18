@@ -20,9 +20,10 @@ def load_attempts(run_dir: Path) -> list[dict[str, Any]]:
 
 def write_reports(run_dir: Path) -> dict[str, str]:
     attempts = load_attempts(run_dir)
+    experiment = load_experiment(run_dir)
     reports_dir = run_dir / "reports"
     reports_dir.mkdir(parents=True, exist_ok=True)
-    summaries = summarize_attempts(attempts)
+    summaries = summarize_attempts(attempts, experiment=experiment)
 
     summary_json = reports_dir / "summary.json"
     summary_json.write_text(json.dumps(summaries, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -48,7 +49,14 @@ def write_reports(run_dir: Path) -> dict[str, str]:
     }
 
 
-def summarize_attempts(attempts: list[dict[str, Any]]) -> dict[str, Any]:
+def load_experiment(run_dir: Path) -> dict[str, Any] | None:
+    path = run_dir / "experiment.json"
+    if not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def summarize_attempts(attempts: list[dict[str, Any]], experiment: dict[str, Any] | None = None) -> dict[str, Any]:
     cells = []
     grouped: dict[tuple[str, str, str, str], list[dict[str, Any]]] = defaultdict(list)
     headline_grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
@@ -57,16 +65,21 @@ def summarize_attempts(attempts: list[dict[str, Any]]) -> dict[str, Any]:
         headline_grouped[(row["model"], row["skill_mode"])].append(row)
 
     for key, rows in sorted(grouped.items()):
-        cells.append(_metrics_for_rows(rows, key))
+        cells.append(_metrics_for_rows(rows, key, experiment=experiment))
     headline = [
-        _metrics_for_rows(rows, (model, "all", "all", skill_mode))
+        _metrics_for_rows(rows, (model, "all", "all", skill_mode), experiment=experiment)
         for (model, skill_mode), rows in sorted(headline_grouped.items())
     ]
     skill_lift = _skill_lift(headline)
     return {"cells": cells, "headline": headline, "skill_lift": skill_lift}
 
 
-def _metrics_for_rows(rows: list[dict[str, Any]], key: tuple[str, str, str, str]) -> dict[str, Any]:
+def _metrics_for_rows(
+    rows: list[dict[str, Any]],
+    key: tuple[str, str, str, str],
+    *,
+    experiment: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     model, platform, level, skill_mode = key
     attempted = len(rows)
     bc = sum(1 for row in rows if row["result"] == "BC")
@@ -85,7 +98,15 @@ def _metrics_for_rows(rows: list[dict[str, Any]], key: tuple[str, str, str, str]
     )
     costs = [row.get("cost_usd") for row in rows if row.get("cost_usd") is not None]
     tokens = [row.get("total_tokens") for row in rows if row.get("total_tokens") is not None]
+    base_chars = [row.get("base_prompt_chars") for row in rows if row.get("base_prompt_chars") is not None]
+    skill_chars = [row.get("skill_prompt_chars") for row in rows if row.get("skill_prompt_chars") is not None]
+    total_chars = [
+        float(row.get("base_prompt_chars", 0)) + float(row.get("skill_prompt_chars", 0))
+        for row in rows
+        if row.get("base_prompt_chars") is not None or row.get("skill_prompt_chars") is not None
+    ]
     cost_sum = sum(float(value) for value in costs)
+    denominator = _coverage_denominator(rows, platform=platform, level=level, experiment=experiment)
     return {
         "model": model,
         "platform": platform,
@@ -99,15 +120,49 @@ def _metrics_for_rows(rows: list[dict[str, Any]], key: tuple[str, str, str, str]
         "pass_at_1": round(bc / attempted, 6) if attempted else 0.0,
         "pass_at_k": round(pass_at_k, 6),
         "pass_rate_scored": round(bc / scored, 6) if scored else None,
-        "coverage_rate": round(scored / attempted, 6) if attempted else 0.0,
+        "coverage_rate": round(scored / denominator, 6) if denominator else 0.0,
+        "coverage_denominator": denominator,
         "if_rate": round(iff / attempted, 6) if attempted else 0.0,
         "cf_pct": round(cf / attempted, 6) if attempted else 0.0,
         "bf_pct": round(bf / attempted, 6) if attempted else 0.0,
         "if_pct": round(iff / attempted, 6) if attempted else 0.0,
         "tokens_per_task": round(sum(float(value) for value in tokens) / len(tokens), 3) if tokens else None,
+        "base_prompt_chars": round(sum(float(value) for value in base_chars) / len(base_chars), 3) if base_chars else None,
+        "skill_prompt_chars": round(sum(float(value) for value in skill_chars) / len(skill_chars), 3) if skill_chars else None,
+        "total_prompt_chars": round(sum(total_chars) / len(total_chars), 3) if total_chars else None,
         "cost_per_task": round(cost_sum / len(costs), 8) if costs else None,
         "cost_per_pass": round(cost_sum / bc, 8) if costs and bc else None,
     }
+
+
+def _coverage_denominator(
+    rows: list[dict[str, Any]],
+    *,
+    platform: str,
+    level: str,
+    experiment: dict[str, Any] | None,
+) -> int:
+    if experiment:
+        tasks = experiment.get("selected_tasks")
+        reps = int(experiment.get("reps") or 1)
+        if isinstance(tasks, list):
+            eligible = 0
+            for task in tasks:
+                if not isinstance(task, dict) or not task.get("score_eligible", True):
+                    continue
+                if platform != "all" and task.get("platform") != platform:
+                    continue
+                if level != "all" and task.get("level") != level:
+                    continue
+                eligible += 1
+            if eligible:
+                return eligible * reps
+        counts = experiment.get("selection_counts")
+        if platform == "all" and level == "all" and isinstance(counts, dict):
+            denominator = counts.get("score_eligible_generations")
+            if isinstance(denominator, int):
+                return denominator
+    return len(rows)
 
 
 def _skill_lift(headline: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -156,8 +211,12 @@ def _write_summary_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "pass_at_1",
         "pass_at_k",
         "coverage_rate",
+        "coverage_denominator",
         "if_rate",
         "tokens_per_task",
+        "base_prompt_chars",
+        "skill_prompt_chars",
+        "total_prompt_chars",
         "cost_per_task",
         "cost_per_pass",
     ]
@@ -170,11 +229,11 @@ def _write_summary_csv(path: Path, rows: list[dict[str, Any]]) -> None:
 def _leaderboard_md(summary: dict[str, Any]) -> str:
     lines = ["# IoT-Bench Leaderboard Run", ""]
     lines.append("## Table 1 - Headline")
-    lines.append("| model | skill_mode | pass@1 | pass@k | coverage | CF% | BF% | IF% | tokens/task | cost/task | cost/pass |")
-    lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
+    lines.append("| model | skill_mode | pass@1 | pass@k | coverage | CF% | BF% | IF% | tokens/task | prompt chars | cost/task | cost/pass |")
+    lines.append("|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|")
     for row in summary["headline"]:
         lines.append(
-            "| {model} | {skill_mode} | {pass_at_1} | {pass_at_k} | {coverage_rate} | {cf_pct} | {bf_pct} | {if_pct} | {tokens_per_task} | {cost_per_task} | {cost_per_pass} |".format(
+            "| {model} | {skill_mode} | {pass_at_1} | {pass_at_k} | {coverage_rate} | {cf_pct} | {bf_pct} | {if_pct} | {tokens_per_task} | {total_prompt_chars} | {cost_per_task} | {cost_per_pass} |".format(
                 **row
             )
         )
@@ -251,4 +310,3 @@ def _mark_pareto(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             }
         )
     return output
-

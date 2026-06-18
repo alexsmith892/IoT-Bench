@@ -10,7 +10,7 @@ from bench.config import ConfigError
 from bench.runner import benchmark_harness_hash, current_tool_versions
 
 from .evaluate import evaluate_source
-from .extraction import extract_to_source
+from .extraction import extract_submission
 from .manifest import load_manifest, plan_payload
 from .pricing import PRICING_TABLE_VERSION, cost_usd
 from .prompts import compose_prompt
@@ -27,6 +27,8 @@ def run_experiment(
     out: Path,
     dry_run: bool,
     confirm_spend: bool,
+    resume: bool,
+    force: bool,
     max_generations: int | None,
     reps: int,
     temperature: float,
@@ -39,6 +41,7 @@ def run_experiment(
     simulation_time_ms: int | None,
     allow_tool_version_mismatch: bool,
     allow_unpublishable: bool,
+    cli_args: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not dry_run and not confirm_spend:
         raise ConfigError("leaderboard run requires --confirm-spend unless --dry-run is set")
@@ -52,12 +55,18 @@ def run_experiment(
         payload["model"] = model
         return payload
 
+    if out.exists() and any(out.iterdir()) and not resume and not force:
+        raise ConfigError(f"run directory is not empty: {out} (use --resume or --force)")
     out.mkdir(parents=True, exist_ok=True)
     for child in ("prompts", "responses", "sources"):
         (out / child).mkdir(exist_ok=True)
     started_at = _utc_now()
     manifest_data = load_manifest(plan.benchmark_id)
     skill_modes_config = manifest_data["skill_modes"]
+
+    attempts_path = out / "attempts.jsonl"
+    existing_attempts = _load_existing_attempts(attempts_path) if resume else {}
+    mode = "a" if resume else "w"
 
     experiment = {
         "run_name": out.name,
@@ -77,21 +86,41 @@ def run_experiment(
         "started_at": started_at,
         "harness_git_sha": _git_sha(),
         "benchmark_harness_hash": benchmark_harness_hash(),
-        "tool_versions": current_tool_versions(build_kind="arduino"),
+        "build_kinds": sorted({item.task.board_profile.build_kind for item in plan.tasks}),
+        "tool_versions": _tool_versions_for_plan(plan),
         "pricing_table_version": PRICING_TABLE_VERSION,
         "manifest_lock_sha": _sha_if_exists(plan.benchmark_root / "manifest.yaml"),
         "upstream_lock_sha": upstream_lock_sha(plan.benchmark_root),
         "skills_lock_sha": skills_lock_sha(plan.benchmark_root),
         "selection_counts": plan.counts,
-        "cli_args": {},
+        "selected_tasks": [
+            {
+                "canonical_id": item.manifest.canonical_id,
+                "local_task_id": item.task.task_id,
+                "platform": item.task.platform,
+                "level": item.task.level,
+                "score_eligible": item.manifest.score_eligible,
+                "publishable": item.publishable,
+                "build_kind": item.task.board_profile.build_kind,
+            }
+            for item in plan.tasks
+        ],
+        "cli_args": _jsonable(cli_args or {}),
+        "resume": resume,
+        "force": force,
     }
     (out / "experiment.json").write_text(json.dumps(experiment, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
-    attempts_path = out / "attempts.jsonl"
-    with attempts_path.open("w", encoding="utf-8", newline="\n") as stream:
+    written = 0
+    skipped = 0
+    with attempts_path.open(mode, encoding="utf-8", newline="\n") as stream:
         for resolved in plan.tasks:
             for skill_mode in plan.skill_modes:
                 for rep_index in range(1, reps + 1):
+                    key = _attempt_key(resolved.task.task_id, skill_mode, rep_index)
+                    if key in existing_attempts:
+                        skipped += 1
+                        continue
                     row = _run_one(
                         out,
                         resolved,
@@ -112,11 +141,14 @@ def run_experiment(
                     )
                     stream.write(json.dumps(row, sort_keys=True) + "\n")
                     stream.flush()
+                    written += 1
 
     experiment["ended_at"] = _utc_now()
+    experiment["attempts_written"] = written
+    experiment["attempts_skipped"] = skipped
     (out / "experiment.json").write_text(json.dumps(experiment, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     reports = write_reports(out)
-    return {"run": str(out), "attempts": str(attempts_path), "reports": reports}
+    return {"run": str(out), "attempts": str(attempts_path), "attempts_written": written, "attempts_skipped": skipped, "reports": reports}
 
 
 def _run_one(
@@ -165,7 +197,7 @@ def _run_one(
     response_path.write_text(json.dumps(response.raw, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
     source_dir = out / "sources" / slug
-    extraction = extract_to_source(task, response.text, source_dir)
+    extraction = extract_submission(task, response.text, source_dir)
     if extraction.ok and extraction.source_path is not None:
         evaluation = evaluate_source(
             task,
@@ -241,6 +273,39 @@ def _git_sha() -> str | None:
         check=False,
     )
     return completed.stdout.strip() if completed.returncode == 0 else None
+
+
+def _tool_versions_for_plan(plan: PlanResult) -> dict[str, Any]:
+    return {
+        build_kind: current_tool_versions(build_kind=build_kind)
+        for build_kind in sorted({item.task.board_profile.build_kind for item in plan.tasks})
+    }
+
+
+def _load_existing_attempts(path: Path) -> dict[tuple[str, str, int], dict[str, Any]]:
+    if not path.exists():
+        return {}
+    rows: dict[tuple[str, str, int], dict[str, Any]] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        row = json.loads(line)
+        rows[_attempt_key(row["local_task_id"], row["skill_mode"], int(row["rep_index"]))] = row
+    return rows
+
+
+def _attempt_key(task_id: str, skill_mode: str, rep_index: int) -> tuple[str, str, int]:
+    return (task_id, skill_mode, rep_index)
+
+
+def _jsonable(value: Any) -> Any:
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, dict):
+        return {str(key): _jsonable(child) for key, child in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_jsonable(child) for child in value]
+    return value
 
 
 def _sha_if_exists(path: Path) -> str | None:

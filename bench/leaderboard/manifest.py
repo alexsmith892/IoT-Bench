@@ -140,6 +140,8 @@ def resolve_plan(
         for entry in manifest_tasks(data)
         if entry.local_platform == platform and entry.level in level_set
     ]
+    if not all_tasks and platform not in data.get("platforms", {}):
+        raise ConfigError(f"benchmark {benchmark_id!r} has no manifest rows for platform {platform!r}")
     if wanted_tasks is not None:
         wanted = set(wanted_tasks)
         all_tasks = [entry for entry in all_tasks if entry.local_task_id in wanted]
@@ -174,7 +176,9 @@ def resolve_plan(
 
     canonical_count = len({entry.canonical_id for entry in all_tasks})
     score_eligible_count = sum(1 for entry in all_tasks if entry.score_eligible)
+    publishable_count = sum(1 for item in resolved if item.publishable)
     generation_count = len(all_tasks) * len(mode_set) * reps
+    score_eligible_generation_count = score_eligible_count * len(mode_set) * reps
     return PlanResult(
         benchmark_id=benchmark_id,
         benchmark_root=benchmark_root(benchmark_id, root=root),
@@ -188,6 +192,8 @@ def resolve_plan(
             "canonical": canonical_count,
             "selected": len(all_tasks),
             "score_eligible": score_eligible_count,
+            "score_eligible_generations": score_eligible_generation_count,
+            "publishable": publishable_count,
             "scored_out": sum(1 for entry in all_tasks if not entry.score_eligible),
             "generations": generation_count,
         },
@@ -229,6 +235,6 @@ def plan_payload(plan: PlanResult) -> dict[str, Any]:
         "publishable": plan.publishable,
         "counts": plan.counts,
         "output_root": str(plan.output_root) if plan.output_root else None,
+        "build_kinds": sorted({item.task.board_profile.build_kind for item in plan.tasks}),
         "task_ids": [item.task.task_id for item in plan.tasks],
     }
-

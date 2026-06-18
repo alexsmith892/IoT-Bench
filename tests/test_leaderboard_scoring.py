@@ -67,11 +67,48 @@ class LeaderboardScoringTests(unittest.TestCase):
         self.assertEqual(human["pass_at_1"], 1.0)
         self.assertEqual(lift["delta_pass_at_1"], 0.75)
 
+    def test_coverage_uses_experiment_score_eligible_denominator(self):
+        attempts = [
+            row("a", "none", 1, "BC"),
+            row("b", "none", 1, "IF", stage="simulate"),
+        ]
+        experiment = {
+            "reps": 1,
+            "selected_tasks": [
+                {"local_task_id": "a", "platform": "arduino_mega", "level": "level1", "score_eligible": True},
+                {"local_task_id": "b", "platform": "arduino_mega", "level": "level1", "score_eligible": True},
+                {"local_task_id": "c", "platform": "arduino_mega", "level": "level1", "score_eligible": True},
+            ],
+        }
+
+        summary = summarize_attempts(attempts, experiment=experiment)
+        none = summary["headline"][0]
+
+        self.assertEqual(none["coverage_denominator"], 3)
+        self.assertEqual(none["coverage_rate"], round(1 / 3, 6))
+
     def test_write_reports_outputs_expected_files(self):
         with tempfile.TemporaryDirectory() as tmp:
             run_dir = Path(tmp)
             (run_dir / "attempts.jsonl").write_text(
                 json.dumps(row("a", "none", 1, "BC")) + "\n",
+                encoding="utf-8",
+            )
+            (run_dir / "experiment.json").write_text(
+                json.dumps(
+                    {
+                        "reps": 1,
+                        "selected_tasks": [
+                            {
+                                "local_task_id": "a",
+                                "platform": "arduino_mega",
+                                "level": "level1",
+                                "score_eligible": True,
+                            }
+                        ],
+                    }
+                )
+                + "\n",
                 encoding="utf-8",
             )
 
@@ -84,4 +121,3 @@ class LeaderboardScoringTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
