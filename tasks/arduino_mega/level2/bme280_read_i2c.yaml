@@ -32,6 +32,9 @@ simulation_variants:
 validator:
   family: bme280_environment
   params:
+    # Prompt asks for humidity + temperature only (pressure is judged on ESP-IDF);
+    # judged_quantities is authoritative for what is scored.
+    judged_quantities: [temperature, humidity]
     expected_temperature_c: 24.5
     expected_humidity_rh: 55.0
     expected_pressure_pa: 101325

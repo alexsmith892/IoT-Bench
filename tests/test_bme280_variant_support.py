@@ -153,6 +153,49 @@ class Bme280VariantSupportTests(unittest.TestCase):
             self.assertEqual(result.classification, "FAIL")
             self.assertIn("pressure", result.reason)
 
+    def test_judged_quantities_pressure_subset_ignores_humidity(self):
+        # ESP-IDF design: judge pressure + temperature only. A serial log with
+        # temperature + pressure but NO humidity must PASS.
+        with tempfile.TemporaryDirectory() as tmp:
+            case_dir = Path(tmp)
+            task, paths = bme_task(case_dir)
+            task.data["validator"]["params"]["judged_quantities"] = ["temperature", "pressure"]
+            task.data["validator"]["params"]["expected_pressure_pa"] = 101325
+            assert paths.serial_log is not None
+            paths.serial_log.parent.mkdir(parents=True)
+            paths.serial_log.write_text(
+                "Temperature: 24.5 C Pressure: 101300 Pa\n", encoding="utf-8"
+            )
+            self.assertEqual(validate_task(task, paths).classification, "PASS")
+
+    def test_judged_quantities_humidity_subset_ignores_pressure(self):
+        # Arduino/Zephyr design: judge humidity + temperature only. A serial log
+        # with temperature + humidity but NO pressure must PASS even though an
+        # expected_pressure_pa value is present in params (inert when not judged).
+        with tempfile.TemporaryDirectory() as tmp:
+            case_dir = Path(tmp)
+            task, paths = bme_task(case_dir)
+            task.data["validator"]["params"]["judged_quantities"] = ["temperature", "humidity"]
+            task.data["validator"]["params"]["expected_pressure_pa"] = 101325
+            assert paths.serial_log is not None
+            paths.serial_log.parent.mkdir(parents=True)
+            paths.serial_log.write_text("Temperature: 24.5 C Humidity: 55.0 %\n", encoding="utf-8")
+            self.assertEqual(validate_task(task, paths).classification, "PASS")
+
+    def test_judged_quantities_still_fails_missing_judged_dimension(self):
+        # Judging pressure: a log missing pressure must still FAIL.
+        with tempfile.TemporaryDirectory() as tmp:
+            case_dir = Path(tmp)
+            task, paths = bme_task(case_dir)
+            task.data["validator"]["params"]["judged_quantities"] = ["temperature", "pressure"]
+            task.data["validator"]["params"]["expected_pressure_pa"] = 101325
+            assert paths.serial_log is not None
+            paths.serial_log.parent.mkdir(parents=True)
+            paths.serial_log.write_text("Temperature: 24.5 C Humidity: 55.0 %\n", encoding="utf-8")
+            result = validate_task(task, paths)
+            self.assertEqual(result.classification, "FAIL")
+            self.assertIn("pressure", result.reason)
+
     def test_wrong_pressure_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
             case_dir = Path(tmp)

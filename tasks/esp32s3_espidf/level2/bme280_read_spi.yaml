@@ -86,6 +86,9 @@ validator:
       - spi_
   - family: bme280_environment
     params:
+      # Prompt intentionally judges pressure + temperature (not humidity);
+      # judged_quantities is authoritative for what is scored.
+      judged_quantities: [temperature, pressure]
       expected_temperature_c: 24.5
       expected_humidity_rh: 55.0
       expected_pressure_pa: 101325

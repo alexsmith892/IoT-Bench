@@ -45,6 +45,9 @@ validator:
           - ["i2c_write_read\\s*\\(", "i2c_read\\s*\\(", "i2c_transfer\\s*\\(", "i2c_burst_read\\s*\\("]
     - family: bme280_environment
       params:
+        # Prompt asks for temperature + humidity only (pressure is judged on ESP-IDF);
+        # judged_quantities is authoritative for what is scored.
+        judged_quantities: [temperature, humidity]
         expected_temperature_c: 24.5
         expected_humidity_rh: 55.0
         temperature_tolerance_c: 0.5

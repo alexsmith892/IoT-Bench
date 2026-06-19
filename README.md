@@ -147,6 +147,7 @@ Core commands:
 | `run` | Execute a model experiment into an ignored `runs/` directory |
 | `report` | Rebuild reports for an existing run directory |
 | `aggregate` | Merge several run directories into one cross-model leaderboard |
+| `charts` | Render pass-rate and token-usage figures (PNG) from a run |
 
 Supported model selectors are `fixture:reference`, `file:<path>`, the
 OpenAI-compatible prefixes `openai:<model>`, `gemini:<model>`,
@@ -161,6 +162,14 @@ Reports are token-only: pass@1 (with a 95% Wilson interval), pass@k, coverage,
 the BC/BF/CF/IF mix, and tokens-per-task / tokens-per-pass, plus per-model skill
 lift. `aggregate --runs <dirA> <dirB> ... --out <dir>` re-aggregates several runs
 into a single comparison table.
+
+`charts --run <dir> [<dir> ...] [--out <dir>]` renders two PNGs from a run's
+`attempts.jsonl`: a **pass-rate** figure (Pass@1 overlaid with Pass@k, grouped by
+platform × skill configuration, with one panel per difficulty level plus an
+aggregate panel) and a **token-usage** figure (per-task input + output tokens by
+platform × skill configuration). Pass several single-platform runs to stitch all
+three MCUs into one figure; output defaults to `<run>/reports/charts/`. Requires
+the optional `matplotlib` dependency.
 
 Safety flags are intentional: `run` requires `--confirm-spend` unless
 `--dry-run` is set, `--max-generations` caps planned model calls, and

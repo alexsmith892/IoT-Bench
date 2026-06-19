@@ -190,68 +190,107 @@ def validate_serial_numeric_ranges(task: TaskConfig, paths: CasePaths) -> Valida
     return ValidationResult(PASS, "serial numeric ranges matched in order", metrics)
 
 
+_BME280_QUANTITIES = ("temperature", "humidity", "pressure")
+
+
 def validate_bme280_environment(task: TaskConfig, paths: CasePaths) -> ValidationResult:
     text = read_serial_log_or_fail(paths)
     params = task.validator_params()
     variant = task.data.get("active_simulation_variant") or {}
     variant_attrs = next(iter((variant.get("attrs") or {}).values()), {})
-    expected_temperature = params.get("expected_temperature_c")
-    expected_humidity = params.get("expected_humidity_rh")
-    if expected_temperature is None or expected_humidity is None:
-        expected_temperature = variant_attrs.get("temperatureC", variant_attrs.get("temperature"))
-        expected_humidity = variant_attrs.get("humidityRH", variant_attrs.get("humidity"))
-    if expected_temperature is None or expected_humidity is None:
-        return ValidationResult(FAIL, "BME280 validator requires expected temperature and humidity")
-    expected_pressure = params.get("expected_pressure_pa")
-    if expected_pressure is None:
-        expected_pressure = variant_attrs.get("pressurePa")
 
-    expected_temperature = float(expected_temperature)
-    expected_humidity = float(expected_humidity)
-    temp_tolerance = float(params.get("temperature_tolerance_c", 0.5))
-    humidity_tolerance = float(params.get("humidity_tolerance_rh", 2.0))
-    temperatures = labeled_serial_values(text, r"temp(?:erature)?")
-    humidities = labeled_serial_values(text, r"hum(?:idity)?|relative\s+humidity|rh")
-    metrics: dict[str, Any] = {
-        "expected_temperature_c": expected_temperature,
-        "expected_humidity_rh": expected_humidity,
-        "temperature_tolerance_c": temp_tolerance,
-        "humidity_tolerance_rh": humidity_tolerance,
-        "observed_temperatures_c": rounded(temperatures, digits=3),
-        "observed_humidities_rh": rounded(humidities, digits=3),
+    def _expected(param_key: str, *attr_keys: str) -> Any:
+        value = params.get(param_key)
+        if value is None:
+            for attr_key in attr_keys:
+                if attr_key in variant_attrs:
+                    value = variant_attrs.get(attr_key)
+                    break
+        return value
+
+    expected = {
+        "temperature": _expected("expected_temperature_c", "temperatureC", "temperature"),
+        "humidity": _expected("expected_humidity_rh", "humidityRH", "humidity"),
+        "pressure": _expected("expected_pressure_pa", "pressurePa"),
     }
-    matching_temperature = first_within(temperatures, expected_temperature, temp_tolerance)
-    if matching_temperature is None:
-        return ValidationResult(
-            FAIL,
-            f"serial log is missing BME280 temperature near {expected_temperature:g}C",
-            metrics,
-        )
-    matching_humidity = first_within(humidities, expected_humidity, humidity_tolerance)
-    if matching_humidity is None:
-        return ValidationResult(
-            FAIL,
-            f"serial log is missing BME280 humidity near {expected_humidity:g}% RH",
-            metrics,
-        )
-    metrics["matched_temperature_c"] = round(matching_temperature, 3)
-    metrics["matched_humidity_rh"] = round(matching_humidity, 3)
 
-    if expected_pressure is not None:
-        expected_pressure = float(expected_pressure)
-        pressure_tolerance = float(params.get("pressure_tolerance_pa", 100.0))
-        pressures = labeled_serial_values(text, r"press(?:ure)?")
-        metrics["expected_pressure_pa"] = expected_pressure
-        metrics["pressure_tolerance_pa"] = pressure_tolerance
-        metrics["observed_pressures_pa"] = rounded(pressures, digits=3)
-        matching_pressure = first_within(pressures, expected_pressure, pressure_tolerance)
-        if matching_pressure is None:
+    # `judged_quantities` names exactly which of temperature/humidity/pressure to
+    # score, so a task can judge the subset its frozen prompt actually asks for
+    # (e.g. ESP-IDF judges pressure+temperature, Arduino/Zephyr judge
+    # humidity+temperature). Without it, fall back to the legacy behavior:
+    # temperature+humidity always, pressure when an expected value is available.
+    judged_param = params.get("judged_quantities")
+    if judged_param is None:
+        judged = ["temperature", "humidity"]
+        if expected["pressure"] is not None:
+            judged.append("pressure")
+    else:
+        judged = [str(q).strip().lower() for q in judged_param]
+        unknown = [q for q in judged if q not in _BME280_QUANTITIES]
+        if unknown:
+            return ValidationResult(
+                FAIL, f"BME280 validator has unknown judged_quantities: {', '.join(unknown)}"
+            )
+
+    missing_expected = [q for q in judged if expected[q] is None]
+    if missing_expected:
+        return ValidationResult(
+            FAIL,
+            f"BME280 validator is missing expected value(s) for judged quantit(ies): "
+            f"{', '.join(missing_expected)}",
+        )
+
+    tolerances = {
+        "temperature": float(params.get("temperature_tolerance_c", 0.5)),
+        "humidity": float(params.get("humidity_tolerance_rh", 2.0)),
+        "pressure": float(params.get("pressure_tolerance_pa", 100.0)),
+    }
+    patterns = {
+        "temperature": r"temp(?:erature)?",
+        "humidity": r"hum(?:idity)?|relative\s+humidity|rh",
+        "pressure": r"press(?:ure)?",
+    }
+    units = {"temperature": "C", "humidity": "% RH", "pressure": " Pa"}
+
+    metrics: dict[str, Any] = {"judged_quantities": list(judged)}
+    for quantity in _BME280_QUANTITIES:
+        if quantity not in judged:
+            continue
+        expected_value = float(expected[quantity])
+        tolerance = tolerances[quantity]
+        observed = labeled_serial_values(text, patterns[quantity])
+        # Keep the legacy metric key names (observed_temperatures_c, etc.).
+        observed_key = {
+            "temperature": "observed_temperatures_c",
+            "humidity": "observed_humidities_rh",
+            "pressure": "observed_pressures_pa",
+        }[quantity]
+        expected_key = {
+            "temperature": "expected_temperature_c",
+            "humidity": "expected_humidity_rh",
+            "pressure": "expected_pressure_pa",
+        }[quantity]
+        tolerance_key = {
+            "temperature": "temperature_tolerance_c",
+            "humidity": "humidity_tolerance_rh",
+            "pressure": "pressure_tolerance_pa",
+        }[quantity]
+        matched_key = {
+            "temperature": "matched_temperature_c",
+            "humidity": "matched_humidity_rh",
+            "pressure": "matched_pressure_pa",
+        }[quantity]
+        metrics[expected_key] = expected_value
+        metrics[tolerance_key] = tolerance
+        metrics[observed_key] = rounded(observed, digits=3)
+        match = first_within(observed, expected_value, tolerance)
+        if match is None:
             return ValidationResult(
                 FAIL,
-                f"serial log is missing BME280 pressure near {expected_pressure:g} Pa",
+                f"serial log is missing BME280 {quantity} near {expected_value:g}{units[quantity]}",
                 metrics,
             )
-        metrics["matched_pressure_pa"] = round(matching_pressure, 3)
+        metrics[matched_key] = round(match, 3)
 
     bus_activity = params.get("bus_activity")
     if bus_activity:

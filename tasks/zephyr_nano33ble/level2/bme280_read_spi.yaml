@@ -33,6 +33,9 @@ validator:
           - ["spi_transceive(?:_dt)?\\s*\\(", "spi_write(?:_dt)?\\s*\\(", "spi_read(?:_dt)?\\s*\\("]
     - family: bme280_environment
       params:
+        # Prompt asks for temperature + humidity only (pressure is judged on ESP-IDF);
+        # judged_quantities is authoritative for what is scored.
+        judged_quantities: [temperature, humidity]
         expected_temperature_c: 24.5
         expected_humidity_rh: 55.0
         temperature_tolerance_c: 0.5

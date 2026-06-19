@@ -8,6 +8,7 @@ from pathlib import Path
 from bench.config import ConfigError
 from bench.results import SIM_INFRA_FAIL, SOURCE_HARNESS, emit_result
 
+from .charts import write_charts
 from .manifest import plan_payload, resolve_plan
 from .reports import aggregate_runs, write_reports
 from .run import run_experiment
@@ -55,6 +56,18 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     aggregate.add_argument("--runs", type=Path, nargs="+", required=True)
     aggregate.add_argument("--out", type=Path, required=True)
     aggregate.add_argument("--if-threshold", type=float, default=0.05)
+
+    charts = sub.add_parser(
+        "charts", help="render the pass-rate and token-usage figures from a run"
+    )
+    charts.add_argument(
+        "--run", dest="runs", type=Path, nargs="+", required=True,
+        help="run dir(s); several are merged the same way 'aggregate' does",
+    )
+    charts.add_argument(
+        "--out", type=Path,
+        help="output dir for the PNGs (default: <run>/reports/charts)",
+    )
     return parser.parse_args(argv)
 
 
@@ -129,6 +142,10 @@ def main(argv: list[str] | None = None) -> int:
                     indent=2,
                 )
             )
+            return 0
+        if args.command == "charts":
+            out_dir = args.out or (args.runs[0] / "reports" / "charts")
+            print(json.dumps(write_charts(args.runs, out_dir), indent=2))
             return 0
     except KeyboardInterrupt:
         return emit_result(

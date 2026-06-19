@@ -82,3 +82,49 @@ oracle expectation. Conclusion: suspected false fail due prompt/oracle mismatch.
 ## Undetermined
 
 None.
+
+---
+
+## Independent Re-verification & Resolution (Claude, 2026-06-19)
+
+I independently reproduced the two flagged discrepancies from the frozen prompts,
+the task YAMLs, and the validator source, and **confirmed both are real false
+fails** with a common root cause. I also re-verified the BC verdicts for false
+passes (spot-checked the highest-risk ESP-IDF sensor tasks — PIR reads GPIO 14
+and branches; mpu6050 does real I2C register reads) and found none.
+
+### Root cause (confirmed)
+All six BME280 tasks deliberately judge a **per-platform 2-of-3 subset**, stated
+in their frozen prompts:
+- Arduino i2c/spi → temperature + humidity (`tasks/arduino_mega/level2/bme280_read_*.prompt.md:1`)
+- ESP-IDF i2c/spi → temperature + pressure, explicitly "intentionally judges
+  pressure and temperature" (`tasks/esp32s3_espidf/level2/bme280_read_*.prompt.md:3`)
+- Zephyr i2c/spi → temperature + humidity (`tasks/zephyr_nano33ble/level2/bme280_read_*.prompt.md`)
+
+But `validate_bme280_environment` always required temperature + humidity and
+checked pressure whenever available (falling back to the chip's
+`variant_attrs`, which always carry all three) — so it scored all three on every
+platform. Git history confirms the stale-oracle direction: the ESP-IDF prompt's
+"intentionally judges pressure and temperature" line was added in `b1b4ec3`
+(2026-06-15 13:20) ~3h **after** the YAML's `expected_humidity_rh` (`a0b7e36`,
+10:32); the prompt scope was updated, the oracle was not. This violated the
+benchmark's core invariant (a model may only be scored on what its frozen prompt
+specifies).
+
+### Fix applied
+- `bench/validators/__init__.py`: `validate_bme280_environment` now honors a
+  `judged_quantities` param naming exactly which of temperature/humidity/pressure
+  to score; absent it, the legacy behavior (temp+humidity always, pressure when
+  available) is preserved for backward compatibility.
+- The six BME280 task YAMLs now set `judged_quantities` to match their prompts
+  (Arduino/Zephyr `[temperature, humidity]`, ESP-IDF `[temperature, pressure]`).
+  Verified the param propagates to all 12 variant resolutions via `deep_merge`.
+- Tests: `tests/test_bme280_variant_support.py` (subset passes when the
+  un-judged dimension is absent; still fails when a judged dimension is missing).
+- End-to-end: re-judged the exact `bme280_read_i2c.human_expert.1` source
+  (humidity+temperature) through the real build→Wokwi→oracle pipeline with the
+  new YAML — it now scores **BC** (was BF "missing pressure"). Full offline suite
+  green (401 tests).
+
+Net: both suspected false fails are resolved; the BME280 oracles now match their
+frozen prompts on all three platforms.

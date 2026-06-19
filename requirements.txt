@@ -3,6 +3,9 @@ PyYAML>=6.0
 # Optional: enables the leaderboard base/skill input-token split. Without it the
 # split is reported as null and reports fall back to char-based skill-ROI.
 tiktoken>=0.7  # optional
+# Optional: enables `python -m bench.leaderboard charts` (pass-rate + token-usage
+# figures). Without it the rest of the harness is unaffected.
+matplotlib>=3.7  # optional
 #
 # External command-line tools required on PATH:
 # - Python 3.10+
