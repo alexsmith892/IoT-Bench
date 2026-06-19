@@ -6,12 +6,12 @@ from pathlib import Path
 from bench.leaderboard.reports import aggregate_runs, summarize_attempts, write_reports
 
 
-def row(task, mode, rep, result, *, stage=None, tokens=100, model="fixture:reference", level="level1", skill_tokens=None):
+def row(task, mode, rep, result, *, stage=None, tokens=100, model="fixture:reference", level="level1", skill_tokens=None, platform="arduino_mega"):
     return {
         "run_name": "r",
         "model": model,
         "provider": model.split(":", 1)[0],
-        "platform": "arduino_mega",
+        "platform": platform,
         "level": level,
         "canonical_id": task,
         "local_task_id": task,
@@ -87,6 +87,41 @@ class LeaderboardScoringTests(unittest.TestCase):
 
         self.assertEqual(none["coverage_denominator"], 3)
         self.assertEqual(none["coverage_rate"], round(1 / 3, 6))
+
+    def test_coverage_never_exceeds_one_with_scored_out_task(self):
+        # A scored_out task that still ran and produced a verdict must not push
+        # coverage above 1.0 (numerator counts only score-eligible verdicts).
+        attempts = [
+            row("a", "none", 1, "BC"),
+            row("b", "none", 1, "BC"),
+            row("scored_out", "none", 1, "BC"),
+        ]
+        experiment = {
+            "reps": 1,
+            "selected_tasks": [
+                {"local_task_id": "a", "platform": "arduino_mega", "level": "level1", "score_eligible": True},
+                {"local_task_id": "b", "platform": "arduino_mega", "level": "level1", "score_eligible": True},
+                {"local_task_id": "scored_out", "platform": "arduino_mega", "level": "level1", "score_eligible": False},
+            ],
+        }
+        summary = summarize_attempts(attempts, experiment=experiment)
+        none = summary["headline"][0]
+        self.assertEqual(none["coverage_denominator"], 2)
+        self.assertEqual(none["coverage_rate"], 1.0)
+        self.assertLessEqual(none["coverage_rate"], 1.0)
+
+    def test_pass_at_k_groups_by_platform(self):
+        # Same canonical_id on two platforms must be two distinct rep-groups, not
+        # one group of size 2 (which would report k=2 for a reps=1 run).
+        attempts = [
+            row("blink", "none", 1, "BC", platform="arduino_mega"),
+            row("blink", "none", 1, "CF", stage="compile", platform="esp32s3_espidf"),
+        ]
+        summary = summarize_attempts(attempts)
+        headline = summary["headline"][0]
+        self.assertEqual(headline["pass_at_k_n"], 1)
+        # Two distinct tasks, one BC of two -> pass@k 0.5, not 1.0.
+        self.assertEqual(headline["pass_at_k"], 0.5)
 
     def test_write_reports_outputs_expected_files(self):
         with tempfile.TemporaryDirectory() as tmp:

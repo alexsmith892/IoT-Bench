@@ -186,15 +186,34 @@ def _metrics_for_rows(
     cf = sum(1 for row in rows if row["result"] == "CF")
     iff = sum(1 for row in rows if row["result"] == "IF")
     scored = bc + bf + cf
-    task_rep_groups: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    # Coverage measures how many *score-eligible* tasks produced a verdict, so a
+    # scored_out task that still ran and resolved must not inflate the numerator
+    # past the eligible-only denominator (coverage would read > 1.0 otherwise).
+    eligible_keys = _score_eligible_keys(experiment)
+    if eligible_keys is None:
+        scored_eligible = scored
+    else:
+        scored_eligible = sum(
+            1
+            for row in rows
+            if row["result"] in ("BC", "BF", "CF")
+            and (row.get("platform"), row.get("level"), row.get("local_task_id")) in eligible_keys
+        )
+    # Group reps per task by (platform, canonical_id, skill_mode): the same
+    # canonical_id exists on multiple platforms (blink_led_1hz on arduino, esp32,
+    # zephyr), so a platform-blind key would collapse three distinct tasks into
+    # one rep-group — inflating k and pass@k in a cross-platform aggregate.
+    task_rep_groups: dict[tuple[str, str, str], list[dict[str, Any]]] = defaultdict(list)
     for row in rows:
-        task_rep_groups[(row["canonical_id"], row["skill_mode"])].append(row)
+        task_rep_groups[(row.get("platform"), row["canonical_id"], row["skill_mode"])].append(row)
     pass_at_k = (
         sum(1 for group in task_rep_groups.values() if any(row["result"] == "BC" for row in group))
         / len(task_rep_groups)
         if task_rep_groups
         else 0.0
     )
+    # k is the reps-per-task this pass@k summarizes (uniform in normal runs).
+    pass_at_k_n = max((len(group) for group in task_rep_groups.values()), default=0)
     tokens = [row.get("total_tokens") for row in rows if row.get("total_tokens") is not None]
     input_tokens = [row.get("input_tokens") for row in rows if row.get("input_tokens") is not None]
     skill_input_tokens = [
@@ -223,8 +242,9 @@ def _metrics_for_rows(
         "pass_at_1_ci_high": wilson_interval(bc, attempted)[1],
         "pass_at_1_n": attempted,
         "pass_at_k": round(pass_at_k, 6),
+        "pass_at_k_n": pass_at_k_n,
         "pass_rate_scored": round(bc / scored, 6) if scored else None,
-        "coverage_rate": round(scored / denominator, 6) if denominator else 0.0,
+        "coverage_rate": round(scored_eligible / denominator, 6) if denominator else 0.0,
         "coverage_denominator": denominator,
         "if_rate": round(iff / attempted, 6) if attempted else 0.0,
         "bc_pct": round(bc / attempted, 6) if attempted else 0.0,
@@ -245,6 +265,24 @@ def _metrics_for_rows(
         "total_prompt_chars": round(sum(total_chars) / len(total_chars), 3) if total_chars else None,
         "tokens_per_pass": round(sum(float(value) for value in tokens) / bc, 3) if tokens and bc else None,
     }
+
+
+def _score_eligible_keys(experiment: dict[str, Any] | None) -> set[tuple] | None:
+    """Set of (platform, level, local_task_id) for score-eligible selected tasks.
+
+    Returns None when the experiment doesn't enumerate selected tasks, so callers
+    fall back to counting every conclusive attempt (no eligibility filtering)."""
+
+    if not experiment:
+        return None
+    tasks = experiment.get("selected_tasks")
+    if not isinstance(tasks, list):
+        return None
+    keys: set[tuple] = set()
+    for task in tasks:
+        if isinstance(task, dict) and task.get("score_eligible", True):
+            keys.add((task.get("platform"), task.get("level"), task.get("local_task_id")))
+    return keys
 
 
 def _coverage_denominator(
@@ -337,6 +375,7 @@ def _write_summary_csv(path: Path, rows: list[dict[str, Any]]) -> None:
         "pass_at_1_ci_high",
         "pass_at_1_n",
         "pass_at_k",
+        "pass_at_k_n",
         "pass_rate_scored",
         "coverage_rate",
         "coverage_denominator",
@@ -374,9 +413,10 @@ def _leaderboard_md(summary: dict[str, Any]) -> str:
             if row.get("pass_at_1_ci_low") is not None
             else "n/a"
         )
+        pass_at_k = f"{row['pass_at_k']} (k={row.get('pass_at_k_n', 0)})"
         lines.append(
             "| {model} | {skill_mode} | {pass_at_1} | {ci} | {pass_at_k} | {pass_rate_scored} | {coverage_rate} | {bc_pct} | {cf_pct} | {bf_pct} | {if_pct} | {tokens_per_task} | {total_prompt_chars} | {tokens_per_pass} |".format(
-                ci=ci, **row
+                ci=ci, pass_at_k=pass_at_k, **{k: v for k, v in row.items() if k != "pass_at_k"}
             )
         )
     lines.extend(["", "## Table 2 - Skill Lift", ""])

@@ -170,6 +170,68 @@ class LeaderboardRunHardeningTests(unittest.TestCase):
             experiment = json.loads((out / "experiment.json").read_text(encoding="utf-8"))
             self.assertEqual(experiment["attempts_missing"], 0)
 
+    def test_resume_requeues_inconclusive_if_attempts(self):
+        # A prior run produced one BC (keep) and one IF (transient infra fail).
+        # Resume must re-attempt only the IF row; the BC row stays untouched.
+        plan = resolve_plan(
+            "iot_skillsbench_v1",
+            platform="arduino_mega",
+            levels="1",
+            skill_modes="none",
+            task_ids="blink_led_1hz,blink_led_morse_code",
+            reps=1,
+        )
+        bc_row = attempt_row("blink_led_1hz")
+        if_row = attempt_row("blink_led_morse_code")
+        if_row["result"] = "IF"
+        if_row["classification"] = "SIM_INFRA_FAIL"
+        rerun = attempt_row("blink_led_morse_code")  # now succeeds
+
+        with tempfile.TemporaryDirectory() as tmp, patch(
+            "bench.leaderboard.run._run_one", return_value=rerun
+        ) as run_one, patch("bench.leaderboard.run.current_tool_versions", return_value={}):
+            out = Path(tmp) / "run"
+            out.mkdir()
+            (out / "attempts.jsonl").write_text(
+                json.dumps(bc_row) + "\n" + json.dumps(if_row) + "\n", encoding="utf-8"
+            )
+
+            result = run_experiment(
+                plan,
+                model="fixture:reference",
+                out=out,
+                dry_run=False,
+                confirm_spend=True,
+                resume=True,
+                force=False,
+                max_generations=None,
+                reps=1,
+                temperature=0.2,
+                top_p=1.0,
+                max_tokens=4096,
+                seed=None,
+                if_retries=0,
+                api_base=None,
+                api_key_env="OPENAI_API_KEY",
+                simulation_time_ms=None,
+                allow_tool_version_mismatch=False,
+                allow_unpublishable=False,
+                cli_args={"resume": True},
+            )
+
+            # Only the IF task was regenerated; the BC task was skipped.
+            self.assertEqual(run_one.call_count, 1)
+            self.assertEqual(result["attempts_written"], 1)
+            self.assertEqual(result["attempts_skipped"], 1)
+            self.assertEqual(result["attempts_missing"], 0)
+            experiment = json.loads((out / "experiment.json").read_text(encoding="utf-8"))
+            self.assertEqual(experiment["attempts_requeued_if"], 1)
+            # The rewritten file must hold exactly one row per task, no IF, no dup keys.
+            rows = [json.loads(line) for line in (out / "attempts.jsonl").read_text().splitlines() if line.strip()]
+            self.assertEqual(len(rows), 2)
+            self.assertEqual({r["local_task_id"] for r in rows}, {"blink_led_1hz", "blink_led_morse_code"})
+            self.assertNotIn("IF", {r["result"] for r in rows})
+
     def test_resume_partial_attempts_records_missing_count(self):
         plan = resolve_plan(
             "iot_skillsbench_v1",
@@ -456,7 +518,9 @@ class LeaderboardRunHardeningTests(unittest.TestCase):
             None,
         )
         with tempfile.TemporaryDirectory() as tmp, patch.dict(
-            "os.environ", {"OPENAI_API_KEY": "secret"}, clear=False
+            "os.environ",
+            {"OPENAI_API_KEY": "secret", "IOTBENCH_PROVIDER_MAX_ATTEMPTS": "3"},
+            clear=False,
         ), patch("urllib.request.urlopen", side_effect=error), patch("time.sleep"), patch(
             "bench.leaderboard.run.current_tool_versions", return_value={}
         ):

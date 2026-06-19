@@ -1,11 +1,28 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import Any
 
 from bench.cli import timed_run_single_task
 from bench.config import TaskConfig
 from bench.runner import generate_case
+
+
+def _workspace_dir(run_dir: Path, attempt_slug: str, index: int) -> Path:
+    """Per-attempt isolated build workspace.
+
+    The case tree generated underneath this is deep
+    (``cases/<case_id>/artifacts/submissions/<sketch_name>/main/main.c``), and on
+    Windows a verbose ``<task>.<mode>.<rep>`` segment can push the longest-named
+    ESP-IDF tasks past MAX_PATH (260) during submission extraction, leaving an
+    empty ``main/`` and a spurious artifact failure. The workspace is transient
+    and never published, so use a short hash segment to claw back ~30 chars and
+    keep every task's paths comfortably under the limit. (Prompts/responses/
+    sources keep the readable slug — they're shallow.)"""
+
+    short = hashlib.sha1(attempt_slug.encode("utf-8")).hexdigest()[:10]
+    return run_dir / "workspace" / short / f"if_{index}"
 
 
 def evaluate_source(
@@ -28,7 +45,7 @@ def evaluate_source(
     attempts: list[dict[str, Any]] = []
     max_attempts = if_retries + 1
     for index in range(1, max_attempts + 1):
-        ws = run_dir / "workspace" / attempt_slug / f"if_{index}"
+        ws = _workspace_dir(run_dir, attempt_slug, index)
         paths = generate_case(task, root=ws)
         attempt = timed_run_single_task(
             task,

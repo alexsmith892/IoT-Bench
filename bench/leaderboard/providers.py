@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import time
@@ -17,6 +18,25 @@ from .schemas import ProviderFailure, ProviderResponse
 RETRYABLE_HTTP_STATUS = {429, 500, 502, 503, 504}
 FATAL_HTTP_STATUS = {401, 403}
 OPENAI_COMPATIBLE_URL = "/chat/completions"
+
+# Free-tier aggregators (OpenRouter free pool, shared upstream providers) throttle
+# aggressively with short Retry-After windows; 3 attempts is too few to ride out a
+# transient upstream saturation. Default to a more patient policy, overridable via
+# env so a paid run can keep it tight. Per-attempt waits are capped so a pathological
+# Retry-After can't stall a sweep indefinitely.
+DEFAULT_MAX_ATTEMPTS = 6
+MAX_RETRY_DELAY_S = 30.0
+
+
+def _provider_max_attempts() -> int:
+    raw = os.environ.get("IOTBENCH_PROVIDER_MAX_ATTEMPTS")
+    if not raw:
+        return DEFAULT_MAX_ATTEMPTS
+    try:
+        value = int(raw)
+    except ValueError:
+        return DEFAULT_MAX_ATTEMPTS
+    return value if value >= 1 else DEFAULT_MAX_ATTEMPTS
 
 # OpenAI-compatible providers selected by `<prefix>:<model>`. Each shares the
 # same wire format; only the default endpoint, default key env var, and whether
@@ -130,13 +150,7 @@ def _build_chat_payload(
 
 def _fixture_reference(task: TaskConfig) -> ProviderResponse:
     start = time.perf_counter()
-    sketch_dir = case_dir_for_task(task) / "sketch" / task.sketch_name
-    source = sketch_dir / f"{task.sketch_name}.ino"
-    if not source.exists():
-        matches = sorted(sketch_dir.glob("*.ino"))
-        if len(matches) != 1:
-            raise ConfigError(f"fixture provider could not locate one reference .ino under {sketch_dir}")
-        source = matches[0]
+    source = _reference_source_path(task)
     text = source.read_text(encoding="utf-8")
     return ProviderResponse(
         text=text,
@@ -144,6 +158,38 @@ def _fixture_reference(task: TaskConfig) -> ProviderResponse:
         usage=None,
         latency_s=round(time.perf_counter() - start, 6),
     )
+
+
+def _reference_source_path(task: TaskConfig) -> Path:
+    """Locate the single reference source the fixture provider returns.
+
+    The reference layout differs per build kind: Arduino keeps a top-level
+    ``<name>.ino``, ESP-IDF nests ``main/main.c``, and Zephyr nests
+    ``src/main.c``. The leaderboard extractor consumes one source file in all
+    three cases, so the fixture provider returns that file verbatim.
+    """
+
+    sketch_dir = case_dir_for_task(task) / "sketch" / task.sketch_name
+    build_kind = task.board_profile.build_kind
+    if build_kind == "arduino":
+        primary = sketch_dir / f"{task.sketch_name}.ino"
+        glob = "*.ino"
+    elif build_kind == "espidf":
+        primary = sketch_dir / "main" / "main.c"
+        glob = "main/*.c*"
+    elif build_kind == "zephyr":
+        primary = sketch_dir / "src" / "main.c"
+        glob = "src/*.c"
+    else:
+        raise ConfigError(f"fixture provider does not support build kind {build_kind!r}")
+    if primary.exists():
+        return primary
+    matches = sorted(sketch_dir.glob(glob))
+    if len(matches) != 1:
+        raise ConfigError(
+            f"fixture provider could not locate one reference source ({glob}) under {sketch_dir}"
+        )
+    return matches[0]
 
 
 def _file_provider(path_text: str) -> ProviderResponse:
@@ -259,7 +305,7 @@ def _post_with_retry(
 
     start = time.perf_counter()
     last_raw: dict[str, Any] | None = None
-    max_attempts = 3
+    max_attempts = _provider_max_attempts()
     for attempt in range(1, max_attempts + 1):
         request = urllib.request.Request(
             url, data=json.dumps(payload).encode("utf-8"), method="POST", headers=dict(headers)
@@ -293,7 +339,7 @@ def _post_with_retry(
                 round(time.perf_counter() - start, 6),
                 attempt,
             ) from exc
-        except (urllib.error.URLError, TimeoutError) as exc:
+        except (urllib.error.URLError, TimeoutError, http.client.HTTPException, ConnectionError) as exc:
             last_raw = {"request": sanitized_request, "response": {"error": type(exc).__name__, "reason": str(exc)}}
             if attempt < max_attempts:
                 time.sleep(_retry_delay(None, attempt))
@@ -352,7 +398,7 @@ def _openai_compatible(
     }
     start = time.perf_counter()
     last_raw: dict[str, Any] | None = None
-    max_attempts = 3
+    max_attempts = _provider_max_attempts()
     for attempt in range(1, max_attempts + 1):
         request = urllib.request.Request(
             url,
@@ -366,12 +412,19 @@ def _openai_compatible(
             try:
                 raw = json.loads(response_body)
             except json.JSONDecodeError as exc:
+                # A 200 with a corrupt/truncated body is a transient glitch on
+                # flaky (free-tier) endpoints; retry rather than burning the
+                # attempt as a one-shot failure.
+                last_raw = {
+                    "request": sanitized_request,
+                    "response": {"body": response_body},
+                }
+                if attempt < max_attempts:
+                    time.sleep(_retry_delay(None, attempt))
+                    continue
                 raise ProviderFailure(
                     "openai-compatible provider returned malformed JSON",
-                    {
-                        "request": sanitized_request,
-                        "response": {"body": response_body},
-                    },
+                    last_raw,
                     round(time.perf_counter() - start, 6),
                     attempt,
                 ) from exc
@@ -422,7 +475,7 @@ def _openai_compatible(
                 round(time.perf_counter() - start, 6),
                 attempt,
             ) from exc
-        except (urllib.error.URLError, TimeoutError) as exc:
+        except (urllib.error.URLError, TimeoutError, http.client.HTTPException, ConnectionError) as exc:
             last_raw = {
                 "request": sanitized_request,
                 "response": {
@@ -509,7 +562,7 @@ def _retry_delay(exc: urllib.error.HTTPError | None, attempt: int) -> float:
         retry_after = exc.headers.get("Retry-After") if exc.headers else None
         if retry_after:
             try:
-                return max(0.0, float(retry_after))
+                return min(MAX_RETRY_DELAY_S, max(0.0, float(retry_after)))
             except ValueError:
                 pass
-    return float(2 ** (attempt - 1))
+    return min(MAX_RETRY_DELAY_S, float(2 ** (attempt - 1)))

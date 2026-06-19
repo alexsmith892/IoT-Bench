@@ -86,8 +86,20 @@ def run_experiment(
     skill_modes_config = manifest_data["skill_modes"]
 
     attempts_path = out / "attempts.jsonl"
-    existing_attempts = _load_existing_attempts(attempts_path) if resume else {}
-    mode = "a" if resume else "w"
+    requeued_if = 0
+    if resume:
+        existing_attempts = _load_existing_attempts(attempts_path)
+        # IF is an infra/inconclusive verdict — the result contract is "retry,
+        # never charge". A transient provider 429 or sim flake must not be baked
+        # into a resumed run, so drop IF rows and re-attempt them. Rewrite the
+        # file with only the kept rows so the re-run appends without colliding.
+        existing_attempts, requeued_if = _drop_inconclusive_attempts(existing_attempts)
+        if requeued_if:
+            _rewrite_attempts(attempts_path, existing_attempts)
+        mode = "a"
+    else:
+        existing_attempts = {}
+        mode = "w"
     expected_keys = _expected_attempt_keys(plan, reps)
     completed_existing = sum(1 for key in expected_keys if key in existing_attempts)
 
@@ -137,6 +149,7 @@ def run_experiment(
         "attempts_written": 0,
         "attempts_skipped": completed_existing,
         "attempts_missing": len(expected_keys) - completed_existing,
+        "attempts_requeued_if": requeued_if,
     }
     _write_experiment(out, experiment)
 
@@ -461,6 +474,24 @@ def _load_existing_attempts(path: Path) -> dict[tuple[str, str, int], dict[str, 
             )
         rows[key] = row
     return rows
+
+
+def _drop_inconclusive_attempts(
+    attempts: dict[tuple[str, str, int], dict[str, Any]]
+) -> tuple[dict[tuple[str, str, int], dict[str, Any]], int]:
+    """Keep only conclusive attempts (BC/BF/CF); requeue IF for a re-attempt.
+
+    Returns the retained attempts plus the count of IF rows dropped.
+    """
+    kept = {key: row for key, row in attempts.items() if row.get("result") != "IF"}
+    return kept, len(attempts) - len(kept)
+
+
+def _rewrite_attempts(path: Path, attempts: dict[tuple[str, str, int], dict[str, Any]]) -> None:
+    with path.open("w", encoding="utf-8", newline="\n") as stream:
+        for row in attempts.values():
+            stream.write(json.dumps(row, sort_keys=True) + "\n")
+        stream.flush()
 
 
 def _attempt_key(task_id: str, skill_mode: str, rep_index: int) -> tuple[str, str, int]:

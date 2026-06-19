@@ -216,5 +216,169 @@ class LeaderboardProviderTests(unittest.TestCase):
         self.assertEqual(u["usage_source"], "provider")
 
 
+class ProviderRetryPolicyTests(unittest.TestCase):
+    def test_default_and_env_override_and_invalid(self):
+        from bench.leaderboard import providers
+
+        with patch.dict("os.environ", {}, clear=True):
+            self.assertEqual(providers._provider_max_attempts(), providers.DEFAULT_MAX_ATTEMPTS)
+        with patch.dict("os.environ", {"IOTBENCH_PROVIDER_MAX_ATTEMPTS": "9"}, clear=True):
+            self.assertEqual(providers._provider_max_attempts(), 9)
+        for bad in ("0", "-2", "abc"):
+            with patch.dict("os.environ", {"IOTBENCH_PROVIDER_MAX_ATTEMPTS": bad}, clear=True):
+                self.assertEqual(providers._provider_max_attempts(), providers.DEFAULT_MAX_ATTEMPTS)
+
+    def test_retry_delay_honors_retry_after_but_caps_it(self):
+        import urllib.error
+
+        from bench.leaderboard import providers
+
+        exc = urllib.error.HTTPError("u", 429, "x", {"Retry-After": "5"}, None)
+        self.assertEqual(providers._retry_delay(exc, 1), 5.0)
+        huge = urllib.error.HTTPError("u", 429, "x", {"Retry-After": "9999"}, None)
+        self.assertEqual(providers._retry_delay(huge, 1), providers.MAX_RETRY_DELAY_S)
+        # No header → exponential backoff, also capped.
+        self.assertEqual(providers._retry_delay(None, 1), 1.0)
+        self.assertEqual(providers._retry_delay(None, 20), providers.MAX_RETRY_DELAY_S)
+
+
+class MalformedJsonRetryTests(unittest.TestCase):
+    def test_malformed_json_retries_then_recovers(self):
+        bodies = ["{not json", json.dumps(_fake_openai_body())]
+        calls = {"n": 0}
+
+        def fake_urlopen(request, timeout=None):
+            body = bodies[calls["n"]]
+            calls["n"] += 1
+            return _FakeHTTPResponse_raw(body)
+
+        with patch("bench.leaderboard.providers.os.environ", {"OPENROUTER_API_KEY": "k"}), patch(
+            "bench.leaderboard.providers.urllib.request.urlopen", side_effect=fake_urlopen
+        ), patch("bench.leaderboard.providers.time.sleep"):
+            resp = generate_response(
+                "openrouter:qwen/q:free", prompt="x", task=SimpleNamespace()
+            )
+        self.assertEqual(calls["n"], 2)  # retried once, then succeeded
+        self.assertEqual(resp.num_model_calls, 2)
+
+    def test_malformed_json_exhausts_then_fails(self):
+        from bench.leaderboard.schemas import ProviderFailure
+
+        def fake_urlopen(request, timeout=None):
+            return _FakeHTTPResponse_raw("{still not json")
+
+        with patch("bench.leaderboard.providers.os.environ", {"OPENROUTER_API_KEY": "k", "IOTBENCH_PROVIDER_MAX_ATTEMPTS": "2"}), patch(
+            "bench.leaderboard.providers.urllib.request.urlopen", side_effect=fake_urlopen
+        ), patch("bench.leaderboard.providers.time.sleep"):
+            with self.assertRaises(ProviderFailure):
+                generate_response("openrouter:qwen/q:free", prompt="x", task=SimpleNamespace())
+
+
+class TransportErrorRetryTests(unittest.TestCase):
+    def test_incomplete_read_is_retried_then_recovers(self):
+        import http.client
+
+        class _ReadRaises:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def read(self):
+                raise http.client.IncompleteRead(b"1364 bytes")
+
+        states = [_ReadRaises(), _FakeHTTPResponse_raw(json.dumps(_fake_openai_body()))]
+        calls = {"n": 0}
+
+        def fake_urlopen(request, timeout=None):
+            r = states[calls["n"]]
+            calls["n"] += 1
+            return r
+
+        with patch("bench.leaderboard.providers.os.environ", {"OPENROUTER_API_KEY": "k"}), patch(
+            "bench.leaderboard.providers.urllib.request.urlopen", side_effect=fake_urlopen
+        ), patch("bench.leaderboard.providers.time.sleep"):
+            resp = generate_response("openrouter:m:free", prompt="x", task=SimpleNamespace())
+        self.assertEqual(calls["n"], 2)
+        self.assertEqual(resp.num_model_calls, 2)
+
+
+class _FakeHTTPResponse_raw:
+    """Like _FakeHTTPResponse but returns an arbitrary (possibly invalid) body."""
+
+    def __init__(self, body: str):
+        self._buf = io.BytesIO(body.encode("utf-8"))
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+    def read(self):
+        return self._buf.read()
+
+
+class FixtureReferenceProviderTests(unittest.TestCase):
+    """The fixture provider must locate the reference source for every build
+    kind: Arduino keeps <name>.ino, ESP-IDF nests main/main.c, Zephyr nests
+    src/main.c."""
+
+    def _run(self, tmp, build_kind, rel_source):
+        import pathlib
+
+        from bench.leaderboard import providers
+
+        sketch_root = pathlib.Path(tmp) / "case" / "sketch" / "demo"
+        source = sketch_root / rel_source
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text("// reference\n", encoding="utf-8")
+        task = SimpleNamespace(
+            sketch_name="demo",
+            board_profile=SimpleNamespace(build_kind=build_kind),
+        )
+        with patch.object(providers, "case_dir_for_task", return_value=pathlib.Path(tmp) / "case"):
+            resp = generate_response("fixture:reference", prompt="", task=task)
+        self.assertEqual(resp.text, "// reference\n")
+        self.assertEqual(resp.raw["provider"], "fixture:reference")
+        self.assertTrue(resp.raw["source"].endswith(rel_source.replace("/", "\\")) or resp.raw["source"].endswith(rel_source))
+
+    def test_arduino_reference_layout(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self._run(tmp, "arduino", "demo.ino")
+
+    def test_espidf_reference_layout(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self._run(tmp, "espidf", "main/main.c")
+
+    def test_zephyr_reference_layout(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            self._run(tmp, "zephyr", "src/main.c")
+
+    def test_unknown_build_kind_rejected(self):
+        import pathlib
+        import tempfile
+
+        from bench.leaderboard import providers
+
+        with tempfile.TemporaryDirectory() as tmp:
+            task = SimpleNamespace(
+                sketch_name="demo",
+                board_profile=SimpleNamespace(build_kind="riscv_mystery"),
+            )
+            with patch.object(
+                providers, "case_dir_for_task", return_value=pathlib.Path(tmp) / "case"
+            ):
+                with self.assertRaises(ConfigError):
+                    generate_response("fixture:reference", prompt="", task=task)
+
+
 if __name__ == "__main__":
     unittest.main()

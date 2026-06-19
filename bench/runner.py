@@ -1024,16 +1024,58 @@ def espidf_build_timeout_s() -> float:
     return value if value > 0 else DEFAULT_ESPIDF_BUILD_TIMEOUT_S
 
 
+def espidf_build_root() -> Path:
+    """Short, space-free staging root for ESP-IDF builds.
+
+    ESP-IDF object paths under build/esp-idf/<component>/... are long; combined
+    with a deeply nested case dir (e.g. the leaderboard's
+    runs/leaderboard/<run>/workspace/<slug>/if_N/cases/<case>/artifacts/build)
+    they blow past Windows MAX_PATH (260), so ninja silently stops compiling
+    while idf.py still exits 0 -> the elf is missing and the build looks like an
+    infra failure. Building in a short root and copying the firmware artifacts
+    back keeps every case (including deeply nested workspaces) under the limit.
+    Overridable via IOTBENCH_ESPIDF_BUILD_ROOT.
+    """
+
+    env = os.environ.get("IOTBENCH_ESPIDF_BUILD_ROOT")
+    if env:
+        return Path(env)
+    local = os.environ.get("LOCALAPPDATA")
+    base = Path(local) if local else Path.home() / ".cache"
+    return base / "iot-bench" / "espidf-build"
+
+
 def build_espidf_case(task: TaskConfig, paths: CasePaths, *, idf_py: str) -> None:
-    reset_espidf_sdkconfig(paths.sketch)
     target = task.board_profile.idf_target
-    sketch_arg = relative_to(paths.sketch, paths.case_dir)
-    build_arg = relative_to(paths.build_dir, paths.case_dir)
+    # Stage the app + build into a short, space-free root. Two reasons, both
+    # verified live on this repo (path contains "! IoT"):
+    #  - the idf.py.CMD self-activating wrapper splits an absolute -C/-B value at
+    #    the space, so idf.py sees a stray positional arg and rejects -B; and
+    #  - deep build paths blow past Windows MAX_PATH (260) mid-compile, after
+    #    which ninja stops but idf.py still exits 0 (elf missing -> looks infra).
+    # The canonical cases dodge the first via relative args + cwd, but not the
+    # second; staging fixes both for every caller (incl. nested leaderboard ws).
+    stage_root = espidf_build_root()
+    if " " in str(stage_root):
+        raise BuildSimulationError(
+            f"ESP-IDF staging dir contains spaces: {stage_root} (set IOTBENCH_ESPIDF_BUILD_ROOT)",
+            classification=SIM_INFRA_FAIL,
+            failure_stage=STAGE_SIM_INFRA,
+            failure_source=SOURCE_ENVIRONMENT,
+        )
+    stage = stage_root / safe_filename_part(paths.case_id)
+    app_dir = stage / "app"
+    stage_build = stage / "build"
+    if stage.exists():
+        shutil.rmtree(stage)
+    app_dir.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(paths.sketch, app_dir)
+    reset_espidf_sdkconfig(app_dir)
     idf_args = [
         "-C",
-        sketch_arg,
+        str(app_dir),
         "-B",
-        build_arg,
+        str(stage_build),
     ]
     if target:
         idf_args.append(f"-DIDF_TARGET={target}")
@@ -1041,7 +1083,7 @@ def build_espidf_case(task: TaskConfig, paths: CasePaths, *, idf_py: str) -> Non
     command = command_with_windows_batch_wrapper(idf_py, idf_args)
     run_checked(
         command,
-        cwd=paths.case_dir,
+        cwd=stage,
         stage="compile",
         timeout_s=espidf_build_timeout_s(),
         command_failure_classification=COMPILE_FAIL,
@@ -1050,7 +1092,38 @@ def build_espidf_case(task: TaskConfig, paths: CasePaths, *, idf_py: str) -> Non
         infra_failure_stage=STAGE_SIM_INFRA,
         command_failure_source=SOURCE_USER_CODE,
         infra_failure_source=SOURCE_ENVIRONMENT,
+        success_failure_markers=("ninja: build stopped",),
     )
+    copy_back_espidf_artifacts(stage_build, paths.build_dir, paths.sketch_name)
+
+
+def copy_back_espidf_artifacts(stage_build: Path, dest_build: Path, sketch_name: str) -> None:
+    """Copy the firmware artifacts the sim + provenance need from the staging
+    build dir into the case's artifacts/build, preserving the relative layout
+    that flasher_args.json references (bootloader/, partition_table/, app bin).
+
+    Only the handful of files the Wokwi flasher and provenance manifest consume
+    are copied — never the thousands of object files (which is the whole point
+    of building in a short path)."""
+
+    dest_build.mkdir(parents=True, exist_ok=True)
+    wanted: list[str] = [f"{sketch_name}.elf", f"{sketch_name}.bin"]
+    flasher = stage_build / "flasher_args.json"
+    if flasher.exists():
+        wanted.append("flasher_args.json")
+        try:
+            data = json.loads(flasher.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            data = {}
+        flash_files = data.get("flash_files")
+        if isinstance(flash_files, dict):
+            wanted.extend(str(rel) for rel in flash_files.values() if rel)
+    for rel in dict.fromkeys(wanted):  # de-dupe, preserve order
+        src = stage_build / rel
+        if src.exists():
+            target = dest_build / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, target)
 
 
 def build_zephyr_case(task: TaskConfig, paths: CasePaths, *, west: str = "west") -> None:
@@ -1795,6 +1868,7 @@ def run_checked(
     infra_failure_stage: str,
     command_failure_source: str,
     infra_failure_source: str,
+    success_failure_markers: tuple[str, ...] = (),
 ) -> None:
     try:
         completed = subprocess.run(
@@ -1840,6 +1914,22 @@ def run_checked(
             failure_stage=command_failure_stage,
             failure_source=command_failure_source,
         )
+
+    # Some build wrappers mask the inner tool's exit code (verified live: the
+    # self-activating idf.py.CMD wrapper returns 0 even when ninja stops on a
+    # compile error). Trust an unambiguous failure marker in the output over a
+    # zero exit code, so a real compile failure is charged as CF rather than
+    # slipping through as a missing-artifact IF (a free pass for the model).
+    if success_failure_markers:
+        combined = f"{completed.stdout or ''}\n{completed.stderr or ''}"
+        if any(marker in combined for marker in success_failure_markers):
+            raise BuildSimulationError(
+                f"{stage} reported success but the build did not complete: "
+                f"{short_process_output(completed)}",
+                classification=command_failure_classification,
+                failure_stage=command_failure_stage,
+                failure_source=command_failure_source,
+            )
 
 
 def write_verification(
@@ -2360,7 +2450,19 @@ def hash_file(path: Path | None) -> str | None:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def short_process_output(completed: subprocess.CompletedProcess[str]) -> str:
+# Match real compiler/linker diagnostics, not the echoed build command. The
+# failing gcc invocation that ninja prints contains "-Werror=all"/"-Wno-error=",
+# so a bare "error" word would surface that noise instead of the actual message;
+# require the diagnostic forms ("error:", "undeclared", "undefined reference",
+# ninja's stop line, etc.).
+_DIAGNOSTIC_LINE_RE = re.compile(
+    r"(error:|fatal error|undefined reference|undeclared|: warning:|"
+    r"no such file|cannot find|not declared|multiple definition|ninja: build stopped)",
+    re.IGNORECASE,
+)
+
+
+def short_process_output(completed: subprocess.CompletedProcess[str], *, limit: int = 1500) -> str:
     output = "\n".join(
         part.strip()
         for part in (completed.stderr, completed.stdout)
@@ -2368,7 +2470,17 @@ def short_process_output(completed: subprocess.CompletedProcess[str]) -> str:
     )
     if not output:
         return "no command output"
-    return output[:497] + "..." if len(output) > 500 else output
+    if len(output) <= limit:
+        return output
+    # Compiler/linker diagnostics live at the END of a build log (after all the
+    # "[N/M] Generating ..." progress), so keeping the head would drop the one
+    # line that explains the failure. Prefer the actual error lines; if none are
+    # recognizable, fall back to the tail rather than the head.
+    error_lines = [line for line in output.splitlines() if _DIAGNOSTIC_LINE_RE.search(line)]
+    if error_lines:
+        summary = "\n".join(error_lines)
+        return summary if len(summary) <= limit else "..." + summary[-(limit - 3):]
+    return "..." + output[-(limit - 3):]
 
 
 def relative_to(path: Path, root: Path) -> str:
