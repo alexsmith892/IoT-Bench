@@ -274,6 +274,41 @@ class MalformedJsonRetryTests(unittest.TestCase):
                 generate_response("openrouter:qwen/q:free", prompt="x", task=SimpleNamespace())
 
 
+class NestedErrorRetryTests(unittest.TestCase):
+    def test_nested_504_error_payload_is_retried_then_recovers(self):
+        # OpenRouter wraps an upstream timeout as HTTP 200 with {"error": {...}};
+        # it must be retried, not treated as a terminal "no content" failure.
+        bodies = [
+            json.dumps({"error": {"code": 504, "message": "Provider returned error"}}),
+            json.dumps(_fake_openai_body()),
+        ]
+        calls = {"n": 0}
+
+        def fake_urlopen(request, timeout=None):
+            body = bodies[calls["n"]]
+            calls["n"] += 1
+            return _FakeHTTPResponse_raw(body)
+
+        with patch("bench.leaderboard.providers.os.environ", {"OPENROUTER_API_KEY": "k"}), patch(
+            "bench.leaderboard.providers.urllib.request.urlopen", side_effect=fake_urlopen
+        ), patch("bench.leaderboard.providers.time.sleep"):
+            resp = generate_response("openrouter:m:free", prompt="x", task=SimpleNamespace())
+        self.assertEqual(calls["n"], 2)
+        self.assertEqual(resp.num_model_calls, 2)
+
+    def test_persistent_nested_error_fails_after_attempts(self):
+        from bench.leaderboard.schemas import ProviderFailure
+
+        def fake_urlopen(request, timeout=None):
+            return _FakeHTTPResponse_raw(json.dumps({"error": {"code": 504}}))
+
+        with patch("bench.leaderboard.providers.os.environ", {"OPENROUTER_API_KEY": "k", "IOTBENCH_PROVIDER_MAX_ATTEMPTS": "2"}), patch(
+            "bench.leaderboard.providers.urllib.request.urlopen", side_effect=fake_urlopen
+        ), patch("bench.leaderboard.providers.time.sleep"):
+            with self.assertRaises(ProviderFailure):
+                generate_response("openrouter:m:free", prompt="x", task=SimpleNamespace())
+
+
 class TransportErrorRetryTests(unittest.TestCase):
     def test_incomplete_read_is_retried_then_recovers(self):
         import http.client

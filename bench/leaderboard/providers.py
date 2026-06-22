@@ -432,10 +432,24 @@ def _openai_compatible(
                 "request": sanitized_request,
                 "response": raw,
             }
-            text = _message_content(raw)
+            # OpenRouter returns HTTP 200 with a nested error payload when the
+            # upstream provider times out or errors (e.g. {"error": {"code": 504}}
+            # for a slow reasoning model). Treat it as a retryable transient
+            # rather than a terminal "no content" failure.
+            nested_error = raw.get("error") if isinstance(raw, dict) else None
+            text = None if nested_error is not None else _message_content(raw)
             if text is None:
+                last_raw = raw_with_request
+                if attempt < max_attempts:
+                    time.sleep(_retry_delay(None, attempt))
+                    continue
+                detail = (
+                    f"provider returned an error payload: {str(nested_error)[:200]}"
+                    if nested_error is not None
+                    else "openai-compatible provider response did not contain message content"
+                )
                 raise ProviderFailure(
-                    "openai-compatible provider response did not contain message content",
+                    detail,
                     raw_with_request,
                     round(time.perf_counter() - start, 6),
                     attempt,
