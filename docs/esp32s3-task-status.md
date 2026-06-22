@@ -3,21 +3,18 @@
 This page tracks `esp32s3_espidf` maturity without treating local runtime
 artifacts as committed proof.
 
-Evidence meanings:
-
-- `implemented`: prompt, YAML, generated case, and reference project are
-  committed.
-- `local-BC`: this checkout had an ignored `cases/*/artifacts/verification.json`
-  recording `BC` in the snapshot below.
-- `local-BF`: this checkout had an ignored `verification.json` recording `BF`;
-  task-level reference/oracle triage is required before scoring.
-- `local-missing`: this checkout had no local `verification.json`.
+Evidence meaning (`fresh BC`): the task's reference produced a fresh,
+provenance-backed `BC` under the current scoring harness in the latest live
+sweep, as recorded in the tracked evidence index. Per-task adversarial `BF`
+coverage is pinned offline (see Hardening Notes), so any legacy "add BF evidence"
+hints in the matrix below are satisfied wishlist items, not gaps.
 
 `cases/*/artifacts/verification.json` is ignored by Git. It is local evidence
 only: useful for triage and `validate-artifacts`, but not portable leaderboard
-proof. The offline tests check committed support structure and provenance rules;
-they do not pass or fail based on ignored manifests that happen to exist on one
-machine.
+proof. The portable, tracked summary is the evidence index,
+`docs/esp32s3_espidf-evidence.json`. The offline tests check committed support
+structure and provenance rules; they do not pass or fail based on ignored
+manifests that happen to exist on one machine.
 
 Leaderboard readiness requires fresh `BC` reference evidence, appropriate `BF`
 adversarial evidence for hardcode-prone tasks, input hashes, tool versions, and
@@ -47,49 +44,49 @@ or harness edit by re-running the live refresh below and `evidence-index`.
 
 | Task | Evidence | Notes |
 |---|---|---|
-| `blink_led_1hz` | local-BC | Oracle now skips the GPIO bring-up blip (skip_startup_segments=3); steady 1 Hz square wave passes. |
-| `blink_led_morse_code` | local-BC | Local ignored manifest only; add adversarial evidence before scoring. |
-| `blink_led_no_delay` | local-BC | Timer/no-delay reference; add no-delay cheat BF evidence. |
-| `blink_two_leds` | local-BC | Dual GPIO waveform case; add wrong-pin/timing BF evidence. |
-| `buzzer_doorbell` | local-BC | Button-to-buzzer GPIO; add wrong-pin/fixed-output BF evidence. |
-| `buzzer_button` | local-BC | Debounced button-to-buzzer GPIO. |
-| `button_status_display` | local-BC | Serial status from GPIO stimulus; reject serial-only hardcodes live. |
-| `button_status_count` | local-BC | Serial count sequence; add hardcoded count BF evidence. |
-| `button_press_debounce` | local-BC | Local evidence supersedes older BF note; still needs bad debounce BF evidence. |
-| `breathing_led` | local-BC | LEDC PWM waveform; add fixed-PWM BF evidence. |
-| `sensor_pir_human_motion` | local-BC | PIR represented as digital GPIO stimulus. |
-| `tmp36_read` | local-BC | ADC semantics use ESP32-S3 3.3 V / 12-bit conversion. |
-| `rotary_encoder` | local-BC | Digital pull-up quadrature surrogate; variant-correlated CW/CCW positions pass. |
-| `16key_keypad` | local-BC | Per-key matrix switch surrogate. |
-| `lcd1602_display_hello_world` | local-BC | LCD bus decode, not serial-only. |
-| `dht11_read` | local-BC | DHT11 contract via Wokwi DHT22 timing-compatible surrogate. |
-| `ds1307_rtc` | local-BC | DS3231-style RTC task judged as DS1307-compatible date/time only. |
-| `mpu6050_read_i2c` | local-BC | Wokwi MPU6050 with variant-correlated output. |
-| `mpu6050_read_spi` | local-BC | Custom MPU6050 SPI chip with bus/variant checks. |
-| `bme280_read_i2c` | local-BC | Custom BME280 I2C chip with compensation/variant checks. |
-| `bme280_read_spi` | local-BC | Custom BME280 SPI chip with compensation/variant checks. |
-| `tilt_detection_alarm` | local-BC | KY-020 switch surrogate; add adversarial BF evidence. |
-| `photoresistor_nightlight` | local-BC | Photoresistor ADC-to-LED behavior; add fixed-output BF evidence. |
-| `ds18b20_heat_alarm` | local-BC | Uses documented digital over-temperature surrogate. |
-| `clap_switch` | local-BC | Digital sound-button surrogate; toggle-on-clap behavior passes. |
-| `hcsr501_motion_alarm` | local-BC | PIR-to-buzzer GPIO. |
-| `hcsr04_find_distance` | local-BC | HC-SR04 distance variants. |
-| `parking_sensor` | local-BC | HC-SR04 plus LEDC buzzer; add fixed-buzzer BF evidence. |
-| `reverse_parking_sensor` | local-BC | HC-SR04 plus LEDC buzzer cadence; add fixed-buzzer BF evidence. |
-| `dht11_read_button_display` | local-BC | DHT surrogate plus LCD/button oracle. |
-| `mpu6050_read_button_display` | local-BC | MPU6050 plus LCD/button oracle. |
-| `mpu6050_read_periodic_display` | local-BC | MPU6050 plus LCD periodic oracle; fixture button is nonessential. |
-| `safebox` | local-BC | Keypad surrogate plus relay. |
-| `safebox_display` | local-BC | Keypad surrogate, relay, and LCD. |
-| `lcd1602_auto_brightness_control` | local-BC | Photoresistor ADC to LCD backlight PWM; add fixed-PWM BF evidence. |
-| `buzzer_toggle_led_freq` | local-BC | Button-cycled 1/2/4 Hz LED frequency windows plus buzzer activity pass. |
-| `tmp36_read_button_display` | local-BC | TMP36 LCD/button cool+hot variants both pass with distinct readings. |
-| `tmp36_read_periodic_display` | local-BC | TMP36 LCD periodic variants pass with distinct readings. |
-| `reaction_timer_display` | local-BC | Button/shock surrogate plus LCD elapsed time passes. |
-| `sensor_water_level_display` | local-BC | Analog water-level surrogate plus LCD; add adversarial BF evidence. |
-| `buzzer_laser_tripwire` | local-BC | Laser/photoresistor surrogate plus buzzer; add fixed-alarm BF evidence. |
-| `joystick_buzzer_pitch` | local-BC | Joystick ADC to LEDC buzzer pitch; add fixed-pitch BF evidence. |
-| `step_counter_print` | local-BC | MPU6050 movement-correlated step logic; add hardcoded-step BF evidence. |
+| `blink_led_1hz` | fresh BC | Oracle now skips the GPIO bring-up blip (skip_startup_segments=3); steady 1 Hz square wave passes. |
+| `blink_led_morse_code` | fresh BC | Morse waveform oracle on the LED GPIO. |
+| `blink_led_no_delay` | fresh BC | Timer/no-delay reference; add no-delay cheat BF evidence. |
+| `blink_two_leds` | fresh BC | Dual GPIO waveform case; add wrong-pin/timing BF evidence. |
+| `buzzer_doorbell` | fresh BC | Button-to-buzzer GPIO; add wrong-pin/fixed-output BF evidence. |
+| `buzzer_button` | fresh BC | Debounced button-to-buzzer GPIO. |
+| `button_status_display` | fresh BC | Serial status from GPIO stimulus; reject serial-only hardcodes live. |
+| `button_status_count` | fresh BC | Serial count sequence; add hardcoded count BF evidence. |
+| `button_press_debounce` | fresh BC | Debounced-press serial event correlated to a bouncy stimulus. |
+| `breathing_led` | fresh BC | LEDC PWM waveform; add fixed-PWM BF evidence. |
+| `sensor_pir_human_motion` | fresh BC | PIR represented as digital GPIO stimulus. |
+| `tmp36_read` | fresh BC | ADC semantics use ESP32-S3 3.3 V / 12-bit conversion. |
+| `rotary_encoder` | fresh BC | Digital pull-up quadrature surrogate; variant-correlated CW/CCW positions pass. |
+| `16key_keypad` | fresh BC | Per-key matrix switch surrogate. |
+| `lcd1602_display_hello_world` | fresh BC | LCD bus decode, not serial-only. |
+| `dht11_read` | fresh BC | DHT11 contract via Wokwi DHT22 timing-compatible surrogate. |
+| `ds1307_rtc` | fresh BC | DS3231-style RTC task judged as DS1307-compatible date/time only. |
+| `mpu6050_read_i2c` | fresh BC | Wokwi MPU6050 with variant-correlated output. |
+| `mpu6050_read_spi` | fresh BC | Custom MPU6050 SPI chip with bus/variant checks. |
+| `bme280_read_i2c` | fresh BC | Custom BME280 I2C chip with compensation/variant checks. |
+| `bme280_read_spi` | fresh BC | Custom BME280 SPI chip with compensation/variant checks. |
+| `tilt_detection_alarm` | fresh BC | KY-020 switch surrogate; add adversarial BF evidence. |
+| `photoresistor_nightlight` | fresh BC | Photoresistor ADC-to-LED behavior; add fixed-output BF evidence. |
+| `ds18b20_heat_alarm` | fresh BC | Uses documented digital over-temperature surrogate. |
+| `clap_switch` | fresh BC | Digital sound-button surrogate; toggle-on-clap behavior passes. |
+| `hcsr501_motion_alarm` | fresh BC | PIR-to-buzzer GPIO. |
+| `hcsr04_find_distance` | fresh BC | HC-SR04 distance variants. |
+| `parking_sensor` | fresh BC | HC-SR04 plus LEDC buzzer; add fixed-buzzer BF evidence. |
+| `reverse_parking_sensor` | fresh BC | HC-SR04 plus LEDC buzzer cadence; add fixed-buzzer BF evidence. |
+| `dht11_read_button_display` | fresh BC | DHT surrogate plus LCD/button oracle. |
+| `mpu6050_read_button_display` | fresh BC | MPU6050 plus LCD/button oracle. |
+| `mpu6050_read_periodic_display` | fresh BC | MPU6050 plus LCD periodic oracle; fixture button is nonessential. |
+| `safebox` | fresh BC | Keypad surrogate plus relay. |
+| `safebox_display` | fresh BC | Keypad surrogate, relay, and LCD. |
+| `lcd1602_auto_brightness_control` | fresh BC | Photoresistor ADC to LCD backlight PWM; add fixed-PWM BF evidence. |
+| `buzzer_toggle_led_freq` | fresh BC | Button-cycled 1/2/4 Hz LED frequency windows plus buzzer activity pass. |
+| `tmp36_read_button_display` | fresh BC | TMP36 LCD/button cool+hot variants both pass with distinct readings. |
+| `tmp36_read_periodic_display` | fresh BC | TMP36 LCD periodic variants pass with distinct readings. |
+| `reaction_timer_display` | fresh BC | Button/shock surrogate plus LCD elapsed time passes. |
+| `sensor_water_level_display` | fresh BC | Analog water-level surrogate plus LCD; add adversarial BF evidence. |
+| `buzzer_laser_tripwire` | fresh BC | Laser/photoresistor surrogate plus buzzer; add fixed-alarm BF evidence. |
+| `joystick_buzzer_pitch` | fresh BC | Joystick ADC to LEDC buzzer pitch; add fixed-pitch BF evidence. |
+| `step_counter_print` | fresh BC | MPU6050 movement-correlated step logic; add hardcoded-step BF evidence. |
 
 ## Evidence index
 

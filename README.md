@@ -6,9 +6,10 @@ runs it in a simulator, and judges behavior against hardcode-resistant oracles.
 
 The goal is a reproducible benchmark across embedded platforms, with
 leaderboard orchestration for model-generated firmware - not a one-off test
-suite. The current leaderboard path is token-only and produces local run
-reports; a public UI, published results tree, fault injection, and waveform
-analysis beyond what validators already do are future work unless you see them
+suite. The leaderboard path is token-only: it produces local run reports and can
+aggregate several runs into one cross-model table, with a `results/` tree set up
+to hold curated published bundles. A public UI, fault injection, and waveform
+analysis beyond what validators already do remain future work unless you see them
 in the code.
 
 ## Platforms
@@ -60,14 +61,38 @@ Plan a leaderboard run without model spend:
 python -m bench.leaderboard plan --benchmark iot_skillsbench_v1 --platform arduino_mega --limit 3
 ```
 
-Offline tests (no Wokwi token or network):
+Offline tests (no Wokwi token or network) — this is what CI runs:
 
 ```powershell
 python -m unittest discover tests
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup details, what not to commit, and
-live integration requirements.
+### Live integration (opt-in)
+
+Live runs build and simulate for real, so they need platform tools and (for
+Wokwi) a token plus network:
+
+- **Arduino Mega / ESP32-S3** — `wokwi-cli`, network, and `WOKWI_CLI_TOKEN`; plus
+  `arduino-cli` (Mega) or `idf.py` (ESP32-S3).
+- **Zephyr / Renode** — Renode, a Zephyr `west` workspace, `cmake`, and `ninja`.
+  Override discovery with `IOTBENCH_RENODE`, `IOTBENCH_WEST`, `ZEPHYR_WORKSPACE`.
+
+```powershell
+$env:RUN_WOKWI_INTEGRATION = "1"
+python -m unittest discover tests
+```
+
+### What not to commit
+
+Build outputs and run artifacts are reproducible per machine and stay out of git.
+Everything under `cases/*/artifacts/` is generated except the deterministic variant
+fixtures used for provenance / `--use-existing-artifacts` validation:
+`cases/*/artifacts/variants/*/diagram.json` (Wokwi) and `.../case.repl` (Renode).
+Also gitignored: `cases/*/sketch/*/build/`, `cases/*/case.resc` (embeds absolute
+paths), `cases/*/*.vcd`, ESP-IDF `sdkconfig*`, and the `runs/` scratch tree.
+Regenerate with `generate` / `build` / `run`; `tests/test_repo_hygiene.py` enforces
+this in CI. The `docs/*-evidence.json` indexes are tracked summaries, not raw
+artifacts — refresh them only after an intentional live sweep.
 
 ## How tasks work
 
@@ -106,6 +131,7 @@ cases/           Generated simulator projects + reference sketches
 benchmarks/      Leaderboard manifests and skill packs
 tests/           Offline regression suite and adversarial stubs
 docs/            Platform status and design notes (tracked)
+results/         Curated, committed home for published leaderboard run bundles
 ```
 
 Build products, VCD captures, serial logs, and verification manifests live under
@@ -198,13 +224,17 @@ Filter by `--task <id>`, `--platform <key>`, or `--level levelN`. Pin versions i
 
 | Doc | Contents |
 |---|---|
+| [docs/README.md](docs/README.md) | Index of the reference docs below |
+| [docs/arduino_mega-task-status.md](docs/arduino_mega-task-status.md) | Arduino Mega/Wokwi task maturity matrix |
 | [docs/esp32s3-task-status.md](docs/esp32s3-task-status.md) | Wokwi/ESP-IDF task maturity matrix and simulator deviations |
 | [docs/zephyr-task-status.md](docs/zephyr-task-status.md) | Renode/Zephyr task maturity matrix |
 | [docs/zephyr-oracle-inventory.md](docs/zephyr-oracle-inventory.md) | Zephyr anti-gaming oracle inventory |
+| [docs/zephyr-fidelity-ledger.md](docs/zephyr-fidelity-ledger.md) | Renode/Zephyr simulator-fidelity deviations |
 | [docs/upstream-task-mapping.md](docs/upstream-task-mapping.md) | Alignment with upstream IoT-Skillsbench tasks |
 | [docs/renode-spike.md](docs/renode-spike.md) | Renode backend design notes from the initial spike |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Contributor setup and artifact hygiene |
 
-Task inventory: browse `tasks/<platform>/level*/`. Arduino Mega has the most
-live-verified Wokwi coverage; ESP32-S3 and Zephyr maturity varies by family —
-see the docs above rather than a hand-maintained list here.
+Task inventory: browse `tasks/<platform>/level*/`. All three platforms currently
+carry a full fresh live-verified evidence sweep (Arduino Mega 41/41, ESP32-S3
+43/43, Zephyr 43/43 plus 42/42 canonical) — but treat the `docs/*-evidence.json`
+indexes, not this prose, as the source of truth for what is publishable today, and
+re-sweep after any harness change.
